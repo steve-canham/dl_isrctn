@@ -79,7 +79,7 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("");
     info!("************************************");
     info!("");
-    info!("csv data path: {:?}", ip.csv_data_path);
+    info!("csv data path: {:?}", ip.base_url);
     info!("json data parth: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
 

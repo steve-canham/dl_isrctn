@@ -4,27 +4,30 @@ pub mod data_access;
 pub mod gen_helper;
 mod who_helper;
 
-use std::collections::HashMap;
-use std::path::PathBuf;
-use crate::{AppError, DownloadResult};
-use data_access::{update_who_study_mon, add_new_single_file_record, 
-    add_contents_record, store_who_summary};
-use file_models::WHOLine;
-use super::setup::config_reader::fetch_src_db_name;
-use std::fs;
-use std::io::BufReader;
-use std::fs::File;
-use csv::ReaderBuilder;
-use std::io::Write;
-use serde_json::to_string_pretty;
+//use std::collections::HashMap;
+//use std::path::PathBuf;
+use crate::{AppError};
+use super::setup::InitParams;
+use super::DownloadResult;
+//use data_access::{update_who_study_mon, add_new_single_file_record, 
+// add_contents_record, store_who_summary};
+//use file_models::WHOLine;
+//use super::setup::config_reader::fetch_src_db_name;
+//use std::fs;
+//use std::io::BufReader;
+//use std::fs::File;
+//use csv::ReaderBuilder;
+//use std::io::Write;
+//use serde_json::to_string_pretty;
 use sqlx::{Pool, Postgres};
-use log::info;
+//use log::info;
 
 
-pub async fn process_files(file_path: &PathBuf, json_path: &PathBuf, dl_id:i32, pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+pub async fn process_files(_params: &InitParams, _dl_id:i32, _pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
+    let file_res = DownloadResult::new();
     // Set up source file, csv reader, counters, hash table.
-    
+    /* 
     let file = File::open(file_path)?;
     let buf_reader = BufReader::new(file);
     let mut csv_rdr = ReaderBuilder::new()
@@ -119,10 +122,13 @@ pub async fn process_files(file_path: &PathBuf, json_path: &PathBuf, dl_id:i32, 
     add_contents_record(file_path, &mut source_tots, pool).await?;
 
     Ok(file_res)
+*/
+
+Ok(file_res)
 
 }
 
-
+/* 
 fn folder_exists(folder_name: &PathBuf) -> bool {
     let res = match folder_name.try_exists() {
         Ok(true) => true,
@@ -131,3 +137,4 @@ fn folder_exists(folder_name: &PathBuf) -> bool {
     };
     res
 }
+    */

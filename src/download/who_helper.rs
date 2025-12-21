@@ -1,3 +1,4 @@
+/* 
 use super::file_models::{MeddraCondition, SecIdBase, 
     SecondaryId, WhoStudyFeature};
 use std::sync::LazyLock;
@@ -1236,7 +1237,7 @@ pub fn get_sec_id_details(sec_id: &str) -> SecIdBase
             None
         }
     }
-
+*/
     /* 
 
     // transfer these to later processing - priority here is other registry ids

@@ -37,6 +37,32 @@ impl DownloadResult {
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
+    // The dl_isrctn program uses the API of the ISRCTN web site (https://www.isrctn.com/)
+    // to download data about the trials registered on the site.
+    // That data is then used to construct json files, that are stored locally, and 
+    // whichh can then later be used to construct a database of the data.
+
+    // There are two types of download.
+    // Type 111 (-t 111 in the CLI) identifies and downloads studies edited since a cut-off date, 
+    // usually from the previous week (i.e., the date of the most recent download). It must be 
+    // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18")
+   
+    // Type 115 (-t 115 in the CLI) downloads all records that were last edited
+    // between two dates. Running against this type in batches allows all ISRCTN records to be
+    // re-downloaded, if and when necessary. Calling -t 115 requires two date
+    // parmameters, for the start and end dates respectively, e.g. 
+    // -s "2023-10-01" -e "2023-10-31"
+
+    // Both procedures need a start and end date, but in the case of type 111 the
+    // end date is taken as the current date.
+
+    // There does not appear to be a way to rank or order results and select
+    // from within a returned set. If the number of available records for a selected 
+    // period is > 100 records the call is broken down calls for individual days. 
+    // If a day returns > 100 the limit must be raised to the amount concerned.
+
+    // 
+    
     let cli_pars: cli_reader::CliPars;
     cli_pars = cli_reader::fetch_valid_arguments(args)?;
     
@@ -50,15 +76,10 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     let mon_pool = setup::get_mon_db_pool().await?;  // pool for the monitoring db
     let src_pool = setup::get_src_db_pool().await?;  // pool for the source specific db
 
-    // Download type is constant - reading data from a set of csv files.
-    // First recreate the sd schema tables, get Id of this download,
-    // then import the data into the sd tables
-    // before updating the download record.
-
-    setup::create_tables::create_tables(&src_pool).await?;
+    //setup::create_tables::create_tables(&src_pool).await?;
 
     let dl_id = get_next_download_id(&mon_pool).await?;
-    let res = download::process_files(&params.csv_data_path, &params.json_data_path, dl_id, &src_pool).await?;
+    let res = download::process_files(&params, dl_id, &src_pool).await?;
     update_dl_event_record (dl_id, 1, res, &mon_pool).await?;
     
     Ok(())  

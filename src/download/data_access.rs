@@ -1,10 +1,11 @@
 use sqlx::{Pool, Postgres};
-use std::path::PathBuf;
-use chrono::{NaiveDate, Utc};
-use std::collections::HashMap;
+//use std::path::PathBuf;
+use chrono::Utc;
+//use std::collections::HashMap;
 use crate::{err::AppError, DownloadResult};
-use crate:: download::file_models::{WHOSummary, SecondaryId};
+//use crate:: download::file_models::{WHOSummary, SecondaryId};
 
+/* 
 pub async fn update_who_study_mon(db_name: &String, sd_sid: &String, remote_url: &Option<String>, dl_id: i32,
                      record_date: &Option<NaiveDate>, full_path: &PathBuf, pool: &Pool<Postgres>) -> Result<bool, AppError> {
 
@@ -44,7 +45,7 @@ pub async fn update_who_study_mon(db_name: &String, sd_sid: &String, remote_url:
 
         Ok(added)
 }
-
+*/
 
 pub async fn get_next_download_id(pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
@@ -79,7 +80,7 @@ pub async fn update_dl_event_record (dl_id: i32, type_id: i32, dl_res: DownloadR
     Ok(res.rows_affected() == 1)
 }
 
-
+/* 
 pub async fn add_new_single_file_record(dl_id: i32, file_path: &PathBuf, file_res: &DownloadResult, pool: &Pool<Postgres>) -> Result<bool, AppError> {
 
     let source_path = file_path.to_str().unwrap().replace("\\\\", "/").replace("\\", "/");     // assumes utf-8 characters
@@ -114,7 +115,8 @@ pub async fn add_contents_record(file_path: &PathBuf, source_tots: &mut HashMap<
 
     Ok(res.rows_affected())
 }
-
+*/
+/* 
 pub async fn store_who_summary(rec: WHOSummary, pool: &Pool<Postgres>) -> Result<bool, AppError> {
 
     // WHO summary data needs to be modified before storage in db.
@@ -207,7 +209,8 @@ fn split_iso_date (dt: Option<String>) -> (Option<i32>, Option<i32>, Option<i32>
          None => (None, None, None),     
     }
 }
-
+    */
+/* 
 fn split_secids (ids: Option<Vec<SecondaryId>>) -> (Option<Vec<String>>, Option<Vec<String>>) {
     
     let mut reg_ids = Vec::<String>::new();
@@ -246,7 +249,7 @@ fn split_secids (ids: Option<Vec<SecondaryId>>) -> (Option<Vec<String>>, Option<
 
 }
 
-
+*/
 
 
 /*

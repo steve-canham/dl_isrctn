@@ -8,16 +8,20 @@ use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 pub struct TomlConfig {
+    pub api: Option<TomlAPIPars>, 
     pub folders: Option<TomlFolderPars>, 
     pub database: Option<TomlDBPars>,
 }
 
 #[derive(Debug, Deserialize)]
+pub struct TomlAPIPars {
+    pub base_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct TomlFolderPars {
-    pub csv_data_path: Option<String>,
     pub json_data_path: Option<String>,
     pub log_folder_path: Option<String>,
-
 }
 
 #[derive(Debug, Deserialize)]
@@ -30,14 +34,17 @@ pub struct TomlDBPars {
     pub src_db_name: Option<String>,
 }
 
-
 pub struct Config {
+    pub api: APIPars, 
     pub folders: FolderPars, 
     pub db_pars: DBPars,
 }
 
+pub struct APIPars {
+    pub base_url: String,
+}
+
 pub struct FolderPars {
-    pub csv_data_path: PathBuf,
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
 }
@@ -60,6 +67,12 @@ pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> 
         .map_err(|_| {AppError::ConfigurationError("Unable to parse config file.".to_string(),
                                        "File (app_config.toml) may be malformed.".to_string())})?;
 
+    let toml_api = match toml_config.api {
+        Some (a) => a,
+        None => {return Result::Err(AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
+            "Cannot find a section called '[api]'.".to_string()))},
+    };
+
     let toml_database = match toml_config.database {
         Some(d) => d,
         None => {return Result::Err(AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
@@ -72,28 +85,36 @@ pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> 
            "Cannot find a section called '[folders]'.".to_string()))},
     };
        
+    let config_api = verify_api_parameters(toml_api)?;
     let config_folders = verify_folder_parameters(toml_folders)?;
     let config_db_pars = verify_db_parameters(toml_database)?;
 
     let _ = DB_PARS.set(config_db_pars.clone());
 
     Ok(Config{
+        api: config_api,
         folders: config_folders,
         db_pars: config_db_pars,
     })
 }
 
 
-fn verify_folder_parameters(toml_folders: TomlFolderPars) -> Result<FolderPars, AppError> {
+fn verify_api_parameters(toml_api: TomlAPIPars) -> Result<APIPars, AppError> {
 
-    let csv_data_path_string = check_defaulted_string (toml_folders.csv_data_path, "csv data path", "csv_data_path", "");
+    let base_url = check_essential_string (toml_api.base_url, "api base url", "base_url")?;
+
+    Ok(APIPars {
+        base_url: base_url,
+    })
+}
+
+fn verify_folder_parameters(toml_folders: TomlFolderPars) -> Result<FolderPars, AppError> {
 
     let json_data_path_string = check_essential_string (toml_folders.json_data_path, "json outputs parents folder", "json_data_path")?;
 
     let log_folder_path_string = check_essential_string (toml_folders.log_folder_path, "log folder", "log_folder_path")?;
 
     Ok(FolderPars {
-        csv_data_path: PathBuf::from(csv_data_path_string),
         json_data_path: PathBuf::from(json_data_path_string),
         log_folder_path: PathBuf::from(log_folder_path_string),
     })
@@ -114,7 +135,7 @@ fn verify_db_parameters(toml_database: TomlDBPars) -> Result<DBPars, AppError> {
     let db_port: usize = db_port_as_string.parse().unwrap_or_else(|_| 5432);
 
     let mon_db_name = check_defaulted_string (toml_database.mon_db_name, "Mon DB name", "mon", "mon");
-    let src_db_name = check_defaulted_string (toml_database.src_db_name, "Src DB name", "who", "who");
+    let src_db_name = check_defaulted_string (toml_database.src_db_name, "Src DB name", "isrctn", "isrctn");
 
     Ok(DBPars {
         db_host,
@@ -208,10 +229,12 @@ mod tests {
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_host="localhost"
@@ -219,33 +242,36 @@ db_user="user_name"
 db_password="password"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
 
 "#;
         let config_string = config.to_string();
         let res = populate_config_vars(&config_string).unwrap();
 
-        assert_eq!(res.folders.csv_data_path, PathBuf::from("/home/steve/Data/MDR source data/ANZCTR"));
-        assert_eq!(res.folders.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/anz"));
-        assert_eq!(res.folders.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/anz"));
+        assert_eq!(res.api.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.folders.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
+        assert_eq!(res.folders.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
 
         assert_eq!(res.db_pars.db_host, "localhost");
         assert_eq!(res.db_pars.db_user, "user_name");
         assert_eq!(res.db_pars.db_password, "password");
         assert_eq!(res.db_pars.db_port, 5432);
         assert_eq!(res.db_pars.mon_db_name, "mon");
-        assert_eq!(res.db_pars.src_db_name, "anz");
+        assert_eq!(res.db_pars.src_db_name, "isrctn");
     }
     
 
     #[test]
-    fn check_config_with_missing_csv_folder() {
+    #[should_panic]
+    fn check_panics_if_missing_base_url() {
 
         let config = r#"
+[api]
+base_url = ""
+
 [folders]
-csv_data_path=""
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_host="localhost"
@@ -253,17 +279,11 @@ db_user="user_name"
 db_password="password"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
 
 "#;
         let config_string = config.to_string();
-        let res = populate_config_vars(&config_string).unwrap();
-
-        assert_eq!(res.folders.csv_data_path, PathBuf::from(""));
-        assert_eq!(res.folders.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/anz"));
-        assert_eq!(res.folders.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/anz"));
-
-
+        let _res = populate_config_vars(&config_string).unwrap();
     }
 
 
@@ -273,10 +293,12 @@ src_db_name="anz"
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
 json_data_path=""
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_host="localhost"
@@ -284,7 +306,7 @@ db_user="user_name"
 db_password="password"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
 
 "#;
         let config_string = config.to_string();
@@ -298,9 +320,11 @@ src_db_name="anz"
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
 log_folder_path=""
 
 [database]
@@ -309,7 +333,7 @@ db_user="user_name"
 db_password="password"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
 
 "#;
         let config_string = config.to_string();
@@ -326,17 +350,19 @@ src_db_name="anz"
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_host="localhost"
 db_password="password"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
 
 "#;
         let config_string = config.to_string();
@@ -349,10 +375,12 @@ src_db_name="anz"
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_user="user_name"
@@ -367,7 +395,7 @@ db_password="password"
         assert_eq!(res.db_pars.db_password, "password");
         assert_eq!(res.db_pars.db_port, 5432);
         assert_eq!(res.db_pars.mon_db_name, "mon");
-        assert_eq!(res.db_pars.src_db_name, "anz");
+        assert_eq!(res.db_pars.src_db_name, "isrctn");
     }
 
 
@@ -376,10 +404,12 @@ db_password="password"
 
         let config = r#"
 
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn" 
 
 [database]
 db_host="localhost"

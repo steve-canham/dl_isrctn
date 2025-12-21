@@ -20,6 +20,7 @@ pub mod create_tables;
 use std::fs;
 use std::sync::OnceLock;
 use crate::err::AppError;
+use chrono::{NaiveDate};
 use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
 use std::path::PathBuf;
 use std::time::Duration;
@@ -29,11 +30,12 @@ use cli_reader::CliPars;
 use std::ffi::OsStr;
 
 pub struct InitParams {
-    pub csv_data_path: PathBuf,
+    pub base_url: String,
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
-    pub importing: bool,
-    pub transforming: bool,
+    pub dl_type: i32,
+    pub start_date: NaiveDate,
+    pub end_date: NaiveDate,
 }
 
 pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
@@ -41,25 +43,26 @@ pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
 pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParams, AppError> {
 
     let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
-    let folder_pars = config_file.folders;  
-    let csv_data_path = folder_pars.csv_data_path;
-    let json_data_path = folder_pars.json_data_path; 
+
+    let base_url = config_file.api.base_url;
+    let json_data_path = config_file.folders.json_data_path; 
 
     if !folder_exists(&json_data_path) {
         fs::create_dir_all(&json_data_path)?;
     }
 
-    let log_folder_path = folder_pars.log_folder_path;  
+    let log_folder_path = config_file.folders.log_folder_path;  
     if !folder_exists(&log_folder_path) {
         fs::create_dir_all(&log_folder_path)?;
     }
     
     Ok(InitParams {
-        csv_data_path: csv_data_path,
+        base_url: base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
-        importing: cli_pars.importing,
-        transforming: cli_pars.transforming,
+        dl_type: cli_pars.dl_type,
+        start_date: cli_pars.start_date,
+        end_date:cli_pars.end_date,
     })
 
 }
@@ -125,7 +128,6 @@ pub async fn get_src_db_pool() -> Result<PgPool, AppError> {
         .connect_with(opts).await
         .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db_name), e))
 }
-
 
 
 pub fn establish_log(params: &InitParams) -> Result<(), AppError> {
@@ -199,13 +201,17 @@ mod tests {
 
     use super::*;
     use std::ffi::OsString;
+    use chrono::{NaiveDate, Local};
+
     #[test]
-    fn check_results_with_no_params() {
+    fn check_results_with_min_params() {
         let config = r#"
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
 [folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
 
 [database]
 db_host="localhost"
@@ -213,49 +219,26 @@ db_user="pg_user"
 db_password="foo"
 db_port="5432"
 mon_db_name="mon"
-src_db_name="anz"
+src_db_name="isrctn"
         "#;
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
 
-        let args : Vec<&str> = vec!["dummy target"];
+        let args : Vec<&str> = vec!["dummy target", "-s", "2020-12-04"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
 
         let res = get_params(cli_pars, &config_string).unwrap();
-        
-        assert_eq!(res.csv_data_path, PathBuf::from("E:/MDR source data/WHO/data"));
-        assert_eq!(res.json_data_path, PathBuf::from("E:/MDR source files"));
-        assert_eq!(res.log_folder_path, PathBuf::from("E:/MDR/MDR Logs"));
+        let today = Local::now().date_naive();
+
+        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
+        assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
+
+        assert_eq!(res.dl_type, 111);
+        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
+        assert_eq!(res.end_date, today);
+
     }
 
-    #[test]
-    fn check_cli_vars_overwrite_config_values() {
-        let config = r#"
-[folders]
-csv_data_path="/home/steve/Data/MDR source data/ANZCTR"
-json_data_path="/home/steve/Data/MDR json files/anz"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/anz"
-
-[database]
-db_host="localhost"
-db_user="pg_user"
-db_password="foo"
-db_port="5432"
-mon_db_name="mon"
-src_db_name="anz"
-        "#;
-        let config_string = config.to_string();
-        config_reader::populate_config_vars(&config_string).unwrap();
-
-        let args : Vec<&str> = vec!["dummy target", "-t", "503", "-f", "dummy who file.csv"];
-        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
-        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
-
-        let res = get_params(cli_pars, &config_string).unwrap();
-
-        assert_eq!(res.csv_data_path, PathBuf::from("E:/MDR source data/WHO/data"));
-        assert_eq!(res.json_data_path, PathBuf::from("E:/MDR source files"));
-        assert_eq!(res.log_folder_path, PathBuf::from("E:/MDR/MDR Logs"));
-    }
 }

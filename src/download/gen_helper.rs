@@ -1,5 +1,5 @@
-use regex::Regex;
-
+//use regex::Regex;
+/* 
 pub trait StringExtensions {
     fn tidy(&self) -> Option<String>;
     fn replace_unicodes(&self) -> Option<String>;
@@ -321,7 +321,7 @@ impl DateExtensions for String {
 
 }
 
-
+*/
 
     /* 
     fn replace_nbr_spaces(&self) -> Option<String> {
