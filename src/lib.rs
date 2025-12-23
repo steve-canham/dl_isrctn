@@ -10,6 +10,8 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
 
+//use crate::setup::InitParams;
+
 #[derive(Clone)]
 pub struct DownloadResult {
     pub num_checked: i32,
@@ -79,8 +81,8 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     //setup::create_tables::create_tables(&src_pool).await?;
 
     let dl_id = get_next_download_id(&mon_pool).await?;
-    let res = download::process_files(&params, dl_id, &src_pool).await?;
-    update_dl_event_record (dl_id, 1, res, &mon_pool).await?;
+    let res = download::process_data(&params, dl_id, &src_pool).await?;
+    update_dl_event_record (dl_id, params.dl_type, res, &mon_pool).await?;
     
     Ok(())  
 }

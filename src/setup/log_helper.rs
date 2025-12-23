@@ -79,10 +79,12 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("");
     info!("************************************");
     info!("");
-    info!("csv data path: {:?}", ip.base_url);
+    info!("base_url: {:?}", ip.base_url);
     info!("json data parth: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
-
+    info!("dl type: {:?}", ip.dl_type);
+    info!("start date: {:?}", ip.start_date);
+    info!("end date: {:?}", ip.end_date);
     info!("");
     info!("************************************");
     info!("");

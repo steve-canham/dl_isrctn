@@ -3,12 +3,9 @@ The setup module, and the get_params function in this file in particular,
 orchestrates the collection and fusion of parameters as provided in 
 1) a config toml file, and 
 2) command line arguments. 
-Where a parameter may be given in either the config file or command line, the 
-command line version always over-writes anything from the file.
-The module also checks the parameters for completeness (those required will vary, 
-depending on the activity specified). If possible, defaults are used to stand in for 
-mising parameters. If not possible the program stops with a message explaining the 
-problem.
+The module also checks the parameters for completeness. If possible, defaults are 
+used to stand in for mising parameters. If not possible the program stops with 
+a message explaining the problem.
 The module also provides a database connection pool on demand.
 ***********************************************************************************/
 
@@ -27,7 +24,7 @@ use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
 use cli_reader::CliPars;
-use std::ffi::OsStr;
+//use std::ffi::OsStr;
 
 pub struct InitParams {
     pub base_url: String,
@@ -147,7 +144,7 @@ pub fn log_set_up() -> bool {
     }
 }
 
-
+/* 
 pub fn get_files_to_process(data_folder: &PathBuf, last_file: &String) -> Result<Vec<String>, AppError> {
     
     let last_file_as_buf = PathBuf::from(last_file);
@@ -192,7 +189,7 @@ pub fn get_files_to_process(data_folder: &PathBuf, last_file: &String) -> Result
    
     Ok(files)
 }
-
+*/
 
 // Tests
 #[cfg(test)]

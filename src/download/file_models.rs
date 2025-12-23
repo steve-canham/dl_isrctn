@@ -1,677 +1,1303 @@
 //use chrono::NaiveDate;
 
 #[allow(dead_code)]
+
 #[derive(serde::Deserialize)]
-pub struct WHOLine
+#[serde(rename = "allTrials")]
+pub struct AllTrials
 {
-    pub trial_id: String,                           // 0
-    pub last_updated: String,                       // 1
-    pub sec_ids: String,                            // 2
-    pub pub_title: String,                          // 3
-    pub scientific_title: String,                   // 4
-    pub url: String,                                // 5
+    #[serde(rename = "@totalCount")]
+    pub total_count: i32,
 
-    pub pub_contact_first_name: String,             // 6
-    pub pub_contact_last_name: String,              // 7
-    pub pub_contact_address: String,                // 8
-    pub pub_contact_email: String,                  // 9
-    pub pub_contact_tel: String,                    // 10
-    pub pub_contact_affiliation: String,            // 11
+    #[serde(rename = "@fullTrial")]
+    pub full_trial: Vec<FullTrial>,
+}
 
-    pub sci_contact_first_name: String,             // 12
-    pub sci_contact_last_name: String,              // 13
-    pub sci_contact_address: String,                // 14
-    pub sci_contact_email: String,                  // 15
-    pub sci_contact_tel: String,                    // 16
-    pub sci_contact_affiliation: String,            // 17
 
-    pub study_type: String,                         // 18
-    pub study_design: String,                       // 19
-    pub phase: String,                              // 20
-    pub date_registration: String,                  // 21
-    pub date_enrollement: String,                   // 22
-    pub target_size: String,                        // 23
-    pub recruitment_status:String,                  // 24
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct FullTrial
+{
+    pub trial: Trial,
 
-    pub primary_sponsor: String,                    // 25
-    pub secondary_sponsors: String,                 // 26
-    pub source_support: String,                     // 27
-    pub countries: String,                          // 28
-    pub conditions: String,                         // 29
-    pub interventions: String,                      // 30
+    #[serde(default)]
+    pub contact: Vec<Contact>,
 
-    pub age_min: String,                            // 31
-    pub age_max: String,                            // 32
-    pub gender: String,                             // 33
-    pub inclusion_criteria: String,                 // 34
-    pub exclusion_criteria: String,                 // 35
+    #[serde(default)]
+    pub sponsor: Vec<Sponsor>,
 
-    pub primary_outcome: String,                    // 36
-    pub secondary_outcomes: String,                 // 37
+    #[serde(default)]
+    pub funder: Vec<Funder>,
 
-    pub bridging_flag: String,                      // 38
-    pub bridged_type: String,                       // 39
-    pub childs: String,                             // 40
-    pub type_enrolment: String,                     // 41
-    pub retrospective_flag: String,                 // 42
+}
 
-    pub results_actual_enrollment: String,          // 43
-    pub results_url_link: String,                   // 44
-    pub results_summary: String,                    // 45
-    pub results_date_posted: String,                // 46
-    pub results_date_first_pub: String,             // 47
-    pub results_baseline_char: String,              // 48
-    pub results_participant_flow: String,           // 49
-    pub results_adverse_events: String,             // 50
-    pub results_outcome_measures: String,           // 51
-    pub results_url_protocol: String,               // 52
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct TrialAgents          // stripped down version of FullTrial for testing purposes
+{
+    #[serde(default)]
+    pub contact: Vec<Contact>,
 
-    pub results_ipd_plan: String,                   // 53
-    pub results_ipd_description: String,            // 54
-    pub results_date_completed: String,             // 55
-    pub results_yes_no: String,                     // 56
+    #[serde(default)]
+    pub sponsor: Vec<Sponsor>,
 
-    pub ethics_status: String,                      // 57
-    pub ethics_approval_date: String,               // 58
-    pub ethics_contact_name: String,                // 59
-    pub ethics_contact_address:String,              // 60
-    pub ethics_contact_phone: String,               // 61
-    pub ethics_contact_email: String,               // 62
+    #[serde(default)]
+    pub funder: Vec<Funder>,
+}
 
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Trial
+{
+    #[serde(rename = "@lastUpdated")]
+    last_updated:  Option<String>,
+    #[serde(rename = "@version")]
+    version:  Option<String>,
+
+    pub isrctn: Isrctn,
+    #[serde(rename = "trialDescription")]
+    pub trial_description: Description,
+    #[serde(rename = "ExternalRefs")]
+    pub external_refs: Option<ExternalRefs>,
+    #[serde(rename = "trialDesign")]
+    pub trial_design:Option<Design>,
+    pub participants: Participants,
+    #[serde(rename = "Conditions")]
+    pub interventions: Interventions,
+    pub results: Results,
+    #[serde(default)]
+    pub outputs: Vec<Output>,
+    pub parties: Parties,
+    #[serde(rename = "attachedFiles", default)]
+    pub attached_files: Vec<AttachedFile>,
+    pub miscellaneous: Miscellaneous,
+
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Isrctn
+{
+    #[serde(rename = "@dateAssigned")]
+    pub date_assigned: Option<String>,
+    #[serde(rename = "$value")]
+    pub value: i32,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Description
+{
+    #[serde(rename = "@thirdPartyFilesAcknowledgement")]
+    pub third_party_ack: Option<String>,  // actually a bool
+    pub acknowledgment: Option<String>,  // actually a bool
+    pub title: Option<String>,
+    #[serde(rename = "scientificTitle")]
+    pub scientific_title: Option<String>,
+    pub acronym: Option<String>,
+    #[serde(rename = "studyHypothesis")]
+    pub study_hypothesis: Option<String>,
+    #[serde(rename = "plainEnglishSummary")]
+    pub plain_english_summary: Option<String>,
+
+    #[serde(rename = "primaryOutcomes", default)]
+    pub primary_outcomes: Option<String>,
+    #[serde(rename = "primaryOutcome", default)]
+    pub primary_outcome: Option<String>,
+
+    #[serde(rename = "secondaryOutcomes", default)]
+    pub secondary_outcomes: Option<String>,
+    #[serde(rename = "secondaryOutcome")]
+    pub secondary_outcome: Option<String>,
+
+    #[serde(rename = "trialWebsite")]
+    pub trial_website: Option<String>,
+    #[serde(rename = "ethicsApprovalRequired")]
+    pub ethics_approval_required: Option<String>,
+    #[serde(rename = "ethicsCommittees", default)]
+    pub ethics_committees: Vec<EthicsCommittee>,
+    #[serde(rename = "ethicsApproval")]
+    pub ethics_approval: Option<String>,
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct EthicsCommittee
+{
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    #[serde(rename = "@approvalStatus")]
+    pub approval_status: Option<String>,
+    #[serde(rename = "@statusDate")]
+    pub status_date: Option<String>,
+    #[serde(rename = "committeeName")]
+    pub committee_name: Option<String>,
+    #[serde(rename = "contactDetails")]
+    pub contact_details: ContactDetails,
+    #[serde(rename = "committeeReference")]
+    pub committee_reference: Option<String>,
 }
 
 
 /* 
-    [Index(0)] 
-    pub string TrialID: Option<String>, = null!;
-ACTRN12625000115437,
-    [Index(1)]
-    pub string? last_updated: Option<String>,
-"""17 February 2025""",
-    [Index(2)]
-    pub string? SecondaryIDs: Option<String>,
-"""NCRC-AU-2024/003""",    
-    [Index(3)]
-    pub string? pub_title: Option<String>,
-"""Sub-Protocol #1 of Umbrella Protocol Study:  Limit of Blank Characterization of Vancomycin Biosensor Nutromics Device. ""","""Sub-Protocol #1 of Umbrella Protocol Study:  Limit of Blank Characterization of Vancomycin Biosensor Nutromics Device.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        """,
-    [Index(4)]
-    pub string? Scientific_title: Option<String>,
-"""Sub-Protocol #1 of Umbrella Protocol Study:  Limit of Blank Characterization of Vancomycin Biosensor Nutromics Device. ""","""Sub-Protocol #1 of Umbrella Protocol Study:  Limit of Blank Characterization of Vancomycin Biosensor Nutromics Device.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        """,
-    [Index(5)]
-    pub string? url: Option<String>,
-"""https://anzctr.org.au/ACTRN12625000115437.aspx""",    
-    [Index(6)]
-    pub string? pub_Contact_Firstname: Option<String>, NULL
-    [Index(7)]
-    pub string? pub_Contact_Lastname: Option<String>, NULL
-    [Index(8)]
-    pub string? pub_Contact_Address: Option<String>, NULL
-    [Index(9)]
-    pub string? pub_Contact_Email: Option<String>, NULL
-    [Index(10)]
-    pub string? pub_Contact_Tel: Option<String>, NULL
-    [Index(11)]
-    pub string? pub_Contact_Affiliation: Option<String>, NULL
-    [Index(12)]
-    pub string? Scientific_Contact_Firstname: Option<String>, NULL
-    [Index(13)]
-    pub string? Scientific_Contact_Lastname: Option<String>, NULL
-    [Index(14)]
-    pub string? Scientific_Contact_Address: Option<String>, NULL
-    [Index(15)]
-    pub string? Scientific_Contact_Email: Option<String>, NULL
-    [Index(16)]
-    pub string? Scientific_Contact_Tel: Option<String>, NULL
-    [Index(17)]
-    pub string? Scientific_Contact_Affiliation: Option<String>, NULL
-    [Index(18)]
-    pub string? study_type: Option<String>,
-    """Interventional""", 
-    [Index(19)]
-    pub string? study_design: Option<String>,
-    """Purpose: Diagnosis; Allocation: Non-randomised trial; Masking: Open (masking not used);"""
-    [Index(20)]
-    pub string? phase: Option<String>,
-    """Not Applicable""",  
-    [Index(21)]
-    pub string? Date_registration: Option<String>,
-    """31/01/2025""", 
-    [Index(22)]
-    pub string? Date_enrollement: Option<String>,
-    """03/02/2025""",
-    [Index(23)]
-    pub string? Target_size: Option<String>,
-    """50"""
-    [Index(24)]
-    pub string? Recruitment_status: Option<String>,
-    """Not yet recruiting"""
-    [Index(25)]
-    pub string? Primary_sponsor: Option<String>,
-    """Nutromics Operations"""
-    [Index(26)]
-    pub string? Secondary_sponsors: Option<String>,
-    NULL
-    [Index(27)]
-    pub string? Source_Support: Option<String>,
-    """Nutromics Operations"""
-    [Index(28)]
-    pub string? Countries: Option<String>,
-    """Australia""",
-    [Index(29)]
-    pub string? Conditions: Option<String>,
-    """Therapeutic Drug Monitoring; <br>Therapeutic Drug Monitoring;Infection - Studies of infection and infectious agents""",
-    [Index(30)]
-    pub string? Interventions: Option<String>,
-    """This is a prospective study with an Umbrella Protocol; where each sub-Protocol investigates a particular condition(s) and challenges to various Vancomycin biosensors and electrode properties. The study will enroll healthy participants in the community. Participants will be recruited for participation in stages depending on the Research and Development needs. This registration described Sub-Protocol #1.<br><br>The study will enroll no more than 50 participants. Participants may participate in more than one sub-Protocol of the Study, subject to their continued eligibility. <br><br>Potential participants will be recruited by flyers on community, university, and  <br>Nutromics Operations noticeboards. Prospective participants will express interest via email to  <br>clinical.researchcentre@nutromics.com. <br><br>Participants who have previously participated or expressed interested in studies at the Nutromics Clinical Research Centre may also be contacted and asked if they are interested in participating. Prospective participants will be sent an Online Health Screening. Nutromics employees can participate in this study. <br><br>Participants who meet the inclusion criteria (as per the Online Health Screening Survey) will be contacted for a brief phone screening for inclusion/exclusion criteria, including an explanation of the study details. A copy of the patient information sheet and consent form will be given to the participants who meet the inclusion criteria and still express interest in participating in the study following the phone discussion. Eligible participants who agree to participate in the study will be given time to consider their decision. Eligible participants who agree to participate in the study will be asked to attend an on-site Visit, where written consent w""",
-    [Index(31)]
-    pub string? Age_min: Option<String>,
-    """18 Years""",
-    [Index(32)]
-    pub string? Age_max: Option<String>,
-    """60 Years""",
-    [Index(33)]
-    pub string? Gender: Option<String>,
-    """Both males and females""", 
-    [Index(34)]
-    pub string? Inclusion_Criteria: Option<String>,
-    """Inclusion criteria: Participants self-declaring healthy without any disease, condition or syndrome or on any current prescription medical treatments (other than contraception medication) <br><br>Aged 18-60 years """,
-    [Index(35)]
-    pub string? Exclusion_Criteria: Option<String>,
-    """Exclusion criteria: Participants who are pregnant, lactating, planning to become pregnant, breastfeeding, or donating ova.<br><br>Participants who declare previous allergic reactions to metals, plastics, and adhesives. <br><br>Participants who have a history of fainting or experiencing vasovagal reactions during blood draws.<br><br>Non-English-speaking participants.<br><br>Participants with small children in their household, where the Investigator believes that the device falling off could pose a biohazard risk if a child were to pick it up (Sub-Protocol #1 only). <br>""",
-    [Index(36)]
-    pub string? Primary_Outcome: Option<String>,
-    """Establish the highest reported concentration Limit of Blank (LoB)  likely to be observed for a blank sample using the Nutromics Sensor Device.[In-vivo data collection will be calibrated against a standard titration of known values on analogous devices to report concentrations. The workflow to achieve this involves benchtop testing of Nutromics aptamer sensors in buffer and/or biofluid with a known concentration of vancomcyin across a range of temperatures anticipated in-vivo (30-42C). Addition of known values of vancomycin and subsequent measurements. Fitting a calibration equation, and finally using data collected from the device (electrochemical measurements & temperature measurements) in this equation to predict concentration.  <br><br>Limit of Blank will be reported using the predicted mean concentration + 2 standard deviations for a given device’s data ( during the first and last hour of data collection.  <br> 24 hour wear period.];To assess the Limit of Blank (LoB) of the Nutromics Sensor Device regarding its performance and stability over extended periods of wear. This includes evaluating any potential degradation in accuracy or precision of the measurements when the Nutromics Sensor Device is used continuously over a long duration.[The accuracy of the device from interstitial fluid measurements will be assessed as the deviation of vancomycin concentrations from 0 mg/L. The precision will be assessed as the variability (standard deviation) of vancomycin concentrations (if detected) over the 24-hour duration of the study. <br> Across wear period where the Nutromics Sensor Device will collect data on vancomycin concentrations in interstitial fluid every 5 minutes.]""",
-    [Index(37)]
-    pub string? Secondary_Outcomes: Option<String>,
-    """Evaluate the variability and error associated with Vancomycin biosensors when the target analyte is not present. [The accuracy of the device from interstitial fluid measurements will be assessed as the deviation of vancomycin concentrations from 0 mg/L. The precision will be assessed as the variability (standard deviation) of vancomycin concentrations (if detected) across devices and across participants. This data will be evaluated as a composite outcome.<br><br>Signal to noise will be calculated from voltammogram data using the root-mean-squared error (RSME) of the raw signal versus the smoothed (Savitzky-Golay) data. Across wear period where the Nutromics Sensor Device will collect data on vancomycin concentrations in interstitial fluid every 5 minutes.];To evaluate the safety of the Nutromics sensor device. [Monitoring full blood count (FBC), urea electrolytes creatinine (UEC), and liver function test (LFT) results and C-reactive Protein (CRP), prior to the application, and following removal of the Investigational Device. <br><br>Examining digitally captured images of the skin surface at the sensor application site(s) for signs of irritation and allergic reactions. <br><br>Observing participants pain using the scales provided (Harvard pain Scale). <br><br>Assess adverse events using the MedDRA class system. Blood will be collected at three occasions to assess safety of the Nutromics Sensor Device; immediately prior to application of the Devices, immediately prior to the participant being discharged whilst wearing the Device, and immediately following the removal of the Device the following day. Images of the application site will be taken prior to the application and removal of the Device. A pain score is obtained from the participant no more than 15 minutes following application of each Nutromics Sensor Device. Adverse Events will be assessed across the wear time of the Device.];Characterise the impact of hydration on the LoB of Vancomycin biosensors (serum osmolality) [Blood will be tested for serum osmolality. Blood will be collected at three occasions to assess serum osmolality; immediately prior to application of the Devices, immediately prior to the participant being discharged whilst wearing the Device, and immediately following the removal of the Device the following day,]""",
-    [Index(38)]
-    pub string? Bridging_flag: Option<String>,
-    """                                                  """,
-    [Index(39)]
-    pub string? Bridged_type: Option<String>,
-    """          """,
-    [Index(40)]
-    pub string? Childs: Option<String>,
-    NULL,
-    [Index(41)]
-    pub string? type_enrolment: Option<String>,
-    """Anticipated""",
-    [Index(42)]
-    pub string? Retrospective_flag: Option<String>,
-    NULL,
-    [Index(43)]
-    pub string? results_actual_enrollment: Option<String>,
-    """""",
-    [Index(44)]
-    pub string? results_url_link: Option<String>,
-    """""",
-    [Index(45)]
-    pub string? results_summary: Option<String>,
-    """""",
-    [Index(46)]
-    pub string? results_date_posted: Option<String>,
-    NULL,
-    [Index(47)]
-    pub string? results_date_first_pubation: Option<String>,
-    NULL,
-    [Index(48)]
-    pub string? results_baseline_char: Option<String>,
-    """""",
-    [Index(49)]
-    pub string? results_participant_flow: Option<String>,
-    """""",
-    [Index(50)]
-    pub string? results_adverse_events: Option<String>,
-    """""",
-    [Index(51)]
-    pub string? results_outcome_measures: Option<String>,
-    """""",
-    [Index(52)]
-    pub string? results_url_protocol: Option<String>,
-    """""",
-    [Index(53)]
-    pub string? results_IPD_plan: Option<String>,
-    """Yes""",
-    [Index(54)]
-    pub string? results_IPD_description: Option<String>,
-    """""",
-    [Index(55)]
-    pub string? results_date_completed: Option<String>,
-    NULL,
-    [Index(56)]
-    pub string? results_yes_no: Option<String>,
-    NULL,
-    [Index(57)]
-    pub string? Ethics_Status: Option<String>,
-    """Not approved""",
-    [Index(58)]
-    pub string? Ethics_Approval_Date: Option<String>,
-    """Jan  1 1900 12:00AM""",
-    [Index(59)]
-    pub string? Ethics_Contact_Name: Option<String>,
-    """""",
-    [Index(60)]
-    pub string? Ethics_Contact_Address: Option<String>,
-    """Nutromics Diagnostics HREC""",
-    [Index(61)]
-    pub string? Ethics_Contact_Phone: Option<String>,
-    """""",
-    [Index(62)]
-    pub string? Ethics_Contact_Email: Option<String>,
-    """"""
-   
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct PrimaryOutcome
+{
+    #[serde(rename = "PrimaryOutcome")]
+    pub primary_outcome: Option<String>,
+}
 
-    [Index(0)] 
-    pub string TrialID: Option<String>, = null!;
-EUCTR2020-001039-29-GR
-    [Index(1)]
-    pub string? last_updated: Option<String>,
-,"""17 February 2025""",
-    [Index(2)]
-    pub string? SecondaryIDs: Option<String>,
-    """ESCAPE""",
-    [Index(3)]
-    pub string? pub_title: Option<String>,
-"""MANAGEMENT OF NOVEL SARS CORONAVIRUS""",
-    [Index(4)]
-    pub string? Scientific_title: Option<String>,
-"""EFFICIENCY IN MANAGEMENT OF ORGAN DYSFUNCTION ASSOCIATED WITH INFECTION BY THE NOVEL SARS-CoV-2 VIRUS (COVID-19) THROUGH A PERSONALIZED IMMUNOTHERAPY APPROACH: THE ESCAPE CLINICAL TRIAL - PERSONALIZED IMMUNOTHERAPY FOR SARS-CoV-2 ASSOCIATED ORGAN DYSFUCTION                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               """,
-    [Index(5)]
-    pub string? url: Option<String>,
-"""https://www.clinicaltrialsregister.eu/ctr-search/search?query=eudract_number:2020-001039-29""",
-    [Index(6)]
-    pub string? pub_Contact_Firstname: Option<String>, 
-"""President of the Board""",
-    [Index(7)]
-    pub string? pub_Contact_Lastname: Option<String>, 
-"""""",
-    [Index(8)]
-    pub string? pub_Contact_Address: Option<String>, 
-"""88 Michalakopoulou Street""",
-    [Index(9)]
-    pub string? pub_Contact_Email: Option<String>,
-"""insepsis@otenet.gr"""
-    [Index(10)]
-    pub string? pub_Contact_Tel: Option<String>, 
-"""302107480662""",
-    [Index(11)]
-    pub string? pub_Contact_Affiliation: Option<String>,
-"""HELLENIC INSTITUTE FOR THE STUDY OF SEPSIS""",
-    [Index(12)]
-    pub string? Scientific_Contact_Firstname: Option<String>,
-"""President of the Board""",
-    [Index(13)]
-    pub string? Scientific_Contact_Lastname: Option<String>,
-"""""",
-    [Index(14)]
-    pub string? Scientific_Contact_Address: Option<String>,
-    """88 Michalakopoulou Street""",
-    [Index(15)]
-    pub string? Scientific_Contact_Email: Option<String>,
-    """insepsis@otenet.gr"""
-    [Index(16)]
-    pub string? Scientific_Contact_Tel: Option<String>, 
-    """302107480662""",
-    [Index(17)]
-    pub string? Scientific_Contact_Affiliation: Option<String>,
-    """HELLENIC INSTITUTE FOR THE STUDY OF SEPSIS""",
-    [Index(18)]
-    pub string? study_type: Option<String>,
-"""Interventional clinical trial of medicinal product""",
-    [Index(19)]
-    pub string? study_design: Option<String>,
-"""Controlled: no Randomised: no Open: yes Single blind: no Double blind: no Parallel group: no Cross over: no Other: no If controlled, specify comparator, Other Medicinial Product:  Placebo:  Other:  Number of treatment arms in the trial: 2 """,
-    [Index(20)]
-    pub string? phase: Option<String>,
- """Human pharmacology (Phase I): noTherapeutic exploratory (Phase II): yesTherapeutic confirmatory - (Phase III): noTherapeutic use (Phase IV): no""",
-    [Index(21)]
-    pub string? Date_registration: Option<String>,
-"""31/03/2020""",
-    [Index(22)]
-    pub string? Date_enrollement: Option<String>,
-    """01/04/2020""",
-    [Index(23)]
-    pub string? Target_size: Option<String>,
-    """40""",
-    [Index(24)]
-    pub string? Recruitment_status: Option<String>,
-   """Not Recruiting""",
-    [Index(25)]
-    pub string? Primary_sponsor: Option<String>,
-   """HELLENIC INSTITUTE FOR THE STUDY OF SEPSIS""",
-    [Index(26)]
-    pub string? Secondary_sponsors: Option<String>,
-   NULL,
-    [Index(27)]
-    pub string? Source_Support: Option<String>,
-    """HELENIC INSTITUTE FOR THE STUDY OF SEPSIS""",
-    [Index(28)]
-    pub string? Countries: Option<String>,
-   """Greece""",
-    [Index(29)]
-    pub string? Conditions: Option<String>,
-   """Organ dysfunction by the novel SARS-Cov-2 virus <br>MedDRA version: 20.0Level: LLTClassification code 10035738Term: Pneumonia viral NOSSystem Organ Class: 100000004862;Therapeutic area: Diseases [C] - Virus Diseases [C02]""",
-    [Index(30)]
-    pub string? Interventions: Option<String>,
-   """<br>Trade Name: Kineret<br>Product Name: Anakinra<br>Pharmaceutical Form: <br><br>Trade Name: RoActemra<br>Product Name: Tocilizumab<br>Pharmaceutical Form: Concentrate for solution for infusion<br><br>""",
-   [Index(31)]
-    pub string? Age_min: Option<String>,
-  """""",
-    [Index(32)]
-    pub string? Age_max: Option<String>,
-    """""",
-    [Index(33)]
-    pub string? Gender: Option<String>,
-   """<br>Female: yes<br>Male: yes<br>""",
-    [Index(34)]
-    pub string? Inclusion_Criteria: Option<String>,
-"""Inclusion criteria: <br>• Age equal to or above 18 years<br>• Male or female gender<br>• In case of women, unwillingness to remain pregnant during the study period.<br>• Written informed consent provided by the patient or by one first-degree relative/spouse in case of patients unable to consent<br>• Confirmed infection by SARS-CoV-2 virus using molecular techniques as defined by the World Health Organization11<br>• Organ dysfunction defined as the presence of at least one of the following conditions: <br> - Total SOFA score greater than or equal to 2; <br> - Involvement of the lower respiratory tract<br>• Laboratory documentation of MAS or immune dysregulation. MAS is documented by the findings of any serum ferritin greater than 4,420ng/ml. immune dysregulation is documented by the combination of two findings: a) serum ferritin equal to or lower than 4,420ng/ml; and b) less than 5,000 receptors of the membrane molecule of HLA-DR on the cell membrane of blood CD14-monocytes or less than 30 MFI of HLA-DR on the cell membrane of blood CD14-monocytes as counted by flow cytometry.<br>Are the trial subjects under 18? no<br>Number of subjects for this age range: <br>F.1.2 Adults (18-64 years) yes<br>F.1.2.1 Number of subjects for this age range 20<br>F.1.3 Elderly (>=65 years) yes<br>F.1.3.1 Number of subjects for this age range 20<br>""",
-    [Index(35)]
-    pub string? Exclusion_Criteria: Option<String>,
-  """Exclusion criteria: <br>• Age below 18 years<br>• Denial for written informed consent<br>• Any stage IV malignancy<br>• Any do not resuscitate decision<br>• Active tuberculosis (TB) as defined by the co-administration of drugs for the treatment of TB<br>• Infection by the human immunodeficiency virus (HIV)<br>• Any primary immunodeficiency<br>• Oral or IV intake of corticosteroids at a daily dose equal or greater than 0.4 mg prednisone or greater the last 15 days.<br>• Any anti-cytokine biological treatment the last one month<br>• Medical history of systemic lupus erythematosus<br>• Medical history of multiple sclerosis or any other demyelinating disorder.<br>• Pregnancy or lactation. Women of child-bearing potential will be screened by a urine pregnancy test before inclusion in the study<br>""","""Main Objective: Our aim is to conduct one trial of personalized immunotherapy in patients with SARS-CoV-2 associated with organ dysfunction and with laboratory findings of macrophage activation syndrome or immune dysregulation. These patients will be selected by the use of a panel of biomarkers and laboratory findings and they will be allocated to immunotherapy treatment according to their needs.  ;Secondary Objective: Not applicable;Primary end point(s): The study primary endpoint is composite and contains the achievement of at least one of the following goals or both goals after 7 days (study visit of day 8):<br>• At least 25% decrease of baseline total SOFA score or increase of the pO2/FiO2 ratio by at least 50%<br>• Clinical improvement of lung involvement<br>Patients discharged from hospital alive before study visit of day 8 are considered achieving the primary endpoint. Patients dying before study visit of day 8 are considered non-achieving the primary endpoint.;Timepoint(s) of evaluation of this end point: Visit study day 8""","""Secondary end point(s): • Comparison of the primary endpoint with historical comparators<br>• Change of SOFA score on day 28<br>• Mortality on day 28<br>• Mortality on day 90<br>• Change of cytokine stimulation between days 0 and 4 <br>• Change of gene expression between days 0 and 4<br>• Change of serum/plasma proteins between days 0 and 4<br>• Classification of immune function of screened patients who are not enrolled in study drug since they do not have MAS or immune dysregulation <br>The above secondary endpoints will also be analyzed separately to study the specific effect of anakinra and of tocilizumab.;Timepoint(s) of evaluation of this end point: Screening<br>Day 4<br>Day 15<br>Day 28<br>Day 90""",
-   [Index(36)]
-    pub string? Primary_Outcome: Option<String>,
-"""Main Objective: Our aim is to conduct one trial of personalized immunotherapy in patients with SARS-CoV-2 associated with organ dysfunction and with laboratory findings of macrophage activation syndrome or immune dysregulation. These patients will be selected by the use of a panel of biomarkers and laboratory findings and they will be allocated to immunotherapy treatment according to their needs.  ;Secondary Objective: Not applicable;Primary end point(s): The study primary endpoint is composite and contains the achievement of at least one of the following goals or both goals after 7 days (study visit of day 8):<br>• At least 25% decrease of baseline total SOFA score or increase of the pO2/FiO2 ratio by at least 50%<br>• Clinical improvement of lung involvement<br>Patients discharged from hospital alive before study visit of day 8 are considered achieving the primary endpoint. Patients dying before study visit of day 8 are considered non-achieving the primary endpoint.;Timepoint(s) of evaluation of this end point: Visit study day 8""",
-    [Index(37)]
-    pub string? Secondary_Outcomes: Option<String>,
- """Secondary end point(s): • Comparison of the primary endpoint with historical comparators<br>• Change of SOFA score on day 28<br>• Mortality on day 28<br>• Mortality on day 90<br>• Change of cytokine stimulation between days 0 and 4 <br>• Change of gene expression between days 0 and 4<br>• Change of serum/plasma proteins between days 0 and 4<br>• Classification of immune function of screened patients who are not enrolled in study drug since they do not have MAS or immune dysregulation <br>The above secondary endpoints will also be analyzed separately to study the specific effect of anakinra and of tocilizumab.;Timepoint(s) of evaluation of this end point: Screening<br>Day 4<br>Day 15<br>Day 28<br>Day 90""",
-     [Index(38)]
-    pub string? Bridging_flag: Option<String>,
-"""NCT04339712                                       """,
-    [Index(39)]
-    pub string? Bridged_type: Option<String>,
-"""parent    """,
-    [Index(40)]
-    pub string? Childs: Option<String>,
-"""NCT04339712""",
-    [Index(41)]
-    pub string? type_enrolment: Option<String>,
-"""Date trial authorised""",
-    [Index(42)]
-    pub string? Retrospective_flag: Option<String>,
-NULL,
-    [Index(43)]
-    pub string? results_actual_enrollment: Option<String>,
-"""""",
-    [Index(44)]
-    pub string? results_url_link: Option<String>,
-"""""",
-    [Index(45)]
-    pub string? results_summary: Option<String>,
-"""""",
-    [Index(46)]
-    pub string? results_date_posted: Option<String>,
-NULL,
-    [Index(47)]
-    pub string? results_date_first_pubation: Option<String>,
-NULL,
-    [Index(48)]
-    pub string? results_baseline_char: Option<String>,
-    [Index(49)]
-    pub string? results_participant_flow: Option<String>,
-"""No results available""",
-    [Index(50)]
-    pub string? results_adverse_events: Option<String>,
-"""No results available""",
-    [Index(51)]
-    pub string? results_outcome_measures: Option<String>,
- """No results available""",
-    [Index(52)]
-    pub string? results_url_protocol: Option<String>,
- """""",
-    [Index(53)]
-    pub string? results_IPD_plan: Option<String>,
-"""""",
-    [Index(54)]
-    pub string? results_IPD_description: Option<String>,
-"""""",
-    [Index(55)]
-    pub string? results_date_completed: Option<String>,
- NULL,
-    [Index(56)]
-    pub string? results_yes_no: Option<String>,
-  NULL,
-    [Index(57)]
-    pub string? Ethics_Status: Option<String>,
-"""Approved""",
-    [Index(58)]
-    pub string? Ethics_Approval_Date: Option<String>,
-"""Mar 27 2020 12:00AM""",
-    [Index(59)]
-    pub string? Ethics_Contact_Name: Option<String>,
-"""""",
-    [Index(60)]
-    pub string? Ethics_Contact_Address: Option<String>,
-"""""",
-    [Index(61)]
-    pub string? Ethics_Contact_Phone: Option<String>,
-"""""",
-    [Index(62)]
-    pub string? Ethics_Contact_Email: Option<String>,
-"""""",
-
-
-
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct SecondaryOutcome
+{
+    #[serde(rename = "SecondaryOutcome", default)]
+    pub secondary_outcome: Option<String>,
+}
 */
 
-/*
-#[derive(Debug, serde::Serialize)]
-pub struct WHORecord
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ExternalRefs
 {
-    pub source_id: i32, 
-    pub record_date: Option<String>,
-    pub sd_sid: String, 
-    pub pub_title: Option<String>,
-    pub scientific_title: Option<String>,
-    pub remote_url: Option<String>,
-    pub pub_contact_givenname: Option<String>,
-    pub pub_contact_familyname: Option<String>,
-    pub pub_contact_email: Option<String>,
-    pub pub_contact_affiliation: Option<String>,
-    pub scientific_contact_givenname: Option<String>,
-    pub scientific_contact_familyname: Option<String>,
-    pub scientific_contact_email: Option<String>,
-    pub scientific_contact_affiliation: Option<String>,
-    pub study_type_orig: Option<String>,
-    pub study_type: i32,
-    pub study_status_orig: Option<String>,
-    pub study_status: i32,
-    pub date_registration: Option<String>,
-    pub date_enrolment: Option<String>,
-    pub target_size: Option<String>,
-    pub primary_sponsor: Option<String>,
-    pub secondary_sponsors: Option<String>,
-    pub source_support: Option<String>,
-    pub interventions: Option<String>,
-    pub agemin: Option<String>,
-    pub agemin_units: Option<String>,
-    pub agemax: Option<String>,
-    pub agemax_units: Option<String>,
+    pub doi: Option<String>,
+    #[serde(rename = "eudraCTNumber")]
+    pub eudra_ct_number: Option<String>,
+    #[serde(rename = "irasNumber")]    
+    pub iras_number: Option<String>,
+    #[serde(rename = "clinicalTrialsGovNumber")]   
+    pub ctg_number: Option<String>,
+    #[serde(rename = "protocolSerialNumber")]    
+    pub protocol_serial_number: Option<String>,
+    #[serde(rename = "secondaryNumbers")]
+    pub secondary_numbers: SecondaryNumberList,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct SecondaryNumberList
+{
+    #[serde(rename = "secondaryNumber", default)]
+    pub secondary_number: Vec<SecondaryNumber>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct SecondaryNumber
+{
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    #[serde(rename = "@numberType")]
+    pub number_type: Option<String>,
+    #[serde(rename = "$value")]
+    pub value: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Design
+{
+    #[serde(rename = "studyDesign")]
+    pub study_design: Option<String>,
+    #[serde(rename = "primaryStudyDesign")]
+    pub primary_study_design: Option<String>,
+    #[serde(rename = "secondaryStudyDesign")]
+    pub secondary_study_design: Option<String>,
+    #[serde(rename = "trialSettings", default)]
+    pub trial_settings: Vec<TrialSetting>,
+    #[serde(rename = "trialTypes", default)]
+    pub trial_types: Vec<TrialType>,
+    #[serde(rename = "overallEndDate")]
+    pub overall_end_date: Option<String>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct TrialSetting
+{
+    #[serde(rename = "trialSetting")]
+    pub trial_setting: Option<String>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct TrialType
+{
+    #[serde(rename = "TrialType", default)]
+    pub trial_type: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Participants
+{
+    #[serde(rename = "recruitmentCountries", default)]
+    pub recruitment_countries: Vec<String>,
+
+    #[serde(rename = "trialCentres", default)]
+    pub trial_centres: Vec<Centre>,
+   
+    #[serde(rename = "participantTypes", default)]
+    pub participant_type: Option<Vec<ParticipantType>>,
+    pub inclusion: Option<String>,
+    #[serde(rename = "ageRange")]
+    pub age_range: Option<String>,
     pub gender: Option<String>,
-    pub inclusion_criteria: Option<String>,
-    pub exclusion_criteria: Option<String>,
-    pub primary_outcome: Option<String>,
-    pub secondary_outcomes: Option<String>,
-    pub bridging_flag: Option<String>,
-    pub bridged_type: Option<String>,
-    pub childs: Option<String>,
-    pub type_enrolment: Option<String>,
-    pub retrospective_flag: Option<String>,
-    pub results_actual_enrollment: Option<String>,
-    pub results_url_link: Option<String>,
-    pub results_summary: Option<String>,
-    pub results_date_posted: Option<String>,
-    pub results_date_first_pub: Option<String>,
-    pub results_url_protocol: Option<String>,
-    pub ipd_plan: Option<String>,
-    pub ipd_description: Option<String>,
-    pub results_date_completed: Option<String>,
-    pub results_yes_no: Option<String>,
-
-    pub design_string: Option<String>,
-    pub phase_string: Option<String>,
-
-    pub country_list: Option<Vec<String>>,
-    pub secondary_ids: Option<Vec<SecondaryId>>,
-    pub study_features: Option<Vec<WhoStudyFeature>>,
-    pub condition_list: Option<Vec<String>>,
-    pub meddra_condition_list: Option<Vec<MeddraCondition>>,
+    #[serde(rename = "target_enrolment")]
+    pub target_enrolment: Option<String>,
+    #[serde(rename = "totalFinalEnrolment")]
+    pub total_final_enrolment: Option<String>,
+    #[serde(rename = "totalTarget")]
+    pub total_target: Option<String>,
+    pub exclusion: Option<String>,
+    #[serde(rename = "patientInfoSheet")]
+    pub patient_info_sheet: Option<String>,
+    #[serde(rename = "recruitmentStart")]
+    pub recruitment_start: Option<String>,
+    #[serde(rename = "recruitmentEnd")]
+    pub recruitment_end: Option<String>,
+    #[serde(rename = "recruitmentStartStatusOverride")]
+    pub recruitment_start_status_override: Option<String>,
+    #[serde(rename = "recruitmentStatusOverride")]
+    pub recruitment_status_override: Option<String>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
 #[allow(dead_code)]
-pub struct SecondaryId
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ParticipantType
 {
-    pub source_field: String,
-    pub sec_id: String,
-    pub processed_id: String,
-    pub sec_id_source: usize,
-    pub sec_id_type_id: usize,
-    pub sec_id_type: String,
+    #[serde(rename = "ParticipantType")]
+    pub participant_type: Option<String>,
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Centre
+{
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub country: Option<String>,
+    pub zip: Option<String>,
+    pub id: Option<String>,
 }
 
 #[allow(dead_code)]
-impl SecondaryId {
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Conditions
+{
+    #[serde(rename = "Condition", default)]
+    pub condition: Vec<Condition>,
+}
 
-    pub fn new(source_field: String, sec_id: String, 
-        processed_id: String, sec_id_source: usize,
-        sec_id_type_id: usize, sec_id_type: String)
-         -> Self {SecondaryId {  
-                source_field,
-                sec_id,
-                processed_id,
-                sec_id_source,
-                sec_id_type_id,
-                sec_id_type,
-            }
-    }
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Condition
+{
+    pub description: Option<String>,
+
+    #[serde(rename = "diseaseClass1")]
+    pub disease_class1: Option<String>,
+
+    #[serde(rename = "diseaseClass2")]
+    pub disease_class2: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Interventions
+{
+    #[serde(rename = "Intervention", default)]
+    pub intervention: Vec<Intervention>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Intervention
+{
+    pub description: Option<String>,
+    #[serde(rename = "interventionType")]
+    pub intervention_type: Option<String>,
+    #[serde(rename = "pharmaceuticalStudyTypes")]
+    pub pharmaceutical_study_types: Option<String>,
+    pub phase: Option<String>,
+    #[serde(rename = "drugNames")]
+    pub drug_names: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Results
+{
+    #[serde(rename = "publicationPlan")]
+    pub publication_plan: Option<String>,
+    #[serde(rename = "ipdSharingStatement")]
+    pub ipd_sharing_statement: Option<String>,
+    #[serde(rename = "intentToPublish")]
+    pub intent_to_publish: Option<String>,
+    #[serde(rename = "dataPolicies", default)]
+    pub data_policies: Vec<DataPolicy>,
+    #[serde(rename = "publicationDetails")]
+    pub publication_details: Option<String>,
+    #[serde(rename = "publicationStage")]
+    pub publication_stage: Option<String>,
+    #[serde(rename = "biomedRelated")]
+    pub biomed_related: Option<String>,  // actually a bool
+    #[serde(rename = "basicReport")]
+    pub basic_report: Option<String>,
+    #[serde(rename = "plainEnglishReport")]
+    pub plain_english_report: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct DataPolicy
+{
+    #[serde(rename = "dataPolicy", default)]
+    pub data_policy: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Output
+{
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    #[serde(rename = "@outputType")]
+    pub output_type: Option<String>,
+    #[serde(rename = "@artefactType")]
+    pub artefact_type: Option<String>,
+    #[serde(rename = "@dateCreated")]
+    pub date_created: Option<String>,
+    #[serde(rename = "@dateUploaded")]
+    pub date_uploaded: Option<String>,
+    #[serde(rename = "@peerReviewed")]
+    pub peer_reviewed: Option<String>,  // actually a bool
+    #[serde(rename = "@patientFacing")]
+    pub patient_facing: Option<String>,  // actually a bool
+    #[serde(rename = "@createdBy")]
+    pub created_by: Option<String>,
+
+    #[serde(rename = "ExternalLink")]
+    pub external_link: Option<ExternalLink>,
+    pub description: Option<String>,
+    #[serde(rename = "productionNotes")]
+    pub production_notes: Option<String>,
+    #[serde(rename = "LocalFile")]
+    pub local_file: Option<LocalFile>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct LocalFile
+{
+    #[serde(rename = "@fileId")]
+    pub file_id: Option<String>,
+    #[serde(rename = "@originalFilename")]
+    pub original_filename: Option<String>,
+    #[serde(rename = "@downloadFilename")]
+    pub download_filename: Option<String>,
+    #[serde(rename = "@version")]
+    pub version: Option<String>,
+    #[serde(rename = "@mimeType")]
+    pub mime_type: Option<String>,
+    pub md5sum: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ExternalLink
+{
+    #[serde(rename = "@url")]
+    pub url: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Parties
+{
+    #[serde(rename = "funderId", default)]
+    pub funder_id: Vec<String>,
+
+    #[serde(rename = "contactId", default)]
+    pub contact_id: Vec<String>,
+
+    #[serde(rename = "sponsorId", default)]
+    pub sponsor_id: Vec<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Miscellaneous
+{
+    #[serde(rename = "ipdSharingPlan", default)]
+    ipd_sharing_plan: Option<String>, // Yes or No
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct AttachedFile
+{
+    #[serde(rename = "@downloadUrl")]
+    pub download_url: String,
+
+    pub description: Option<String>,
+    pub name: Option<String>,
+    pub id: Option<String>,
+    pub public: Option<String>,  // actually boolean
+
+    #[serde(rename = "@mimeType")]
+    pub mime_type: Option<String>,
+    pub length: Option<String>,
+    pub md5sum: Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Contact
+{
+    #[serde(rename = "@id")]
+    pub id: String,
+
+    pub title:  Option<String>,
+    pub forename:  Option<String>,
+    pub surname:  Option<String>,
+    pub orcid:  Option<String>,
   
-    pub fn new_from_base(source_field: String, sec_id: String,
-                sid: SecIdBase)
-         -> Self {SecondaryId {  
-            source_field,
-            sec_id,
-            processed_id: sid.processed_id,
-            sec_id_source: sid.sec_id_source,
-            sec_id_type_id: sid.sec_id_type_id,
-            sec_id_type: sid.sec_id_type,
-         }
+    #[serde(rename = "contactTypes", default)]
+    pub contact_types: Vec<ContactType>,
+
+    #[serde(rename = "contactDetails")]
+    pub contact_details: ContactDetails,
+    pub privacy:  Option<String>,
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ContactType
+{
+    #[serde(rename = "contactType")]
+    pub contact_type:  Option<String>,
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Sponsor
+{
+    #[serde(rename = "@id")]
+    pub id: String,
+
+    pub organisation:  Option<String>,
+    pub website:  Option<String>,
+
+    #[serde(rename = "sponsorType")]
+    pub sponsor_type:  Option<String>,
+
+    #[serde(rename = "contactDetails")]
+    pub contact_details: ContactDetails,
+    pub privacy:  Option<String>,
+
+    #[serde(rename = "rorId")]
+    pub ror_id:  Option<String>,
+
+    #[serde(rename = "commercialStatus")]
+    pub commercial_status:  Option<String>,
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ContactDetails
+{
+    pub address:  Option<String>,
+    pub city:  Option<String>,
+    pub state:  Option<String>,
+    pub country:  Option<String>,
+    pub zip:  Option<String>,
+    pub telephone:  Option<String>,
+    pub email:  Option<String>,
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Funder
+{
+    #[serde(rename = "@id")]
+    pub id: String,
+    pub name:  Option<String>,
+    #[serde(rename = "fundRef")]
+    pub fund_ref: Option<String>,
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+  
+    #[test]
+    fn check_can_parse_fund_ref1() {
+
+        let xml_string = r#"<funder id="6bb69969-98bf-47fa-aa68-1f4e5123e3a9">
+            <name>Queen Victoria Hospital NHS Trust (UK)</name>
+        </funder>"#;
+        let add = Funder {
+            id: "6bb69969-98bf-47fa-aa68-1f4e5123e3a9".to_string(),
+            name: Some("Queen Victoria Hospital NHS Trust (UK)".to_string()),
+            fund_ref: None,
+        };
+        let der_struct: Funder = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(add, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_fund_ref2() {
+
+        let xml_string = r#"<funder id="fff95a08-8d06-4d83-8fb3-3485ae0d5824">
+            <name>Federal Centre for Health Education (BZgA) (Germany)</name>
+            <fundRef>http://dx.doi.org/10.13039/501100003108</fundRef>
+        </funder>"#;
+        let add = Funder {
+            id: "fff95a08-8d06-4d83-8fb3-3485ae0d5824".to_string(),
+            name: Some("Federal Centre for Health Education (BZgA) (Germany)".to_string()),
+            fund_ref: Some("http://dx.doi.org/10.13039/501100003108".to_string()),
+        };
+        let der_struct: Funder = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(add, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_contact_details1() {
+
+        let xml_string = r#"<contactDetails>
+            <address>Academic Department O&amp;G, 3rd Floor Birmingham Women's Hospital Mindelsohn Way</address>
+            <city>Edgbaston</city>
+            <state/>
+            <country>United Kingdom</country>
+            <zip>B15 2TG</zip>
+            <telephone/>
+            <email/>
+        </contactDetails>"#;
+
+        let cdets = ContactDetails {
+            address: Some("Academic Department O&G, 3rd Floor Birmingham Women's Hospital Mindelsohn Way".to_string()),
+            city: Some("Edgbaston".to_string()),
+            state: Some("".to_string()),
+            country: Some("United Kingdom".to_string()),
+            zip: Some("B15 2TG".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_contact_details2() {
+
+        let xml_string = r#"<contactDetails>
+            <address>Holtye Road West Sussex</address>
+            <city>East Grinstead</city>
+            <state/>
+            <country>United Kingdom</country>
+            <zip>RH19 3DZ</zip>
+            <telephone>+44 (0)1342 414000</telephone>
+            <email>hf@cct.com</email>
+        </contactDetails>"#;
+        let cdets = ContactDetails {
+            address: Some("Holtye Road West Sussex".to_string()),
+            city: Some("East Grinstead".to_string()),
+            state: Some("".to_string()),
+            country: Some("United Kingdom".to_string()),
+            zip: Some("RH19 3DZ".to_string()),
+            telephone: Some("+44 (0)1342 414000".to_string()),
+            email: Some("hf@cct.com".to_string()),
+        };
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_sponsor() {
+
+        let xml_string = r#"<sponsor id="ed9a1d4b-28fe-4bfa-afda-b7f79196de22">
+            <organisation>
+            Federal Centre for Health Education (BZgA) (Germany)
+            </organisation>
+            <website/>
+            <sponsorType>Government</sponsorType>
+            <contactDetails>
+                <address/>
+                <city/>
+                <state/>
+                <country/>
+                <zip/>
+                <telephone/>
+                <email/>
+            </contactDetails>
+            <privacy/>
+            <rorId>https://ror.org/054c9y537</rorId>
+            <commercialStatus>Non-commercial</commercialStatus>
+        </sponsor>"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        let sp = Sponsor {
+            id: "ed9a1d4b-28fe-4bfa-afda-b7f79196de22".to_string(),
+            organisation: Some("\n            Federal Centre for Health Education (BZgA) (Germany)\n            ".to_string()),
+            website: Some("".to_string()),
+            sponsor_type: Some("Government".to_string()),
+            contact_details: cdets,
+            privacy: Some("".to_string()),
+            ror_id: Some("https://ror.org/054c9y537".to_string()),
+            commercial_status: Some("Non-commercial".to_string())
+        };
+        let der_struct: Sponsor = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(sp, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_contact() {
+
+        let xml_string = r#"<contact id="8fad61c9-9167-4fc3-a286-826b5eeec568">
+            <title>Mr</title>
+            <forename>Benjamin</forename>
+            <surname>Jonas</surname>
+            <orcid/>
+            <contactTypes>
+                <contactType>Scientific</contactType>
+            </contactTypes>
+            <contactDetails>
+                <address>Delphi GmbH Kaiserdamm 8</address>
+                <city>Berlin</city>
+                <state/>
+                <country>Germany</country>
+                <zip>14057</zip>
+                <telephone>-</telephone>
+                <email>jonas@delphi-gesellschaft.de</email>
+            </contactDetails>
+            <privacy>Public</privacy>
+        </contact>"#;
+
+        let ct = ContactType {
+            contact_type: Some("Scientific".to_string()),
+        };
+        let cdets = ContactDetails {
+            address: Some("Delphi GmbH Kaiserdamm 8".to_string()),
+            city: Some("Berlin".to_string()),
+            state: Some("".to_string()),
+            country: Some("Germany".to_string()),
+            zip: Some("14057".to_string()),
+            telephone: Some("-".to_string()),
+            email: Some("jonas@delphi-gesellschaft.de".to_string()),
+        };
+        let cn  = Contact {
+            id: "8fad61c9-9167-4fc3-a286-826b5eeec568".to_string(),
+            title: Some("Mr".to_string()),
+            forename: Some("Benjamin".to_string()),
+            surname: Some("Jonas".to_string()),
+            orcid: Some("".to_string()),
+            contact_types: vec![ct],
+            contact_details: cdets,
+            privacy: Some("Public".to_string()),
+        };
+        let der_struct: Contact = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cn, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_trial_agents() {
+
+        let xml_string = r#"<trialAgents>
+            <contact id="a407a287-d1a5-4f7f-921b-c9a4cf8a8efc">
+                <title>Mr</title>
+                <forename>Christopher</forename>
+                <surname>Hutchison</surname>
+                <orcid/>
+                <contactTypes>
+                    <contactType>Public</contactType>
+                </contactTypes>
+                <contactDetails>
+                    <address>Ul. Plachkovitsa 1, Entr. A, Floor 5, Apt.18 </address>
+                    <city>Sofia</city>
+                    <state/>
+                    <country>Bulgaria</country>
+                    <zip>1164</zip>
+                    <telephone/>
+                    <email/>
+                </contactDetails>
+                <privacy>Protected</privacy>
+            </contact>
+
+            <contact id="0a74c913-56b2-4368-8977-b3f0eaeb481b">
+                <title>Dr</title>
+                <forename>Fergus</forename>
+                <surname>Jepson</surname>
+                <orcid/>
+                <contactTypes>
+                    <contactType>Scientific</contactType>
+                </contactTypes>
+                <contactDetails>
+                    <address>
+                    Preston Specialist Mobility Rehabilitation Centre Preston Business Centre Watling Street Road
+                    </address>
+                    <city> Fulwood, Preston</city>
+                    <state/>
+                    <country>United Kingdom</country>
+                    <zip>PR2 8DY</zip>
+                    <telephone/>
+                    <email/>
+                </contactDetails>
+                <privacy>Protected</privacy>
+            </contact>
+
+            <sponsor id="cedbe54d-5e00-48c8-b8ee-7ad07431c796">
+                <organisation>ProsFit Technologies UK Ltd.</organisation>
+                <website/>
+                <sponsorType>Industry</sponsorType>
+                <contactDetails>
+                    <address/>
+                    <city/>
+                    <state/>
+                    <country/>
+                    <zip/>
+                    <telephone/>
+                    <email/>
+                </contactDetails>
+                <privacy/>
+                <commercialStatus>Commercial</commercialStatus>
+            </sponsor>
+
+            <funder id="531d4e35-108e-4dbc-b20d-2de7c3f5945c">
+                <name>The Richard and Jack Wiseman Trust</name>
+            </funder>
+
+            <funder id="d73d9e47-ac72-48f5-9462-829d004abd77">
+                <name>British Maternal and Fetal Medicine Society</name>
+            </funder>
+        </trialAgents>"#;
+
+        let ct1 = ContactType {
+            contact_type: Some("Public".to_string()),
+        };
+        let cdets1 = ContactDetails {
+            address: Some("Ul. Plachkovitsa 1, Entr. A, Floor 5, Apt.18 ".to_string()),
+            city: Some("Sofia".to_string()),
+            state: Some("".to_string()),
+            country: Some("Bulgaria".to_string()),
+            zip: Some("1164".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        let c1  = Contact {
+            id: "a407a287-d1a5-4f7f-921b-c9a4cf8a8efc".to_string(),
+            title: Some("Mr".to_string()),
+            forename: Some("Christopher".to_string()),
+            surname: Some("Hutchison".to_string()),
+            orcid: Some("".to_string()),
+            contact_types: vec![ct1],
+            contact_details: cdets1,
+            privacy: Some("Protected".to_string()),
+        };
+        let ct2 = ContactType {
+            contact_type: Some("Scientific".to_string()),
+        };
+        let cdets2 = ContactDetails {
+            address: Some("\n                    Preston Specialist Mobility Rehabilitation Centre Preston Business Centre Watling Street Road\n                    ".to_string()),
+            city: Some(" Fulwood, Preston".to_string()),
+            state: Some("".to_string()),
+            country: Some("United Kingdom".to_string()),
+            zip: Some("PR2 8DY".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        let c2  = Contact {
+            id: "0a74c913-56b2-4368-8977-b3f0eaeb481b".to_string(),
+            title: Some("Dr".to_string()),
+            forename: Some("Fergus".to_string()),
+            surname: Some("Jepson".to_string()),
+            orcid: Some("".to_string()),
+            contact_types: vec![ct2],
+            contact_details: cdets2,
+            privacy: Some("Protected".to_string()),
+        };
+        let cdets3 = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        let sp = Sponsor {
+            id: "cedbe54d-5e00-48c8-b8ee-7ad07431c796".to_string(),
+            organisation: Some("ProsFit Technologies UK Ltd.".to_string()),
+            website: Some("".to_string()),
+            sponsor_type: Some("Industry".to_string()),
+            contact_details: cdets3,
+            privacy: Some("".to_string()),
+            ror_id: None,
+            commercial_status: Some("Commercial".to_string())
+        };
+        let f1 = Funder {
+            id: "531d4e35-108e-4dbc-b20d-2de7c3f5945c".to_string(),
+            name: Some("The Richard and Jack Wiseman Trust".to_string()),
+            fund_ref: None,
+        };
+        let f2 = Funder {
+            id: "d73d9e47-ac72-48f5-9462-829d004abd77".to_string(),
+            name: Some("British Maternal and Fetal Medicine Society".to_string()),
+            fund_ref: None,
+        };
+        let ta  = TrialAgents {
+            contact: vec![c1, c2],
+            sponsor: vec![sp],
+            funder: vec![f1, f2],
+        };
+        let der_struct: TrialAgents = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(ta, der_struct);
+    }  
+
+    #[test]
+    fn check_can_parse_isrctn() {
+
+        let xml_string = r#"<isrctn dateAssigned="2025-02-26T07:23:16.665489Z">10601218</isrctn>"#;
+      
+        let isrctn = Isrctn {
+            date_assigned: Some("2025-02-26T07:23:16.665489Z".to_string()),
+            value: 10601218,
+        };
+        let der_struct: Isrctn = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(isrctn, der_struct);
+    }  
+
+     #[test]
+    fn check_can_parse_secondary_numbers() {
+
+        let xml_string = r#"<secondaryNumbers>
+                <secondaryNumber id="a100d9b2-ad1c-4f87-af8e-667c9ea507d0" numberType="ctis">Nil known</secondaryNumber>
+                <secondaryNumber id="532f4409-ad5e-4f99-9556-c1e8ff69f086" numberType="nct">Nil known</secondaryNumber>
+                <secondaryNumber id="6dc730b6-55a9-4b9d-8cc5-d148677fb537" numberType="Protocol serial number">CPMS2023</secondaryNumber>
+            </secondaryNumbers>"#;
+
+        let secnum1 = SecondaryNumber {
+            id: Some("a100d9b2-ad1c-4f87-af8e-667c9ea507d0".to_string()),
+            number_type: Some("ctis".to_string()),
+            value:Some("Nil known".to_string()), 
+        };
+        let secnum2 = SecondaryNumber {
+            id: Some("532f4409-ad5e-4f99-9556-c1e8ff69f086".to_string()),
+            number_type: Some("nct".to_string()),
+            value:Some("Nil known".to_string()), 
+        };
+        let secnum3 = SecondaryNumber {
+            id: Some("6dc730b6-55a9-4b9d-8cc5-d148677fb537".to_string()),
+            number_type: Some("Protocol serial number".to_string()),
+            value:Some("CPMS2023".to_string()), 
+        };
+        let sec_num_list = SecondaryNumberList {
+            secondary_number: vec![secnum1, secnum2, secnum3],
+        };
+        
+        let der_struct: SecondaryNumberList = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(sec_num_list, der_struct);
+
+    }  
+
+    #[test]
+    fn check_can_parse_external_refs() {
+
+        let xml_string = r#"
+        <externalRefs>
+            <doi>10.1186/ISRCTN10601218</doi>
+            <eudraCTNumber>Nil known</eudraCTNumber>
+            <irasNumber/>
+            <clinicalTrialsGovNumber>Nil known</clinicalTrialsGovNumber>
+            <protocolSerialNumber>CPMS2023</protocolSerialNumber>
+            <secondaryNumbers>
+                <secondaryNumber id="a100d9b2-ad1c-4f87-af8e-667c9ea507d0" numberType="ctis">Nil known</secondaryNumber>
+                <secondaryNumber id="532f4409-ad5e-4f99-9556-c1e8ff69f086" numberType="nct">Nil known</secondaryNumber>
+                <secondaryNumber id="6dc730b6-55a9-4b9d-8cc5-d148677fb537" numberType="Protocol serial number">CPMS2023</secondaryNumber>
+            </secondaryNumbers>
+        </externalRefs>"#;
+
+        let secnum1 = SecondaryNumber {
+            id: Some("a100d9b2-ad1c-4f87-af8e-667c9ea507d0".to_string()),
+            number_type: Some("ctis".to_string()),
+            value:Some("Nil known".to_string()), 
+        };
+        let secnum2 = SecondaryNumber {
+            id: Some("532f4409-ad5e-4f99-9556-c1e8ff69f086".to_string()),
+            number_type: Some("nct".to_string()),
+            value:Some("Nil known".to_string()), 
+        };
+        let secnum3 = SecondaryNumber {
+            id: Some("6dc730b6-55a9-4b9d-8cc5-d148677fb537".to_string()),
+            number_type: Some("Protocol serial number".to_string()),
+            value:Some("CPMS2023".to_string()), 
+        };
+        let sec_num_list = SecondaryNumberList {
+            secondary_number: vec![secnum1, secnum2, secnum3],
+        };
+
+        let exrefs = ExternalRefs {
+            doi: Some("10.1186/ISRCTN10601218".to_string()),
+            eudra_ct_number: Some("Nil known".to_string()),
+            iras_number: Some("".to_string()),
+            ctg_number: Some("Nil known".to_string()),
+            protocol_serial_number: Some("CPMS2023".to_string()),
+            secondary_numbers: sec_num_list,
+        };
+        
+        let der_struct: ExternalRefs = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(exrefs, der_struct);
+
+    }  
+
+    #[test]
+    fn check_can_parse_external_refs2() {
+
+        let xml_string = r#"
+        <externalRefs>
+            <doi>10.1186/ISRCTN10601218</doi>
+            <eudraCTNumber>Nil known</eudraCTNumber>
+            <irasNumber/>
+            <clinicalTrialsGovNumber>Nil known</clinicalTrialsGovNumber>
+            <protocolSerialNumber>CPMS2023</protocolSerialNumber>
+            <secondaryNumbers/>
+        </externalRefs>"#;
+
+        let sec_num_list = SecondaryNumberList {
+            secondary_number: vec![],
+        };
+
+        let exrefs = ExternalRefs {
+            doi: Some("10.1186/ISRCTN10601218".to_string()),
+            eudra_ct_number: Some("Nil known".to_string()),
+            iras_number: Some("".to_string()),
+            ctg_number: Some("Nil known".to_string()),
+            protocol_serial_number: Some("CPMS2023".to_string()),
+            secondary_numbers: sec_num_list,
+        };
+        
+        let der_struct: ExternalRefs = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(exrefs, der_struct);
+
     }
 
-    pub fn clone(&self) -> SecondaryId {
-        SecondaryId {
-            source_field: self.source_field.clone(),
-            sec_id: self.sec_id.clone(),
-            processed_id: self.processed_id.clone(),
-            sec_id_source: self.sec_id_source,
-            sec_id_type_id: self.sec_id_type_id,
-            sec_id_type: self.sec_id_type.clone(),
-        }
+    #[test]
+    fn check_can_parse_trial_description() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }  
+
+
+    #[test]
+    fn check_can_parse_trial_design() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }
+
+    #[test]
+    fn check_can_parse_participants() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }
+
+    #[test]
+    fn check_can_parse_conditions() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
     }
     
-}
+    #[test]
+    fn check_can_parse_interventions() {
 
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
 
-#[allow(dead_code)]
-pub struct SecIdBase
-{
-    pub processed_id: String,
-    pub sec_id_source: usize,
-    pub sec_id_type_id: usize,
-    pub sec_id_type: String,
-} 
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
 
-#[allow(dead_code)]
-impl SecIdBase {
-
-    pub fn new(processed_id: String, sec_id_source: usize,
-        sec_id_type_id: usize , sec_id_type: String) -> Self {
-        SecIdBase {  
-            processed_id,
-            sec_id_source,
-            sec_id_type_id,
-            sec_id_type,
-         }
     }
-} 
 
+    #[test]
+    fn check_can_parse_results() {
 
-#[derive(Debug, serde::Serialize)]
-#[allow(dead_code)]
-pub struct WhoStudyFeature
-{
-    pub ftype_id: usize,
-    pub ftype: String,
-    pub fvalue_id: usize,
-    pub fvalue: String,
-}
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
 
-#[allow(dead_code)]
-impl WhoStudyFeature {
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
 
-    pub fn new(ftype_id: usize, ftype: &str,
-        fvalue_id: usize, fvalue: &str) -> Self {
-        WhoStudyFeature {
-            ftype_id,
-            ftype: ftype.to_string(),
-            fvalue_id,
-            fvalue: fvalue.to_string(),
-        }
     }
-}
 
+#[test]
+    fn check_can_parse_outputs() {
 
-#[derive(Debug, serde::Serialize)]
-#[allow(dead_code)]
-pub struct MeddraCondition
-{
-    pub version: String,
-    pub level: String,
-    pub code: String,
-    pub term: String,
-    pub soc_code: String,
-    pub soc_term: String,
-}
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
 
-#[allow(dead_code)]
-impl MeddraCondition {
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
 
-    pub fn new(version: String, level: String,
-        code: String, term: String, soc_code: String, 
-        soc_term: String) -> Self {
-            MeddraCondition {
-            version,
-            level,
-            code,
-            term,
-            soc_code,
-            soc_term,
-        }
     }
-}
 
 
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct WHOSummary
-{
-    pub source_id: i32, 
-    pub sd_sid: String, 
-    pub title: Option<String>,
-    pub remote_url: Option<String>,
-    pub study_type: i32,
-    pub study_status: i32,
-    pub secondary_ids: Option<Vec<SecondaryId>>,
-    pub date_registration: Option<String>,
-    pub date_enrolment: Option<String>,
-    pub results_yes_no: Option<String>,
-    pub results_url_link: Option<String>,
-    pub results_url_protocol: Option<String>,
-    pub results_date_posted: Option<NaiveDate>,
-    pub results_date_first_pub: Option<NaiveDate>,
-    pub results_date_completed: Option<NaiveDate>,
-    pub table_name: String,
-    pub country_list: Option<Vec<String>>,
-    pub date_last_rev: Option<NaiveDate>,
+    #[test]
+    fn check_can_parse_parties() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }
+
+    #[test]
+    fn check_can_parse_miscellaneous() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }
+
+    #[test]
+    fn check_can_parse_attached_files() {
+
+        let xml_string = r#"
+        <contactDetails>
+            <address></address>
+            <city></city>
+            <state/>
+            <country></country>
+            <zip></zip>
+            <telephone></telephone>
+            <email></email>
+        </contactDetails>
+"#;
+
+        let cdets = ContactDetails {
+            address: Some("".to_string()),
+            city: Some("".to_string()),
+            state: Some("".to_string()),
+            country: Some("".to_string()),
+            zip: Some("".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+        
+        let der_struct: ContactDetails = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(cdets, der_struct);
+
+    }
+    /*
+
+
+
+    */
 }
-*/

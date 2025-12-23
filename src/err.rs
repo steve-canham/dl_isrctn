@@ -42,11 +42,14 @@ pub enum AppError {
     #[error("Error during IO operation: {0:?}")]
     IoError(#[from] std::io::Error),
 
-    #[error("Error during CSV read operation: {0:?}")]
-    CsvError(#[from] csv::Error),
+   // #[error("Error during CSV read operation: {0:?}")]
+   // CsvError(#[from] csv::Error),
 
     #[error("Error during parsing an integer: {0:?}")]
     ParseError(#[from] ParseIntError),
+
+    #[error("Reqwest error fetching from {0:?}")]
+    ReqwestError(String, #[source] reqwest::Error),
 }
 
 
@@ -84,9 +87,13 @@ pub fn report_error(e: AppError) -> () {
   
         AppError::IoError(e) => print_simple_error (e.to_string(), "IO ERROR"),
 
-        AppError::CsvError(e) => print_simple_error (e.to_string(), "CSV ERROR"),
+     //   AppError::CsvError(e) => print_simple_error (e.to_string(), "CSV ERROR"),
 
         AppError::ParseError(e) => print_simple_error (e.to_string(), "PARSE INT ERROR"),
+
+        AppError::ReqwestError(url, e) => print_error (url, e.to_string(), "REQWEST ERROR"),
+
+
     }
 }
 
