@@ -11,522 +11,463 @@ use super::gen_helper::{StringExtensions, DateExtensions};
 use super::file_models::{WHOLine, WHORecord, WhoStudyFeature, SecondaryId, WHOSummary, MeddraCondition};
 
 
-pub fn process_line(w: WHOLine,source_id: i32, sid: &String, study_type: i32, study_status: i32, 
-                    remote_url:&Option<String>, study_idents: Option<Vec<SecondaryId>>, countries: Option<Vec<String>>) -> Option<WHORecord>  {
+// processes study, returns json file model
+// that model can be printed, 
+// and or it can be saved to the database...
 
-    let design_list = w.study_design.tidy();
-    let design_orig = design_list.clone();
-    let phase_statement = w.phase.tidy();
-    let phase_orig = phase_statement.clone();
-
-    let condition_list = w.conditions.replace_unicodes();
-    let conditions_option: Option<Vec<String>>;
-    let meddraconds_option: Option<Vec<MeddraCondition>>;
-    if condition_list.is_some()
-    {
-        // Need a specific routine to deal with EUCTR and the MedDRA listings
-
-        let conditions: Vec<String>;
-        let meddraconds: Vec<MeddraCondition>;
-
-        (conditions, meddraconds) = get_conditions(&condition_list.unwrap(), source_id);
-        conditions_option = match conditions.len() {
-            0 => None,
-            _ => Some(conditions)
-        };
-        meddraconds_option = match meddraconds.len() {
-            0 => None,
-            _ => Some(meddraconds)
-        };
-    }
-    else {
-        conditions_option = None;
-        meddraconds_option = None;
-    }
-   
-    let mut features = Vec::<WhoStudyFeature>::new();
-
-    if design_list.is_some()  {
-        let des_list = &design_list.unwrap().to_lowercase();
-        if study_type == 11
-        {
-            let mut fs = add_obs_study_features(des_list);
-            features.append(&mut fs);
-        }
-        else
-        {      
-            if source_id == 100123 {
-                let mut fs = add_eu_design_features(des_list);
-                features.append(&mut fs);
-            }
-            else {         
-                let mut fs = add_int_study_features(des_list);
-                features.append(&mut fs);
-                let mut fs = add_masking_features(des_list);
-                features.append(&mut fs);
-            }
-        }
-    }
-
-
-    if phase_statement.is_some() {
-        let phase_statement = &phase_statement.unwrap().to_lowercase();
-        if source_id == 100123 {
-            let mut fs = add_eu_phase_features(phase_statement);
-            features.append(&mut fs);
-        }
-        else {
-            let mut fs = add_phase_features(phase_statement);
-            features.append(&mut fs);
-        }
-        
-    }
-
-    let study_features = match features.len() {
-        0 => None,
-        _ => Some(features)
-    };
-
-
-
-    let mut agemin = w.age_min.tidy();
-    let mut agemin_units: Option<String> = None;
-    let mut agemax = w.age_max.tidy();
-    let mut agemax_units: Option<String> = None;
-
-    if source_id != 100123 {
-
-        if agemin.is_some()
-        {
-            let pat = r#"\d+"#;
-            let re = Regex::new(pat).unwrap();
-            let amin = agemin.unwrap();
-            if re.is_match(&amin) {
-                let caps = re.captures(&amin).unwrap();
-                let min = &caps[0];
-                agemin = Some(min.to_string());
-
-                let min_units = amin.get_time_units();
-                if min_units != "".to_string() {
-                    agemin_units = Some(min_units);
-                }
-            }
-            else {
-                agemin = None;
-            }
-        }
-
-        if agemax.is_some()
-        {
-            let pat = r#"\d+"#;
-            let re = Regex::new(pat).unwrap();
-            let amax = agemax.unwrap();
-            if re.is_match(&amax) {
-                let caps = re.captures(&amax).unwrap();
-                let max = &caps[0];
-                agemax = Some(max.to_string());
-
-                let max_units = amax.get_time_units();
-                if max_units != "".to_string() {
-                    agemax_units = Some(max_units);
-                }
-            }
-            else {
-                agemax = None;
-            }
-        }
-    }
-
+pub fn process_study()
  
-    let mut gender = w.gender.tidy();
-    if gender.is_some()
-    {
-        let gen_res = gender.unwrap().to_lowercase();
-        if gen_res.contains("both")
+Study st = new();
+
+        List<Identifier> identifiers = new();
+        List<string> recruitmentCountries = new();
+        List<StudyCentre> centres = new();
+        List<StudyOutput> outputs = new();
+        List<StudyAttachedFile> attachedFiles = new();
+        List<StudyContact> contacts = new();
+        List<StudySponsor> sponsors = new();
+        List<StudyFunder> funders = new();
+        List<string> dataPolicies = new();
+
+        var tr = ft.trial;
+        if (tr is null)
         {
-            gender = Some("Both".to_string());
+            logging_helper.LogError("Unable to find ISRCTN trial data - cannot proceed");
+            return null;
         }
-        else
+        if (tr.isrctn?.value is null)
         {
-            let f = gen_res.contains("female") || gen_res.contains("women") || gen_res == "f";
-            let mut gen2 = gen_res.clone();
-            if f {
-                gen2 = gen_res.replace("female", "").replace("women", "")
-            }
-            let m = gen2.contains("male") || gen_res.contains("men") || gen_res == "m";
-            
-            if m && f
-            {
-                gender = Some("Both".to_string());
-            }
-            else if m {
-                gender = Some("Male".to_string());
-            }
-            else if f {
-                gender = Some("Female".to_string()); 
-            }
-            else if gen_res == "-" {
-                gender = None;
-            }
-            else // still no match...
-            {
-                gender = Some(format!("?? Unable to classify ({})", gen_res));
-            }
+            logging_helper.LogError("Unable to find ISRCTN value - cannot proceed");
+            return null;
         }
-    }
+        
+        st.sd_sid = "ISRCTN" + tr.isrctn.value.ToString("00000000");
+        st.dateIdAssigned = tr.isrctn?.dateAssigned;
+        st.lastUpdated = tr.lastUpdated;
 
-
-    let mut inc_crit = w.inclusion_criteria.tidy();
-    if inc_crit.is_some() {
-        let mut crit = inc_crit.unwrap();
-        if crit.to_lowercase().starts_with("inclusion criteria")
+        var d = tr.trialDescription;
+        if (d is not null)
         {
-            let complex_trim = |c| c == ' ' || c == ':' || c == ',';
-            crit = crit[18..].trim_matches(complex_trim).to_string();
+            st.title = d.title;
+            st.scientificTitle = d.scientificTitle;
+            st.acronym = d.acronym;
+            st.studyHypothesis = d.studyHypothesis;
+            st.primaryOutcome = d.primaryOutcome;
+            st.secondaryOutcome = d.secondaryOutcome;
+            st.trialWebsite = d.trialWebsite;
+            st.ethicsApproval = d.ethicsApproval;
 
-            if source_id == 100123  {
+            string? pes = d.plainEnglishSummary;
+            if (pes is not null)
+            {
+                // Attempt to find the beginning of the 'discarded' sections.
+                // If found discard those sections.
 
-                // remove last part of the ic
+                int endpos = pes.IndexOf("What are the possible benefits and risks", StringComparison.Ordinal);
+                if (endpos == -1)
+                {
+                    endpos = pes.IndexOf("What are the potential benefits and risks", StringComparison.Ordinal);
+                }
+                if (endpos != -1)
+                {
+                    pes = pes[..endpos];
+                }
 
-                let f = crit.find("Are the trial subjects under 18?");
-                if f.is_some() {
-                    let pos = f.unwrap();
-                    let crit2 = crit[..pos].to_string();
-                    let age_data = crit[pos..].to_string();
-                    let mut children: bool = false;
-                    let mut adult: bool = false;
-                    let mut aged: bool = false;
-
-                    if age_data.contains("Are the trial subjects under 18? yes") {
-                        children = true;
-
-                    }
-                    if age_data.contains("F.1.2 Adults (18-64 years) yes") {
-                        adult = true;
-
-                    }
-                    if age_data.contains("F.1.3 Elderly (>=65 years) yes") {
-                        aged = true;
-                    }
-                    
-                    if children {
-                        agemin = None;
-                        agemin_units = None;
-
-                        if !adult {
-                            agemax = Some("17".to_string());
-                            agemax_units = Some("Years".to_string());
-                        }
-                        else {     // adult 
-                            if !aged {
-                                agemax = Some("64".to_string());
-                                agemax_units = Some("Years".to_string());
-                            }
-                            else {    // no upper limit
-                                agemax = None;
-                                agemax_units = None;
-                            }
-                        }
-                    }
-                    else {     // no children
-                        if adult {
-                            agemin = Some("18".to_string());
-                            agemin_units = Some("Years".to_string());
-
-                            if !aged {
-                                agemax = Some("64".to_string());
-                                agemax_units = Some("Years".to_string());
-                            }
-                            else {
-                                agemax = None;
-                                agemax_units = None;
-                            }
-                        }
-                        else {       // aged only
-                            agemin = Some("65".to_string());
-                            agemin_units = Some("Years".to_string());
-
-                            agemax = None;
-                            agemax_units = None;
-                        }
-                    }
-                    
-                    crit = crit2;
+                pes = pes.Replace("Background and study aims", "Background and study aims\n");
+                pes = pes.Replace("Who can participate?", "\nWho can participate?\n");
+                pes = pes.Replace("What does the study involve?", "\nWhat does the study involve?\n");
+                pes = pes.CompressSpaces();
                 
+                st.plainEnglishSummary = pes;
+            }
+        }
+
+        var g = tr.trialDesign;
+        if (g is not null)
+        {
+            st.studyDesign = g.studyDesign;
+            st.primaryStudyDesign = g.primaryStudyDesign;
+            st.secondaryStudyDesign = g.secondaryStudyDesign;
+            st.trialSetting = g.trialSetting;
+            st.trialType = g.trialType;
+            st.overallStatusOverride = g.overallStatusOverride;
+            st.overallStartDate = g.overallStartDate;
+            st.overallEndDate = g.overallEndDate;
+        }
+
+        var p = tr.participants;
+        if (p is not null)
+        {
+            st.participantType = p.participantType;
+            st.inclusion = p.inclusion;
+            st.ageRange = p.ageRange;
+            st.gender = p.gender;
+            st.targetEnrolment = p.targetEnrolment;
+            st.totalFinalEnrolment = p.totalFinalEnrolment;
+            st.totalTarget = p.totalTarget;
+            st.exclusion = p.exclusion;
+            st.patientInfoSheet = p.patientInfoSheet;
+            st.recruitmentStart = p.recruitmentStart;
+            st.recruitmentEnd = p.recruitmentEnd;
+            st.recruitmentStatusOverride = p.recruitmentStatusOverride;
+
+            var trial_centres = p.trialCentres;
+            if (trial_centres?.Any() is true)
+            {
+                foreach (var cr in trial_centres)
+                {
+                    centres.Add(new StudyCentre(cr.name, cr.address, cr.city, 
+                                                cr.state, cr.country));
+                }
+            }
+
+            string[]? recruitment_countries = p.recruitmentCountries;
+            if (recruitment_countries?.Any() is true)
+            {
+                foreach(string s in recruitment_countries)
+                {
+                    // regularise these common alternative spellings
+                    var t = s.Replace("Korea, South", "South Korea");
+                    t = t.Replace("Congo, Democratic Republic", "Democratic Republic of the Congo");
+
+                    string t2 = t.ToLower();
+                    if (t2 == "england" || t2 == "scotland" ||
+                                    t2 == "wales" || t2 == "northern ireland")
+                    {
+                         t = "United Kingdom";
+                    }
+                    if (t2 == "united states of america")
+                    {
+                         t = "United States";
+                    }
+
+                    // Check for duplicates before adding,
+                    // especially after changes above
+
+                    if (recruitmentCountries.Count == 0)
+                    {
+                        recruitmentCountries.Add(t);
+                    }
+                    else
+                    {
+                        bool add_country = true;
+                        foreach (string cnt in recruitmentCountries)
+                        {
+                            if (cnt == t)
+                            {
+                                add_country = false;
+                                break;
+                            }
+                        }
+                        if (add_country)
+                        {
+                            recruitmentCountries.Add(t);
+                        }
+                    }
                 }
             }
         }
-        inc_crit = crit.replace_tags_and_unicodes();
-    }
 
-    let mut exc_crit = w.exclusion_criteria.tidy();
-    if exc_crit.is_some() {
-        let mut crit = exc_crit.unwrap();
-        if crit.to_lowercase().starts_with("exclusion criteria")
+        var c = tr.conditions?.condition;
+        if (c is not null)
         {
-            let complex_trim = |c| c == ' ' || c == ':' || c == ',';
-            crit = crit[18..].trim_matches(complex_trim).to_string();
+            st.conditionDescription = c.description;
+            st.diseaseClass1 = c.diseaseClass1;
+            st.diseaseClass2 = c.diseaseClass2;
         }
-        exc_crit = crit.replace_tags_and_unicodes();
-    }
 
-   
-    let mut ipd_plan = w.results_ipd_plan.replace_tags_and_unicodes();
-    if ipd_plan.is_some() {
-         let plan = ipd_plan.clone().unwrap().to_lowercase();
-         if plan.len() < 11 || plan == "not available" || plan == "not avavilable" 
-            || plan == "not applicable" || plan.starts_with("justification or reason for")  
+        var i = tr.interventions?.intervention;
+        if (i is not null)
         {
-            ipd_plan = None;
+            st.interventionDescription = i.description;
+            st.interventionType = i.interventionType;
+            st.phase = i.phase;
+            st.drugNames = i.drugNames;
         }
-    }
 
-    let mut ipd_description = w.results_ipd_description.replace_tags_and_unicodes();
-    if ipd_description.is_some() {
-         let desc = ipd_description.clone().unwrap().to_lowercase();
-         if desc.len() < 11 || desc == "not available" || desc == "not avavilable" 
-            || desc == "not applicable" || desc.starts_with("justification or reason for")  
+        var r = tr.results;
+        if (r is not null)
         {
-            ipd_description = None;
+            st.publicationPlan = r.publicationPlan;
+            st.ipdSharingStatement = r.ipdSharingStatement;
+            st.intentToPublish = r.intentToPublish;
+            st.publicationDetails = r.publicationDetails;
+            st.publicationStage = r.publicationStage;
+            st.biomedRelated = r.biomedRelated;
+            st.basicReport = r.basicReport;
+            st.plainEnglishReport = r.plainEnglishReport;
+
+            var dps = r.dataPolicies;
+            if (dps?.Any() is true)
+            {
+                foreach (string s in dps)
+                {
+                    dataPolicies.Add(s);
+                }
+            }
         }
-    }
-   
-    
-    Some(WHORecord  {
-        source_id: source_id, 
-        record_date: w.last_updated.as_iso_date(),
-        sd_sid: sid.clone(), 
-        pub_title: w.pub_title.replace_unicodes(),
-        scientific_title: w.scientific_title.replace_unicodes(),
-        remote_url: remote_url.clone(),
-        pub_contact_givenname: w.pub_contact_first_name.tidy(),
-        pub_contact_familyname: w.pub_contact_last_name.tidy(),
-        pub_contact_email: w.pub_contact_email.tidy(),
-        pub_contact_affiliation: w.pub_contact_affiliation.tidy(),
-        scientific_contact_givenname: w.sci_contact_first_name.tidy(),
-        scientific_contact_familyname: w.sci_contact_last_name.tidy(),
-        scientific_contact_email: w.sci_contact_email.tidy(),
-        scientific_contact_affiliation: w.sci_contact_affiliation.tidy(),
-        study_type_orig: w.study_type.tidy(),
-        study_type: study_type,
-        date_registration: w.date_registration.as_iso_date(),
-        date_enrolment: w.date_enrollement.as_iso_date(),
-        target_size: w.target_size.tidy(),
-        study_status_orig: w.recruitment_status.tidy(),
-        study_status: study_status,
-        primary_sponsor: w.primary_sponsor.tidy(),
-        secondary_sponsors: w.secondary_sponsors.tidy(),
-        source_support: w.source_support.tidy(),
-        interventions: w.interventions.replace_tags_and_unicodes(),
-        agemin: agemin,
-        agemin_units:agemin_units,
-        agemax: agemax,
-        agemax_units: agemax_units,
-        gender: gender,
-        inclusion_criteria: inc_crit,
-        exclusion_criteria: exc_crit,
-        primary_outcome: w.primary_outcome.replace_tags_and_unicodes(),
-        secondary_outcomes: w.secondary_outcomes.replace_tags_and_unicodes(),
-        bridging_flag: w.bridging_flag.tidy(),
-        bridged_type: w.bridged_type.tidy(),
-        childs: w.childs.tidy(),
-        type_enrolment: w.type_enrolment.tidy(),
-        retrospective_flag: w.retrospective_flag.tidy(),
-        results_actual_enrollment: w.results_actual_enrollment.tidy(),
-        results_url_link: w.results_url_link.tidy(),
-        results_summary: w.results_summary.tidy(),
-        results_date_posted: w.results_date_posted.as_iso_date(),
-        results_date_first_pub: w.results_date_first_pub.as_iso_date(),
-        results_url_protocol: w.results_url_protocol.tidy(),
-        ipd_plan: ipd_plan,
-        ipd_description:ipd_description,
-        results_date_completed: w.results_date_completed.as_iso_date(),
-        results_yes_no: w.results_yes_no.tidy(),
-        design_string: design_orig,
-        phase_string: phase_orig,
-        country_list: countries,
-        secondary_ids: study_idents,
-        study_features: study_features,
-        condition_list: conditions_option,
-        meddra_condition_list: meddraconds_option,
-    })
-}
-
-
-pub fn summarise_line(w: &WHOLine, i: i32) -> Option<WHOSummary>  {
-
-    let sid = w.trial_id.replace("/", "-").replace("\\", "-").replace(".", "-");
-    let mut sd_sid = sid.trim().to_string();
-    
-    if sd_sid == "" || sd_sid == "null" || sd_sid == "NULL" {        // Seems to happen, or has happened in the past, with one Dutch trial.
-        error!("Well that's weird - no study id on line {}!", i);
-        return None;
-    }
-
-    let source_id = get_source_id(&sd_sid);
-    if source_id == 0
-    {
-        error!("Well that's weird - can't match the study id's {} source on line {}!", sd_sid, i);
-        return None;
-    }
-
-    if source_id == 100123 {
-        sd_sid = sd_sid[0..19].to_string(); // lose country specific suffix
-    }
-
-    let mut title = w.pub_title.replace_unicodes();
-    if title.is_none() {
-        title = w.scientific_title.replace_unicodes();
-    }
-    
-    let study_type = w.study_type.tidy();
-    let stype = get_type(&study_type);
-
-    let status: i32;
-    if w.results_yes_no.to_lowercase() == "yes" {
-        status = 30;   // completed
-    }
-    else {
-        let study_status = w.recruitment_status.tidy();
-        status = get_status(&study_status);
-    }
-    
-    let mut secondary_ids = Vec::<SecondaryId>::new();
-    let sec_ids = w.sec_ids.tidy();
-
-    if sec_ids.is_some()
-    {
-        let mut initial_ids = split_and_add_ids(&secondary_ids, &sd_sid, &sec_ids.unwrap(), "secondary ids");
-        secondary_ids.append(&mut initial_ids);
-    }
         
-    let bridging_flag = w.bridging_flag.tidy();
-    if bridging_flag.is_some() {
-        let mut br_flag = bridging_flag.unwrap();
-
-        if source_id == 100123 {
-            static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{4}-[0-9]{6}-[0-9]{2}-").unwrap());
-            if RE.is_match(&br_flag) {
-                br_flag = br_flag[0..19].to_string() // lose country specific suffix
-            }
-        }
-        if br_flag != sd_sid
+        var er = tr.externalRefs;
+        if (er is not null)
         {
-            let mut bridge_ids = split_and_add_ids(&secondary_ids, &sd_sid, &br_flag, "bridging flag");
-            secondary_ids.append(&mut bridge_ids);
+            string? ext_ref = er.doi;
+            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
+                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
+            {
+                st.doi = ext_ref;
+            }
+
+            ext_ref = er.eudraCTNumber;
+            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
+                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
+            {
+                identifiers.Add(new Identifier(11, "Trial Registry ID", ext_ref, 100123, "EU Clinical Trials Register"));
+            }
+
+            ext_ref = er.irasNumber;
+            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
+                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
+            {
+                identifiers.Add(new Identifier(41, "Regulatory Body ID", ext_ref, 101409, "Health Research Authority"));
+            }
+
+            ext_ref = er.clinicalTrialsGovNumber;
+            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
+                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
+            {
+                identifiers.Add(new Identifier(11, "Trial Registry ID", ext_ref, 100120, "Clinicaltrials.gov"));
+            }
+
+            ext_ref = er.protocolSerialNumber;
+            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
+                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
+            {
+                if (ext_ref.Contains(';'))
+                {
+                    string[] id_items = ext_ref.Split(";");
+                    foreach (string id_item in id_items)
+                    {
+                        identifiers.Add(new Identifier(0, "To be determined", id_item.Trim(), 0, "To be determined"));
+                    }
+                }
+                else if (ext_ref.Contains(',') && (ext_ref.ToLower().Contains("iras") || ext_ref.ToLower().Contains("hta")))
+                {
+                    // Don't split on commas unless these common id types are included.
+
+                    string[] id_items = ext_ref.Split(",");
+                    foreach (string id_item in id_items)
+                    {
+                        identifiers.Add(new Identifier(0, "To be determined", id_item.Trim(), 0, "To be determined"));
+                    }
+                }
+                else
+                {
+                    identifiers.Add(new Identifier(0, "To be determined", ext_ref.Trim(), 0, "To be determined"));
+                }
+            }
         }
+
+        // Do additional files first
+        // so that details can be checked from the outputs data
+
+        var afs = tr.attachedFiles;
+        if (afs?.Any() is true)
+        {
+            foreach (var v in afs)
+            {
+                attachedFiles.Add(new StudyAttachedFile(v.description, v.name, v.id, v.@public));
+            }
+        }
+
+        var ops = tr.outputs;
+        if (ops?.Any() is true)
+        {
+            bool local_urls_collected = false;
+            Dictionary<string, string>? output_urls = null;
+
+            foreach (var v in ops)
+            {
+                StudyOutput sop = new StudyOutput(v.description, v.productionNotes, v.outputType,
+                            v.artefactType, v.dateCreated, v.dateUploaded, v.peerReviewed,
+                            v.patientFacing, v.createdBy, v.externalLink?.url, v.localFile?.fileId,
+                            v.localFile?.originalFilename, v.localFile?.downloadFilename,
+                            v.localFile?.version, v.localFile?.mimeType);
+                
+                if (sop.artefactType == "LocalFile")
+                {
+                    // First check it is in the attached files list and public.
+                    // (Not all listed local outputs are in the attached files
+                    // list - though the great majority are).
+
+                    if (attachedFiles?.Any() is true)
+                    {
+                        foreach (var af in attachedFiles) 
+                        { 
+                            if (sop.fileId == af.id) 
+                            {
+                                sop.localFilePublic = af.@public;
+                                break;
+                            }
+                        }
+                    }
+
+                    // need to go to the page to get the url for any local file
+                    // (Not available in the API data)
+                    // May have already been collected from an earlier output
+                    // in the 'ops' collection (i.e. if a study hgs 2 or more
+                    // local files). If not fill the url collection by web scraping.
+
+                    if (!local_urls_collected)
+                    {
+                        string details_url = "https://www.isrctn.com/" + st.sd_sid;
+                        ScrapingHelpers ch = new(logging_helper);
+                        Thread.Sleep(500);
+                        
+                        // ReSharper disable once RedundantAssignment (to study_page)
+                        // The initial web page access results in a blocking page
+                        // The second access is required to actually access the page.
+                        
+                        WebPage? study_page = await ch.GetPageAsync(details_url);
+                        Thread.Sleep(100); 
+                        study_page = await ch.GetPageAsync(details_url);
+                        if (study_page is not null)
+                        {
+                            output_urls = new();
+                            HtmlNode? section_div = study_page.Find("div", By.Class("l-Main")).FirstOrDefault();
+                            HtmlNode? article = section_div?.SelectSingleNode("article[1]");
+                            IEnumerable<HtmlNode>? publications = article?.SelectNodes("//section/div[1]/h2[text()='Results and Publications']/following-sibling::div[1]/h3");
+                            if (publications?.Any() is true)
+                            {
+                                foreach (var pub in publications)
+                                {
+                                    string? pub_name = pub.InnerText.Tidy();
+                                    if (pub_name == "Trial outputs")
+                                    {
+                                        HtmlNode? output_table = pub.SelectSingleNode("following-sibling::div[1]/table[1]/tbody[1]");
+                                        if (output_table is not null)
+                                        {
+                                            var table_rows = output_table.SelectNodes("tr");
+                                            if (table_rows?.Any() is true)
+                                            {
+                                                foreach (var table_row in table_rows)
+                                                {
+                                                    var output_attributes = table_row.SelectNodes("td")?.ToArray();
+                                                    if (output_attributes?.Any() is true)
+                                                    {
+                                                        HtmlNode? output_link = output_attributes[0]?.SelectSingleNode("a[1]");
+                                                        if (output_link is not null)
+                                                        {
+                                                            string? output_title = output_link.GetAttributeValue("title").ReplaceUnicodes();
+                                                            string? output_url = output_link.GetAttributeValue("href");
+                                                            if (!string.IsNullOrEmpty(output_title) && !string.IsNullOrEmpty(output_url))
+                                                            {
+                                                                if (!output_url.ToLower().StartsWith("http"))
+                                                                {
+                                                                    output_url = output_url.StartsWith("/") 
+                                                                        ? "https://www.isrctn.com" + output_url 
+                                                                        : "https://www.isrctn.com/" + output_url;
+                                                                }
+
+                                                                // Very occasionally the same file and output url is duplicated.
+                                                                // This must be trapped to avoid an exception.
+
+                                                                bool add_entry = true;
+                                                                if(output_urls.Count > 0)
+                                                                {
+                                                                    foreach(KeyValuePair<string, string> entry in output_urls)
+                                                                    {
+                                                                        if (output_title == entry.Key)
+                                                                        {
+                                                                            add_entry = false;
+                                                                            break;
+                                                                        }
+                                                                    }
+                                                                }
+                                                                
+                                                                if (add_entry)
+                                                                {
+                                                                    output_urls.Add(output_title, output_url);
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            local_urls_collected = true;
+                        }
+                    }
+
+                    if (output_urls?.Any() is true)
+                    {
+                        // Not clear if the original or download file name should
+                        // be used to try and match the url (normally identical).
+
+                        if (sop.downloadFilename is not null)
+                        {
+                            sop.localFileURL = output_urls[sop.downloadFilename];
+
+                            if (sop.localFileURL is null && sop.originalFilename is not null)
+                            {
+                                sop.localFileURL = output_urls[sop.originalFilename];
+                            }
+                        }
+                    }
+                }
+
+                outputs.Add(sop);
+            }
+           
+        }
+
+        var tr_contacts = ft.contact;
+        if(tr_contacts?.Any() is true)
+        {
+            foreach(var v in tr_contacts)
+            {
+                contacts.Add(new StudyContact(v.forename, v.surname, v.orcid, v.contactType,
+                             v.contactDetails?.address, v.contactDetails?.city, v.contactDetails?.country,
+                             v.contactDetails?.email));
+            }
+        }
+
+        var tr_sponsors = ft.sponsor;
+        if (tr_sponsors?.Any() is true)
+        {
+            foreach (var v in tr_sponsors)
+            {
+                sponsors.Add(new StudySponsor(v.organisation, v.website, v.sponsorType, v.gridId,
+                             v.contactDetails?.city, v.contactDetails?.country));            }
+        }
+
+        var tr_funders = ft.funder;
+        if (tr_funders?.Any() is true)
+        {
+            foreach (var v in tr_funders)
+            {
+                funders.Add(new StudyFunder(v.name, v.fundRef));
+            }
+        }
+
+        st.identifiers = identifiers;
+        st.recruitmentCountries = recruitmentCountries;
+        st.centres = centres;
+        st.outputs = outputs;
+        st.attachedFiles = attachedFiles;
+        st.contacts = contacts;
+        st.sponsors = sponsors;
+        st.funders = funders;
+        st.dataPolicies = dataPolicies;
+
+        return st;
     }
 
-    let childs = w.childs.tidy();
-    if childs.is_some()
-    {
-        let mut child_ids = split_and_add_ids(&secondary_ids, &sd_sid, &childs.unwrap(), "bridged child recs");
-        secondary_ids.append(&mut child_ids);
-    }
-
-    let secids = match secondary_ids.len() {
-        0 => None,
-        _ => Some(secondary_ids)
-    };
-   
-
-    let res_posted = get_naive_date (&w.results_date_posted);
-    let res_first_pub = get_naive_date (&w.results_date_first_pub);
-    let res_completed = get_naive_date (&w.results_date_completed);
-    let date_last_rev = get_naive_date (&w.last_updated);
-    
-    let date_reg = w.date_registration.as_iso_date();
-    let reg_year: i32 = match date_reg {
-        Some(d) => d[0..4].parse().unwrap_or(0),
-        None => 0,
-    };
-   
-    let mut table_name = get_db_name(source_id);
-    let mut suffix: &str;
-
-    if source_id == 100120 {
-        if reg_year < 2010 {
-            suffix = "_lt_2010";
-        }
-        else if reg_year < 2015 {
-            suffix = "_2010_14";
-        }
-        else if reg_year < 2020 {
-            suffix = "_2015_19";
-        }
-        else if reg_year < 2025 {
-            suffix = "_2020_24";
-        }
-        else {
-            suffix = "_2025_29";
-        }
-        table_name = table_name + suffix;
-    }
-
-    if source_id == 100118 || source_id == 100121 
-        || source_id == 100127 {
-        if reg_year < 2020 {
-            suffix = "_lt_2020";
-        }
-        else {
-            suffix = "_ge_2020";
-        }
-        table_name = table_name + suffix;
-    }
-    
-
-    let country_list = w.countries.tidy();
-    let countries: Option<Vec<String>>;
-    if country_list.is_some()
-    {
-        countries = split_and_dedup_countries(source_id, &country_list.unwrap());
-    }
-    else {
-        countries = None;
-    }
-  
-    Some(WHOSummary {
-        source_id: source_id, 
-        sd_sid: sd_sid, 
-        title: title,
-        remote_url: w.url.tidy(),
-        study_type: stype,
-        study_status: status,
-        secondary_ids: secids,
-        date_registration: w.date_registration.as_iso_date(),
-        date_enrolment: w.date_enrollement.as_iso_date(),
-        results_yes_no: w.results_yes_no.tidy(),
-        results_url_link: w.results_url_link.tidy(),
-        results_url_protocol: w.results_url_protocol.tidy(),
-        results_date_posted: res_posted,
-        results_date_first_pub: res_first_pub,
-        results_date_completed: res_completed,
-        table_name: table_name,
-        country_list: countries,
-        date_last_rev: date_last_rev,    // assumed to be always present
-    })
 }
 
 
-fn get_naive_date (dt: &String) -> Option<NaiveDate> {
 
-   match dt.as_iso_date()
-   {
-        Some(s) => {
-            let base_date = NaiveDate::parse_from_str("1900-01-01", "%Y-%m-%d").unwrap();
-            let d = match NaiveDate::parse_from_str(&s, "%Y-%m-%d") {
-                Ok(d) => d,
-                Err(_) => base_date,
-            };
-            
-            if d != base_date {
-                Some(d)
-            }
-            else {
-                None
-            }
-        },
-        None => None,
-   }
-}
 */

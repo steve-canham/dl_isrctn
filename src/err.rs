@@ -50,6 +50,9 @@ pub enum AppError {
 
     #[error("Reqwest error fetching from {0:?}")]
     ReqwestError(String, #[source] reqwest::Error),
+
+    #[error("Deserialisation error fetching from {0:?}")]
+    QuickXMLError(String, #[source] quick_xml::DeError),
 }
 
 
@@ -93,7 +96,7 @@ pub fn report_error(e: AppError) -> () {
 
         AppError::ReqwestError(url, e) => print_error (url, e.to_string(), "REQWEST ERROR"),
 
-
+        AppError::QuickXMLError(url, e) => print_error (url, e.to_string(), "QUICK XML DESER ERROR"),
     }
 }
 

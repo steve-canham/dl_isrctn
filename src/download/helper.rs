@@ -6,61 +6,6 @@ use regex::Regex;
 use std::collections::HashSet;
 
 
-pub fn get_source_id(sd_sid: &String) -> i32 {
-    let usid = sd_sid.to_uppercase();
-    match usid {
-        _ if usid.starts_with("NCT") => 100120,
-        _ if usid.starts_with("CHICTR") => 100118,
-        _ if usid.starts_with("CTRI") => 100121,
-        _ if usid.starts_with("JPRN") =>  100127,
-        _ if usid.starts_with("EUCTR") => 100123,
-        _ if usid.starts_with("ISRCTN") => 100126,
-        _ if usid.starts_with("ACTRN") => 100116,
-        _ if usid.starts_with("DRKS") => 100124,
-        _ if usid.starts_with("IRCT") => 100125,
-        _ if usid.starts_with("KCT") =>  100119,
-        _ if usid.starts_with("NL") || sd_sid.starts_with("NTR") => 100132,
-        _ if usid.starts_with("CTIS") => 110428,
-        _ if usid.starts_with("RBR") => 100117, 
-        _ if usid.starts_with("RPCEC") => 100122,
-        _ if usid.starts_with("PACTR") => 100128,
-        _ if usid.starts_with("PER") =>  100129,
-        _ if usid.starts_with("SLCTR") => 100130,
-        _ if usid.starts_with("TCTR") => 100131,
-        _ if usid.starts_with("LBCTR") => 101989,
-        _ if usid.starts_with("ITMCTR") => 109108,
-        _ => 0
-    }
-}
-
-pub fn get_db_name (source_id: i32) -> String {
-    let db_name = match source_id {
-        100120 => "ctg",
-        100116 => "anzctr",
-        100117 => "rebec",
-        100118 => "chictr",
-        100119 => "cris",
-        100121 => "ctri",
-        100122 => "rpcec",
-        100123 => "euctr",
-        100124 => "drks",
-        100125 => "irct",
-        100126 => "isrctn",
-        100127 => "jprn",
-        100128 => "pactr",
-        100129 => "rpuec",
-        100130 => "slctr",
-        100131 => "thctr",
-        100132 => "nntr",
-        110428 => "ctis",
-        101989 => "lebctr",
-        109108 => "itmctr",
-        _ => ""
-    };
-    db_name.to_string()
-}
-
-
 pub fn get_type(study_type: &Option<String>) -> i32 {
     
     if study_type.is_some() 
@@ -409,42 +354,6 @@ fn add_country_name(new_name:&str, out_strings: &Vec::<String>) -> bool {
 }
 
 
-pub fn add_eu_design_features(design: &String) -> Vec<WhoStudyFeature> {
-    let mut fs = Vec::<WhoStudyFeature>::new();
-    
-    // design list in forms such as (without line breaks)
-    // "Controlled: yes Randomised: yes Open: no Single blind: no Double blind: yes Parallel group: no 
-    //Cross over: no Other: no 
-    //If controlled, specify comparator, Other Medicinial Product: no Placebo: yes 
-    // Other: no Number of treatment arms in the trial: 3",
-    
-    //Controlled: yes Randomised: yes Open: no Single blind: no Double blind: yes 
-    //Parallel group: yes Cross over: no Other: yes 
-    //Other trial design description: 2 part of the study - first double-blind, second part open label 
-    //If controlled, specify comparator, 
-    //Other Medicinial Product: no Placebo: yes Other: no Number of treatment arms in the trial: 2"
-    
-    if design.contains("randomised: yes") {
-        fs.push(WhoStudyFeature::new(22, "Allocation type", 205, "Randomised"));
-    }
-    if design.contains("open: yes") {
-        fs.push(WhoStudyFeature::new(24, "Masking", 500, "None (Open Label)"));
-    }
-    if design.contains("single blind: yes") {
-        fs.push(WhoStudyFeature::new(24, "Masking", 505, "Single"));
-    }
-    if design.contains("double blind: yes") {
-        fs.push(WhoStudyFeature::new(24, "Masking", 510, "Double"));
-    }
-    if design.contains("parallel group: yes") {
-        fs.push(WhoStudyFeature::new(23, "Intervention model", 305, "Parallel assignment"));
-    }
-    if design.contains("cross over: yes") {
-        fs.push(WhoStudyFeature::new(23, "Intervention model", 310, "Crossover assignment"));
-    }
-
-    fs
-}
 
 pub fn add_int_study_features(design_list: &String) -> Vec<WhoStudyFeature>
 {
@@ -632,52 +541,6 @@ pub fn add_masking_features(design_list: &String) -> Vec<WhoStudyFeature>
     fs
 }
 
-
-
-pub fn add_eu_phase_features(phase_list: &String) -> Vec<WhoStudyFeature>
-{
-    let mut fs = Vec::<WhoStudyFeature>::new();
-    
-    // phase string in the form
-    //"Human pharmacology (Phase I): noTherapeutic exploratory (Phase II): yesTherapeutic confirmatory - (Phase III): noTherapeutic use (Phase IV): no"
-    // split on the colon
-
-    let mut p1 = false;
-    let mut p2 = false;
-    let mut p3 = false;
-    let ps: Vec<&str> = phase_list.split(':').into_iter().collect();
-    if ps[1].trim().starts_with("yes") {
-        p1 = true;
-    }
-    if ps[2].trim().starts_with("yes") {
-        p2 = true;
-    }
-    if ps[3].trim().starts_with("yes") {
-        p3 = true;
-    }
-    
-    if p1 && p2 {
-        fs.push(WhoStudyFeature::new(20, "Phase", 115, "Phase 1/Phase 2"));
-    }
-    else if p2 && p3 {
-        fs.push(WhoStudyFeature::new(20, "Phase", 125, "Phase 2/Phase 3"));
-    }
-    else if p1 {
-        fs.push(WhoStudyFeature::new(20, "phase", 110, "Phase 1"));
-    }
-    else if p2 {
-        fs.push(WhoStudyFeature::new(20, "Phase", 120, "Phase 2"));
-    }
-    else if p3 {
-        fs.push(WhoStudyFeature::new(20, "phase", 130, "Phase 3"));
-    }
-
-    if ps[4].trim().starts_with("yes") {
-        fs.push(WhoStudyFeature::new(20, "phase", 135, "Phase 4"));
-    }
-
-    fs
-}
 
 pub fn add_phase_features(phase: &String) -> Vec<WhoStudyFeature>
 {
