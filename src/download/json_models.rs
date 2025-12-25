@@ -1,264 +1,560 @@
 
-/*
 
-public class Study
+#[allow(dead_code)]
+pub struct Study2 {
+
+    pub isrctn_id: String,
+    pub sd_sid: String,
+}
+#[allow(dead_code)]
+impl Study2{
+    pub fn new() -> Self {
+        Study2 {  
+        isrctn_id: "00000000".to_string(),
+        sd_sid: "ISRCTN00000000".to_string(),
+        }
+   }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Study
 {
-    public string sd_sid { get; set; } = null!;
-    public string? dateIdAssigned { get; set; }
-    public string? lastUpdated { get; set; }
-    public string? title { get; set; }
-    public string? scientificTitle { get; set; }
-    public string? acronym { get; set; }
-    public string? doi { get; set; }
-    public string? studyHypothesis { get; set; }
-    public string? plainEnglishSummary { get; set; }
-    public string? primaryOutcome { get; set; }
-    public string? secondaryOutcome { get; set; }
-    public string? trialWebsite { get; set; }
-    public string? ethicsApproval { get; set; }
-    public string? studyDesign { get; set; }
-    public string? primaryStudyDesign { get; set; }
-    public string? secondaryStudyDesign { get; set; }
-    public string? trialSetting { get; set; }
-    public string? trialType { get; set; }
-    public string? overallStatusOverride { get; set; }
-    public string? overallStartDate { get; set; }
-    public string? overallEndDate { get; set; }
-    public string? participantType { get; set; }
-    public string? inclusion { get; set; }
-    public string? ageRange { get; set; }
-    public string? gender { get; set; }
-    public int? targetEnrolment { get; set; }
-    public string? totalFinalEnrolment { get; set; }
-    public string? totalTarget { get; set; }
-    public string? exclusion { get; set; }
-    public string? patientInfoSheet { get; set; }
-    public string? recruitmentStart { get; set; }
-    public string? recruitmentEnd { get; set; }
-    public string? recruitmentStatusOverride { get; set; }
-    public string? conditionDescription { get; set; }
-    public string? diseaseClass1 { get; set; }
-    public string? diseaseClass2 { get; set; }
-    public string? interventionDescription { get; set; }
-    public string? interventionType { get; set; }
-    public string? phase { get; set; }
-    public string? drugNames { get; set; }
-    public string? publicationPlan { get; set; }
-    public string? ipdSharingStatement { get; set; }
-    public string? intentToPublish { get; set; }
-    public string? publicationDetails { get; set; }
-    public string? publicationStage { get; set; }
-    public bool? biomedRelated { get; set; }
-    public string? basicReport { get; set; }
-    public string? plainEnglishReport { get; set; }
+    pub sd_sid: String, 
+    pub registration: Registration,
 
-    public List<Identifier>? identifiers { get; set; }
-    public List<string>? recruitmentCountries { get; set; }
-    public List<StudyCentre>? centres { get; set; }
-    public List<StudyOutput>? outputs { get; set; }
-    public List<StudyAttachedFile>? attachedFiles { get; set; }
-    public List<StudyContact>? contacts { get; set; }
-    public List<StudySponsor>? sponsors { get; set; }
-    public List<StudyFunder>? funders { get; set; }
-    public List<string>? dataPolicies { get; set; }
+    pub titles: Vec<Title>,
+    pub identifiers: Vec<Identifier>,
+    pub summary: Summary,
 
+    pub ethics: Ethics,
+    pub ethics_committees: Vec<EthicsCommittee>,
+
+    pub trial_types: Vec<String>,
+    pub trial_settings: Vec<String>,
+
+   /*
+    pub design: Design,
+    pub conditions: Vec<Condition>,
+    pub interventions: Vec<Intervention>,
+
+    pub contacts: Vec<StudyContact>,
+    pub sponsors: Vec<StudySponsor>,
+    pub funders: Vec<StudyFunder>,
+
+    pub participant_types: Vec<String>,
+    pub participants: Participants,
+
+    pub recruitment: Recruitment,
+    pub centres: Vec<StudyCentre>,
+    pub countries: Vec<String>,
+    pub trial_settings: Vec<String>,
+
+    pub data_policies: Vec<String>,
+    pub results: Results,
+    pub outputs: Vec<StudyOutput>,
+    pub attached_files: Vec<AttachedFile>,
+    pub ipd: IPD,
+    */
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Registration
+{
+    pub date_id_assigned: String,
+    pub last_updated: String,
+    pub version: String,
+    pub doi : String,
 }
 
 
-public class Identifier
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Summary
 {
-    public int? identifier_type_id { get; set; }
-    public string? identifier_type { get; set; }
+    pub plain_english_summary: String,
+    pub study_hypothesis: String,
+    pub primary_outcome: String,
+    pub secondary_outcome: String,
+    pub overall_end_date: String,
+    pub trial_website: String,
+}
 
-    public string? identifier_value { get; set; }
-    public int? identifier_org_id { get; set; }
-    public string? identifier_org { get; set; }
 
-    public Identifier()
-    { }
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Design
+{
+    pub study_design: String,
+    pub primary_study_design: String,
+    pub secondary_study_design: String,
+    pub phase: String,
+}
 
-    public Identifier(int? _identifier_type_id, string? _identifier_type, string? _identifier_value, 
-                      int? _identifier_org_id, string? _identifier_org)
-    {
-        identifier_type_id = _identifier_type_id;
-        identifier_type = _identifier_type;
-        identifier_value = _identifier_value;
-        identifier_org_id = _identifier_org_id;
-        identifier_org = _identifier_org;
+#[allow(dead_code)]
+impl Design {
+    pub fn new(study_design: String,  primary_study_design: String,
+    secondary_study_design: String,  phase: String) -> Self {
+        Design {
+           study_design,
+           primary_study_design,
+           secondary_study_design,
+           phase,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Ethics
+{
+    pub ethics_approval_required: String,
+    pub ethics_approval: String,
+}
+
+#[allow(dead_code)]
+impl Ethics {
+    pub fn new(ethics_approval_required: String, 
+        ethics_approval: String) -> Self {
+        Ethics {
+           ethics_approval_required,
+           ethics_approval,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct EthicsCommittee
+{
+    pub name: String,
+    pub approval_status: String,
+    pub status_date: String,
+    pub committee_reference: String,
+}
+
+#[allow(dead_code)]
+impl EthicsCommittee {
+    pub fn new(name: String, approval_status: String,  
+        status_date: String, committee_reference: String,) -> Self {
+        EthicsCommittee {
+           name,
+           approval_status,
+           status_date,
+           committee_reference,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Participants
+{
+    pub age_range: String,
+    pub l_age_limit: String,
+    pub l_age_limit_num: f32,
+    pub l_age_limit_units: String,
+    pub u_age_limit: String,
+    pub u_age_limit_num: f32,
+    pub u_age_limit_units: String,
+    pub gender: String,
+    pub inclusion: String,
+    pub exclusion: String,
+    pub patient_info_sheet: String,
+}
+
+#[allow(dead_code)]
+impl Participants {
+    pub fn new(age_range: String, l_age_limit: String, l_age_limit_num: f32,
+            l_age_limit_units: String, u_age_limit: String, u_age_limit_num: f32,
+            u_age_limit_units: String, gender: String, 
+            inclusion: String, exclusion: String, 
+            patient_info_sheet: String) -> Self {
+        Participants {
+            age_range,
+            l_age_limit,
+            l_age_limit_num,
+            l_age_limit_units,
+            u_age_limit,
+            u_age_limit_num,
+            u_age_limit_units,
+            gender,
+            inclusion,
+            exclusion,
+            patient_info_sheet,
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Recruitment
+{
+    pub target_enrolment: String,
+    pub total_final_enrolment: String,
+    pub total_target: String,
+    pub recruitment_start: String,
+    pub recruitment_end: String,
+    pub recruitment_start_status_override: String,
+    pub recruitment_status_override: String,
+}
+
+#[allow(dead_code)]
+impl Recruitment {
+    pub fn new(target_enrolment: String, total_final_enrolment: String,
+                total_target: String, recruitment_start: String,
+                recruitment_end: String, 
+                recruitment_start_status_override: String,
+                recruitment_status_override: String) -> Self {
+        Recruitment {
+            target_enrolment,
+            total_final_enrolment,
+            total_target,
+            recruitment_start,
+            recruitment_end,
+            recruitment_start_status_override,
+            recruitment_status_override,
+           
+        }
+    }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Results
+{
+    pub publication_plan: String,
+    pub intent_to_publish: String,
+    pub publication_details: String,
+    pub publication_stage: String,
+    pub biomed_related: bool,
+    pub basic_report: String,
+    pub plain_english_report: String,
+}
+
+// ?? additional fields to be opened up
+
+#[allow(dead_code)]
+impl Results {
+    pub fn new(publication_plan: String, intent_to_publish: String,
+            publication_details: String, publication_stage: String,
+            biomed_related: bool, basic_report: String,
+            plain_english_report: String) -> Self {
+        Results {
+            publication_plan,
+            intent_to_publish,
+            publication_details,
+            publication_stage,
+            biomed_related,
+            basic_report,
+            plain_english_report,
+        }
     }
 }
 
 
-public class StudyCentre
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct IPD
 {
-    public string? name { get; set; }
-    public string? address { get; set; }
-    public string? city { get; set; }
-    public string? state { get; set; }
-    public string? country { get; set; }
+    pub ipd_sharing_plan: String,    // Yes or No
+    pub ipd_sharing_statement: String,
 
-    public StudyCentre()
-    {
-    }
+}
 
-    public StudyCentre(string? _name, string? _address, string? _city,
-              string? _state, string? _country)
-    {
-        name = _name;
-        address = _address;
-        city = _city;
-        state = _state;
-        country = _country;
+// ?? additional fields to be opened up
 
+#[allow(dead_code)]
+impl IPD {
+    pub fn new(ipd_sharing_plan: String, ipd_sharing_statement: String) -> Self {
+        IPD {
+            ipd_sharing_plan,
+            ipd_sharing_statement,
+        }
+   }
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Condition
+{
+    pub description: String,
+    pub disease_class1: String,
+    pub disease_class2: String,
+}
+
+#[allow(dead_code)]
+impl Condition {
+    pub fn new(description: String, disease_class1: String, disease_class2: String) -> Self {
+        Condition {
+            description,
+            disease_class1,
+            disease_class2,
+        }
+   }
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Intervention 
+{
+    pub description: String,
+    pub int_type: String,
+    pub pharmaceutical_study_types: String,
+    pub drug_names: String,
+}
+
+
+#[allow(dead_code)]
+impl Intervention {
+    pub fn new(description: String, int_type: String, 
+        pharmaceutical_study_types: String,drug_names: String) -> Self {
+        Intervention {
+        description,
+        int_type,
+        pharmaceutical_study_types,
+        drug_names
+        }
+   }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Title
+{
+    pub title_type_id: i32,
+    pub title_type: String,
+    pub title_value: String,
+}
+
+#[allow(dead_code)]
+impl Title {
+    pub fn new(title_type_id: i32, title_type: String, title_value: String) -> Self {
+        Title {
+        title_type_id,
+        title_type,
+        title_value,
+        }
+   }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct Identifier
+{
+    pub identifier_type_id: i32,
+    pub identifier_type: String,
+    pub identifier_value: String,
+}
+
+#[allow(dead_code)]
+impl Identifier {
+    pub fn new(identifier_type_id: i32, identifier_type: String, identifier_value: String) -> Self {
+        Identifier {
+        identifier_type_id,
+        identifier_type,
+        identifier_value,
+        }
+   }
+}
+
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct StudyCentre
+{
+    pub name: String,
+    pub address: String,
+    pub city: String,
+    pub state: String,
+    pub country: String,
+}
+
+#[allow(dead_code)]
+impl StudyCentre{
+    pub fn new(name: String, address: String, city: String,
+               state: String, country: String) -> Self {
+        StudyCentre {
+        name,
+        address,
+        city,
+        state,
+        country,
+        }
     }
 }
 
-public class StudyOutput
+
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct StudyOutput
 {
-    public string? description { get; set; }
-    public string? productionNotes { get; set; }
-    public string? outputType { get; set; }
-    public string? artefactType { get; set; }
-    public string? dateCreated { get; set; }
-    public string? dateUploaded { get; set; }
-    public bool? peerReviewed { get; set; }
-    public bool? patientFacing { get; set; }
-    public string? createdBy { get; set; }
-    public string? externalLinkURL { get; set; }
-    public string? fileId { get; set; }
-    public string? localFileURL { get; set; }
-    public bool? localFilePublic { get; set; }
-    public string? originalFilename { get; set; }
-    public string? downloadFilename { get; set; }
-    public string? version { get; set; }
-    public string? mimeType { get; set; }
+    pub output_type: String,
+    pub artefact_type: String,
+    pub date_created: String,
+    pub date_uploaded: String,
+    pub peer_reviewed: bool,
+    pub patient_facing: bool,
+    pub created_by: String,
+    pub description: String,
+    pub production_notes: String,
+
+    pub external_link_url: String,
+
+    pub file_id: String,
+    pub original_filename: String,
+    pub download_filename: String,
+    pub version: String,
+    pub mime_type: String,
+
+}  
+
+#[allow(dead_code)]
+impl StudyOutput{
     
-    public StudyOutput()
-    {
-    }
-
-    public StudyOutput(string? _description, string? _productionNotes, 
-                       string? _outputType, string? _artefactType, string? _dateCreated,
-                       string? _dateUploaded, bool? _peerReviewed, bool? _patientFacing, 
-                       string? _createdBy, string? _externalLinkURL, string? _fileId,
-                       string? _originalFilename, string? _downloadFilename, 
-                       string? _version, string? _mimeType)
-    {
-        description = _description;
-        productionNotes = _productionNotes;
-        outputType = _outputType;
-        artefactType = _artefactType;
-        dateCreated = _dateCreated;
-        dateUploaded = _dateUploaded;
-        peerReviewed = _peerReviewed;
-        patientFacing = _patientFacing;
-        createdBy = _createdBy;
-        externalLinkURL = _externalLinkURL;
-        fileId = _fileId;
-        originalFilename = _originalFilename;
-        downloadFilename = _downloadFilename;
-        version = _version;
-        mimeType = _mimeType;
-    }
-
+    pub fn new(description: String,  production_notes: String, 
+                        output_type: String,  artefact_type: String,  date_created: String,
+                        date_uploaded: String, peer_reviewed: bool, patient_facing: bool, 
+                        created_by: String,  external_link_url: String, file_id: String,
+                        original_filename: String, download_filename: String, 
+                        version: String,  mime_type: String) -> Self {
+        StudyOutput {  
+            description,
+            production_notes,
+            output_type,
+            artefact_type,
+            date_created,
+            date_uploaded,
+            peer_reviewed,
+            patient_facing,
+            created_by,
+            external_link_url,
+            file_id,
+            original_filename,
+            download_filename,
+            version,
+            mime_type,
+            }
+        }
 }
 
 
-public class StudyAttachedFile
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct AttachedFile
 {
-    public string? description { get; set; }
-    public string? name { get; set; }
-    public string? id { get; set; }
-    public bool? @public { get; set; }
-    
-    public StudyAttachedFile()
-    {
-    }
+    pub description: String,
+    pub name: String,
+    pub id: String,
+    pub is_public: bool,
+    pub mime_type: String,
+}
 
-    public StudyAttachedFile(string? _description, string? _name, string? _id, bool? _public)
-    {
-        description = _description;
-        name = _name;
-        id = _id;
-        @public = _public;
+#[allow(dead_code)]
+impl AttachedFile{
+    pub fn new(description: String, name: String, id: String, 
+            is_public: bool, mime_type: String,) -> Self {
+        AttachedFile  {
+        description,
+        name,
+        id,
+        is_public,
+        mime_type,
+        }
     }
 }
 
-
-public class StudyContact
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct StudyContact
 {
-    public string? forename { get; set; }
-    public string? surname { get; set; }
-    public string? orcid { get; set; }
-    public string? contactType { get; set; }
-    public string? address { get; set; }
-    public string? city { get; set; }
-    public string? country { get; set; }
-    public string? email { get; set; }
-    
-    public StudyContact()
-    {
-    }
+    pub title: String,
+    pub forename: String,
+    pub surname: String,
+    pub orcid: String,
+    pub contact_type: String,
+    pub address: String,
+    pub city: String,
+    pub country: String,
+    pub email: String,
+    pub privacy: String,
+}
 
-    public StudyContact(string? _forename, string? _surname, string? _orcid, 
-                        string? _contactType, string? _address, 
-                        string? _city, string? _country, string? _email)
-    {
-        forename = _forename;
-        surname = _surname;
-        orcid = _orcid;
-        contactType = _contactType;
-        address = _address;
-        city = _city;
-        country = _country;
-        email = _email;
+#[allow(dead_code)]
+impl StudyContact{
+    pub fn new(title: String, forename: String,  surname: String,  orcid: String,
+           contact_type: String, address: String, city: String,  country: String,  
+           email: String, privacy: String) -> Self {
+        StudyContact {
+            title,
+            forename,
+            surname,
+            orcid,
+            contact_type,
+            address,
+            city,
+            country,
+            email,
+            privacy,
+        }
     }
 }
 
-
-public class StudySponsor
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct StudySponsor
 {
-    public string? organisation { get; set; }
-    public string? website { get; set; }
-    public string? sponsorType { get; set; }
-    public string? gridId { get; set; }    
-    public string? address { get; set; }
-    public string? city { get; set; }
-    public string? country { get; set; }
+    pub organisation: String,
+    pub website: String,
+    pub sponsor_type: String,
+    pub ror_id: String,    
+    pub address: String,
+    pub city: String,
+    pub country: String,
+    pub email: String,
+    pub privacy: String,
+    pub commercial_status: String,
+}
 
-    public StudySponsor()
-    {
-    }
-
-    public StudySponsor(string? _organisation, string? _website, 
-        string? _sponsorType, string? _gridId, 
-        string? _city, string? _country)
-    {
-        organisation = _organisation;
-        website = _website;
-        sponsorType = _sponsorType;
-        gridId = _gridId;
-        city = _city;
-        country = _country;
+#[allow(dead_code)]
+impl StudySponsor{
+        pub fn new(organisation: String,  website: String, 
+            sponsor_type: String, ror_id: String, 
+            address: String, city: String, country: String, email: String, 
+            privacy: String, commercial_status: String) -> Self {
+        StudySponsor {
+            organisation,
+            website,
+            sponsor_type,
+            ror_id,
+            address,
+            city,
+            country,
+            email,
+            privacy,
+            commercial_status,
+        }
     }
 }
 
-public class StudyFunder
+#[allow(dead_code)]
+#[derive(serde::Serialize)]
+pub struct StudyFunder
 {
-    public string? name { get; set; }
-    public string? fundRef { get; set; }
+    pub name: String,
+    pub fund_ref: String,
+}
 
-    public StudyFunder()
-    {
-    }
-
-    public StudyFunder(string? _name, string? _fundRef)
-    {
-        name = _name;
-        fundRef = _fundRef;
+#[allow(dead_code)]
+impl StudyFunder{
+    pub fn new(name: String, fund_ref: String) -> Self {
+        StudyFunder {  
+            name,
+            fund_ref,
+        }
     }
 }
 
-
-
-*/

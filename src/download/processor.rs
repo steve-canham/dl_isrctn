@@ -1,22 +1,224 @@
-/*
-use regex::Regex;
-use std::sync::LazyLock;
-use log::error;
-use chrono::NaiveDate;
+
+//use regex::Regex;
+//use std::sync::LazyLock;
+//use log::error;
+//use chrono::NaiveDate;
+use crate::download::xml_models;
+use crate::download::json_models; 
+use crate::err::AppError;
+use super::json_models::{Registration, Title, Identifier, Summary, Ethics, EthicsCommittee};
+/* 
 use super::who_helper::{get_db_name, get_source_id, get_type, get_status, 
     get_conditions, split_and_dedup_countries,
     add_int_study_features, add_obs_study_features, add_eu_design_features,
     add_masking_features, add_phase_features, add_eu_phase_features, split_and_add_ids};
 use super::gen_helper::{StringExtensions, DateExtensions};
-use super::file_models::{WHOLine, WHORecord, WhoStudyFeature, SecondaryId, WHOSummary, MeddraCondition};
+*/
+
+// processes study, returns json file model that model can be printed, 
+// and / or it can be saved to the database...
 
 
-// processes study, returns json file model
-// that model can be printed, 
-// and or it can be saved to the database...
+fn from_string_opt(so:&Option<String>) -> &str {
+    match so {
+        Some(s) => {
+            let st = s.trim();
+            if st == "" 
+            {
+                "null"
+            } else {
+                st
+            }
+        },
+        None => "null"
+    }
+}
 
-pub fn process_study()
+#[allow(unused_variables)]
+pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, AppError> {
+
+    let study = s.trial;
+    let description = study.trial_description;
+    let sd_sid = format!("ISRCTN{:?}", study.isrctn.value);
+
+    let blank_entry = "null"; // Used for checking for missing data 
+
+    // Set up registration data block.
+    let mut doi = from_string_opt(&study.external_refs.doi);
+    if doi == "N/A" || doi.starts_with("Nil ") || doi.starts_with("Not ") {
+       doi = blank_entry;
+    }
+
+    let datetime_id_assigned = from_string_opt(&study.isrctn.date_assigned);
+    let date_id_assigned = if datetime_id_assigned == blank_entry { blank_entry } else {&datetime_id_assigned[0..10]};
+    let datetime_lastupdated = from_string_opt(&study.last_updated).to_string();
+    let last_updated = if datetime_lastupdated == blank_entry { blank_entry } else {&datetime_lastupdated[0..10]};
+    
+    let registration = Registration {
+         date_id_assigned: date_id_assigned.to_string(),
+         last_updated: last_updated.to_string(),
+         version: from_string_opt(&study.version).to_string(),
+         doi: doi.to_string()
+    };
+
+    // Set up titles.
+    
+    let pt = from_string_opt(&description.title);
+    let st = from_string_opt(&description.scientific_title);
+    let ac = from_string_opt(&description.acronym);
+    let mut titles: Vec<Title> = Vec::new();
+
+    if pt != blank_entry {
+        titles.push(Title::new(15, "Public_title".to_string(), pt.to_string()));
+    }
+    if st != blank_entry && st != pt {
+            titles.push(Title::new(16, "Scientific title".to_string(), st.to_string()));
+    }
+    if ac != blank_entry && ac != pt && ac != st {
+            titles.push(Title::new(14, "Acronym".to_string(), ac.to_string()));
+    }
+
+    // Set up identifiers
+
+    let er = study.external_refs;
+    let mut identifiers: Vec<Identifier> = Vec::new();
+
+    let mut ema = from_string_opt(&er.eudra_ct_number);
+    if ema == "N/A" || ema.starts_with("Nil ") || ema.starts_with("Not ") {
+       ema = blank_entry;
+    }
+    if ema != blank_entry {
+        if &ema[4..6] == "-5" {
+            identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), ema.to_string()));
+        } else {
+           identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), ema.to_string()));
+        }
+    }
+
+    let mut iras = from_string_opt(&er.iras_number);
+    if iras == "N/A" || iras.starts_with("Nil ") || iras.starts_with("Not ") {
+       iras = blank_entry;
+    }
+    if iras != blank_entry {
+        identifiers.push(Identifier::new(303, "IRAS Id".to_string(), iras.to_string()));
+    }
+
+    let mut ctg = from_string_opt(&er.ctg_number);
+    if ctg == "N/A" || ctg.starts_with("Nil ") || ctg.starts_with("Not ") {
+       ctg = blank_entry;
+    }
+    if ctg != blank_entry {
+        identifiers.push(Identifier::new(120, "NCT ID".to_string(), ctg.to_string()));
+    }
+
+    let mut prot = from_string_opt(&er.protocol_serial_number);
+    if prot == "N/A" || prot.starts_with("Nil ") || prot.starts_with("Not ") {
+       prot = blank_entry;
+    }
+    if prot != blank_entry {
+        identifiers.push(Identifier::new(502, "Sponsor's id (presumed)".to_string(), prot.to_string()));
+    }
+
+    let ids = er.secondary_number_list.secondary_numbers;
+    if let Some(nums) = ids {
+        for num in &nums {
+            let num_string = from_string_opt(&num.value);
+            if num_string != "N/A" && !num_string.starts_with("Nil ") && !num_string.starts_with("Not ") {
+                // Has number already been supplied? - in almost all cases they seem to be
+                if is_a_new_num(num_string, &identifiers) {
+                    identifiers.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), num_string.to_string()));
+                }
+            }
+        }
+    }
+
+    let datetime_end = from_string_opt(&study.trial_design.overall_end_date).to_string();
+    let overall_end_date = if datetime_lastupdated == blank_entry { blank_entry } else {&datetime_lastupdated[0..10]};
+
+    let summary = Summary {
+        plain_english_summary: from_string_opt(&description.plain_english_summary).to_string(),
+        study_hypothesis: from_string_opt(&description.study_hypothesis).to_string(),
+        primary_outcome: from_string_opt(&description.primary_outcome).to_string(),
+        secondary_outcome: from_string_opt(&description.secondary_outcome).to_string(),
+        overall_end_date: overall_end_date.to_string(),
+        trial_website: from_string_opt(&description.trial_website).to_string(),
+    };
+
+    let ethics = Ethics {
+        ethics_approval_required: from_string_opt(&description.ethics_approval_required).to_string(),
+        ethics_approval: from_string_opt(&description.ethics_approval).to_string(),
+    };
+
+    let mut ethics_committees = Vec::new();
+    if description.ethics_committee_list.ethics_committees.len() > 0 {
+        for ec in description.ethics_committee_list.ethics_committees {
+            let status_datetime = from_string_opt(&ec.status_date).to_string();
+            let status_date = if status_datetime == blank_entry { blank_entry } else {&status_datetime[0..10]};
+
+            let committee = EthicsCommittee {
+                name: from_string_opt(&ec.committee_name).to_string(),
+                approval_status: from_string_opt(&ec.approval_status).to_string(),
+                status_date: status_date.to_string(),
+                committee_reference: from_string_opt(&ec.committee_reference).to_string(),
+            };
+            ethics_committees.push(committee);
+        }
+    }
+
+    let mut trial_types: Vec<String> = Vec::new();
+    if study.trial_design.trial_type_list.trial_types.len() > 0 {
+        for tt in study.trial_design.trial_type_list.trial_types {
+            trial_types.push(from_string_opt(&tt.trial_type).to_string());
+        }
+    }
+    
+    let mut trial_settings: Vec<String> = Vec::new();
+    if study.trial_design.trial_setting_list.trial_settings.len() > 0 {
+        for ts in study.trial_design.trial_setting_list.trial_settings {
+            trial_settings.push(from_string_opt(&ts.trial_setting).to_string());
+        }
+    }
+
+    
+
+
+    
  
+    let _contacts = s.contacts;
+    let _sponsors = s.sponsors;
+    let _funders = s.funders;
+
+    let json_study = json_models::Study { 
+        sd_sid, 
+        registration, 
+        titles, 
+        identifiers,
+        summary,
+        ethics,
+        ethics_committees,
+        trial_types,
+        trial_settings,
+    };
+
+    Ok(json_study)
+
+}
+
+
+fn is_a_new_num(num_string: &str, identifiers: &Vec<Identifier>) -> bool {
+
+    let mut res = true;
+    for id in identifiers {
+        if num_string == id.identifier_value {
+            res = false;
+            break;
+        }
+    }
+    res
+}
+
+
+/*
 Study st = new();
 
         List<Identifier> identifiers = new();
@@ -203,66 +405,6 @@ Study st = new();
                 foreach (string s in dps)
                 {
                     dataPolicies.Add(s);
-                }
-            }
-        }
-        
-        var er = tr.externalRefs;
-        if (er is not null)
-        {
-            string? ext_ref = er.doi;
-            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
-                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
-            {
-                st.doi = ext_ref;
-            }
-
-            ext_ref = er.eudraCTNumber;
-            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
-                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
-            {
-                identifiers.Add(new Identifier(11, "Trial Registry ID", ext_ref, 100123, "EU Clinical Trials Register"));
-            }
-
-            ext_ref = er.irasNumber;
-            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
-                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
-            {
-                identifiers.Add(new Identifier(41, "Regulatory Body ID", ext_ref, 101409, "Health Research Authority"));
-            }
-
-            ext_ref = er.clinicalTrialsGovNumber;
-            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
-                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
-            {
-                identifiers.Add(new Identifier(11, "Trial Registry ID", ext_ref, 100120, "Clinicaltrials.gov"));
-            }
-
-            ext_ref = er.protocolSerialNumber;
-            if (!string.IsNullOrEmpty(ext_ref) && ext_ref != "N/A" 
-                                               && ext_ref != "Not Applicable" && ext_ref != "Nil known")
-            {
-                if (ext_ref.Contains(';'))
-                {
-                    string[] id_items = ext_ref.Split(";");
-                    foreach (string id_item in id_items)
-                    {
-                        identifiers.Add(new Identifier(0, "To be determined", id_item.Trim(), 0, "To be determined"));
-                    }
-                }
-                else if (ext_ref.Contains(',') && (ext_ref.ToLower().Contains("iras") || ext_ref.ToLower().Contains("hta")))
-                {
-                    // Don't split on commas unless these common id types are included.
-
-                    string[] id_items = ext_ref.Split(",");
-                    foreach (string id_item in id_items)
-                    {
-                        identifiers.Add(new Identifier(0, "To be determined", id_item.Trim(), 0, "To be determined"));
-                    }
-                }
-                else
-                {
-                    identifiers.Add(new Identifier(0, "To be determined", ext_ref.Trim(), 0, "To be determined"));
                 }
             }
         }

@@ -22,41 +22,38 @@ pub struct TrialList
 }
 */
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct FullTrial
 {
     pub trial: Trial,
 
-    #[serde(default)]
-    pub contact: Vec<Contact>,
-    #[serde(default)]
-    pub sponsor: Vec<Sponsor>,
-    #[serde(default)]
-    pub funder: Vec<Funder>,
+    #[serde(rename = "contact", default)]
+    pub contacts: Vec<Contact>,
+    #[serde(rename = "sponsor", default)]
+    pub sponsors: Vec<Sponsor>,
+    #[serde(rename = "funder", default)]
+    pub funders: Vec<Funder>,
 }
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct TrialAgents          // stripped down version of FullTrial for testing purposes
 {
-    #[serde(default)]
-    pub contact: Vec<Contact>,
-    #[serde(default)]
-    pub sponsor: Vec<Sponsor>,
-    #[serde(default)]
-    pub funder: Vec<Funder>,
+    #[serde(rename = "contact", default)]
+    pub contacts: Vec<Contact>,
+    #[serde(rename = "sponsor", default)]
+    pub sponsors: Vec<Sponsor>,
+    #[serde(rename = "funder", default)]
+    pub funders: Vec<Funder>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Trial
 {
     #[serde(rename = "@lastUpdated")]
-    last_updated:  Option<String>,
+    pub last_updated:  Option<String>,
     #[serde(rename = "@version")]
-    version:  Option<String>,
+    pub version:  Option<String>,
 
     pub isrctn: Isrctn,
     #[serde(rename = "trialDescription")]
@@ -77,7 +74,6 @@ pub struct Trial
 
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Isrctn
 {
@@ -87,7 +83,6 @@ pub struct Isrctn
     pub value: i32,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Description
 {
@@ -118,22 +113,18 @@ pub struct Description
     #[serde(rename = "ethicsApprovalRequired")]
     pub ethics_approval_required: Option<String>,
     #[serde(rename = "ethicsCommittees")]
-    pub ethics_committees: EthicsCommitteeList,
+    pub ethics_committee_list: EthicsCommitteeList,
     #[serde(rename = "ethicsApproval")]
     pub ethics_approval: Option<String>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct EthicsCommitteeList
 {
     #[serde(rename = "ethicsCommittee", default)]
-    pub ethics_committee: Vec<EthicsCommittee>,
+    pub ethics_committees: Vec<EthicsCommittee>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct EthicsCommittee
 {
@@ -151,7 +142,6 @@ pub struct EthicsCommittee
     pub committee_reference: Option<String>,
 }
 
-
 /* 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct PrimaryOutcome
@@ -168,7 +158,6 @@ pub struct SecondaryOutcome
 }
 */
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ExternalRefs
 {
@@ -182,14 +171,14 @@ pub struct ExternalRefs
     #[serde(rename = "protocolSerialNumber")]    
     pub protocol_serial_number: Option<String>,
     #[serde(rename = "secondaryNumbers")]
-    pub secondary_numbers: SecondaryNumberList,
+    pub secondary_number_list: SecondaryNumberList,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct SecondaryNumberList
 {
     #[serde(rename = "secondaryNumber", default)]
-    pub secondary_number: Option<Vec<SecondaryNumber>>,
+    pub secondary_numbers: Option<Vec<SecondaryNumber>>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -203,7 +192,6 @@ pub struct SecondaryNumber
     pub value: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Design
 {
@@ -214,9 +202,9 @@ pub struct Design
     #[serde(rename = "secondaryStudyDesign")]
     pub secondary_study_design: Option<String>,
     #[serde(rename = "trialSettings")]
-    pub trial_settings: TrialSettingList,
+    pub trial_setting_list: TrialSettingList,
     #[serde(rename = "trialTypes")]
-    pub trial_types: TrialTypeList,
+    pub trial_type_list: TrialTypeList,
     #[serde(rename = "overallEndDate")]
     pub overall_end_date: Option<String>,
 }
@@ -225,7 +213,7 @@ pub struct Design
 pub struct TrialSettingList
 {
     #[serde(rename = "trialSetting", default)]
-    pub trial_setting: Vec<TrialSetting>,
+    pub trial_settings: Vec<TrialSetting>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -239,7 +227,7 @@ pub struct TrialSetting
 pub struct TrialTypeList
 {
     #[serde(rename = "trialType", default)]
-    pub trial_type: Vec<TrialType>,
+    pub trial_types: Vec<TrialType>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -249,7 +237,6 @@ pub struct TrialType
     pub trial_type: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Participants
 {
@@ -294,8 +281,8 @@ pub struct Participants
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct CountryList
 {
-    #[serde(default)]
-    pub country: Vec<Country>,
+    #[serde(rename = "country", default)]
+    pub countries: Vec<Country>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -309,7 +296,7 @@ pub struct Country
 pub struct CentreList
 {
     #[serde(rename = "trialCentre")]
-    pub trial_centres: Vec<Centre>,
+    pub centres: Vec<Centre>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -330,7 +317,7 @@ pub struct Centre
 pub struct ParticipantTypeList
 {
     #[serde(rename = "participantType", default)]
-    pub participant_type: Vec<ParticipantType>,
+    pub participant_types: Vec<ParticipantType>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -351,15 +338,13 @@ pub struct AgeLimit
     pub value: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ConditionList
 {
-    #[serde(default)]
-    pub condition: Vec<Condition>,
+    #[serde(rename = "condition", default)]
+    pub conditions: Vec<Condition>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Condition
 {
@@ -372,15 +357,13 @@ pub struct Condition
     pub disease_class2: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct InterventionList
 {
-    #[serde(default)]
-    pub intervention: Vec<Intervention>,
+    #[serde(rename = "intervention", default)]
+    pub interventions: Vec<Intervention>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Intervention
 {
@@ -394,7 +377,6 @@ pub struct Intervention
     pub drug_names: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Results
 {
@@ -422,7 +404,7 @@ pub struct Results
 pub struct DataPolicyList
 {
     #[serde(rename = "dataPolicy", default)]
-    pub data_policy: Vec<DataPolicy>,
+    pub data_policies: Vec<DataPolicy>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -432,15 +414,13 @@ pub struct DataPolicy
     pub data_policy: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct OutputList
 {
-    #[serde(default)]
-    pub output: Option<Vec<Output>>,
+    #[serde(rename = "output", default)]
+    pub outputs: Option<Vec<Output>>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Output
 {
@@ -472,7 +452,6 @@ pub struct Output
 
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct LocalFile
 {
@@ -492,7 +471,6 @@ pub struct LocalFile
     pub md5sum: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ExternalLink
 {
@@ -500,7 +478,6 @@ pub struct ExternalLink
     pub url: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Parties
 {
@@ -514,7 +491,6 @@ pub struct Parties
     pub sponsor_ids: Option<Vec<String>>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Miscellaneous
 {
@@ -522,12 +498,11 @@ pub struct Miscellaneous
     ipd_sharing_plan: Option<String>, // Yes or No
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct AttachedFileList
 {
     #[serde(rename = "attachedFile", default)]
-    pub attached_file: Option<Vec<AttachedFile>>
+    pub attached_files: Option<Vec<AttachedFile>>
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -546,7 +521,6 @@ pub struct AttachedFile
     pub md5sum: Option<String>,
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Contact
 {
@@ -558,24 +532,28 @@ pub struct Contact
     pub surname:  Option<String>,
     pub orcid:  Option<String>,
   
-    #[serde(rename = "contactTypes", default)]
-    pub contact_types: Vec<ContactType>,
+    #[serde(rename = "contactTypes")]
+    pub contact_types:ContactTypeList,
 
     #[serde(rename = "contactDetails")]
     pub contact_details: ContactDetails,
     pub privacy:  Option<String>,
 }
 
-#[allow(dead_code)]
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct ContactTypeList
+{
+    #[serde(rename = "contactType", default)]
+    pub contact_type_list:  Vec<ContactType>,
+}
+
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ContactType
 {
-    #[serde(rename = "contactType")]
+    #[serde(rename = "$value")]
     pub contact_type:  Option<String>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Sponsor
 {
@@ -599,8 +577,6 @@ pub struct Sponsor
     pub commercial_status:  Option<String>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ContactDetails
 {
@@ -613,8 +589,6 @@ pub struct ContactDetails
     pub email:  Option<String>,
 }
 
-
-#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct Funder
 {
@@ -667,7 +641,7 @@ mod tests {
             value:Some("CPMS2023".to_string()), 
         };
         let sec_num_list = SecondaryNumberList {
-            secondary_number: Some(vec![secnum1, secnum2, secnum3]),
+            secondary_numbers: Some(vec![secnum1, secnum2, secnum3]),
         };
         
         let der_struct: SecondaryNumberList = quick_xml::de::from_str(xml_string).unwrap();
@@ -708,7 +682,7 @@ mod tests {
             value:Some("CPMS2023".to_string()), 
         };
         let sec_num_list = SecondaryNumberList {
-            secondary_number: Some(vec![secnum1, secnum2, secnum3]),
+            secondary_numbers: Some(vec![secnum1, secnum2, secnum3]),
         };
 
         let exrefs = ExternalRefs {
@@ -717,7 +691,7 @@ mod tests {
             iras_number: Some("".to_string()),
             ctg_number: Some("Nil known".to_string()),
             protocol_serial_number: Some("CPMS2023".to_string()),
-            secondary_numbers: sec_num_list,
+            secondary_number_list: sec_num_list,
         };
         
         let der_struct: ExternalRefs = quick_xml::de::from_str(xml_string).unwrap();
@@ -739,7 +713,7 @@ mod tests {
         </externalRefs>"#;
 
         let sec_num_list = SecondaryNumberList {
-            secondary_number: None,
+            secondary_numbers: None,
         };
 
         let exrefs = ExternalRefs {
@@ -748,7 +722,7 @@ mod tests {
             iras_number: Some("".to_string()),
             ctg_number: Some("Nil known".to_string()),
             protocol_serial_number: Some("CPMS2023".to_string()),
-            secondary_numbers: sec_num_list,
+            secondary_number_list: sec_num_list,
         };
         
         let der_struct: ExternalRefs = quick_xml::de::from_str(xml_string).unwrap();
@@ -809,7 +783,7 @@ mod tests {
         };
 
         let eclist = EthicsCommitteeList { 
-            ethics_committee: vec![ecomm],
+            ethics_committees: vec![ecomm],
         };
         
         let td = Description {
@@ -826,7 +800,7 @@ mod tests {
             secondary_outcome: Some("Transfer or not measured using data collected during a telephone call every 6 months".to_string()),
             trial_website: Some("".to_string()),
             ethics_approval_required: Some("Ethics approval required".to_string()),
-            ethics_committees: eclist,
+            ethics_committee_list: eclist,
             ethics_approval: None,
         };
 
@@ -859,19 +833,19 @@ mod tests {
         };
 
         let tt_list = TrialTypeList {
-            trial_type: vec![tt1, tt2],
+            trial_types: vec![tt1, tt2],
         };
 
         let ts_list = TrialSettingList {
-            trial_setting: vec![],
+            trial_settings: vec![],
         };
 
         let des = Design {
             study_design: Some("Observational cohort study".to_string()),
             primary_study_design: Some("Observational".to_string()),
             secondary_study_design: Some("Cohort study".to_string()),
-            trial_types: tt_list,
-            trial_settings: ts_list,
+            trial_type_list: tt_list,
+            trial_setting_list: ts_list,
             overall_end_date: Some("2024-06-12T00:00:00.000Z".to_string()),
         };
         
@@ -935,7 +909,7 @@ mod tests {
         };
 
         let cy_list = CountryList {
-            country: vec![cy1, cy2],
+            countries: vec![cy1, cy2],
         };
 
         let cn1 = Centre {
@@ -959,7 +933,7 @@ mod tests {
         };
 
         let cn_list = CentreList {
-            trial_centres: vec![cn1, cn2],
+            centres: vec![cn1, cn2],
         };
 
         let pt1 = ParticipantType {
@@ -971,7 +945,7 @@ mod tests {
         };
 
         let pt_list = ParticipantTypeList {
-            participant_type: vec![pt1, pt2],
+            participant_types: vec![pt1, pt2],
         };
 
         let lal = AgeLimit {
@@ -1033,7 +1007,7 @@ mod tests {
         };
 
         let c_list = ConditionList {
-            condition: vec![c1],
+            conditions: vec![c1],
         };
         
         let der_struct: ConditionList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1072,7 +1046,7 @@ mod tests {
         };
 
         let c_list  = ConditionList {
-            condition: vec![c1, c2],
+            conditions: vec![c1, c2],
         };
         
         let der_struct: ConditionList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1102,7 +1076,7 @@ mod tests {
         };
 
         let i_list = InterventionList {
-            intervention: vec![i1],
+            interventions: vec![i1],
         };
 
         let der_struct: InterventionList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1147,7 +1121,7 @@ mod tests {
         };
 
         let i_list = InterventionList {
-            intervention: vec![i1, i2],
+            interventions: vec![i1, i2],
         };
         
         let der_struct: InterventionList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1182,7 +1156,7 @@ mod tests {
         };
 
         let dp_list = DataPolicyList {
-            data_policy: vec![dp1, dp2]
+            data_policies: vec![dp1, dp2]
         };
 
         let res = Results {
@@ -1293,7 +1267,7 @@ mod tests {
         };
         
         let outs = OutputList {
-            output: Some(vec![out1, out2, out3])
+            outputs: Some(vec![out1, out2, out3])
         };
         
         let der_struct: OutputList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1307,7 +1281,7 @@ mod tests {
         let xml_string = r#"<outputs> </outputs>"#;
 
         let outs = OutputList {
-            output: None
+            outputs: None
         };
         
         let der_struct: OutputList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1374,7 +1348,7 @@ mod tests {
         let xml_string = r#"<attachedFiles/>"#;
 
         let atts = AttachedFileList {
-            attached_file: None,
+            attached_files: None,
         };
         
         let der_struct: AttachedFileList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1429,7 +1403,7 @@ mod tests {
         };
         
         let atts = AttachedFileList {
-            attached_file: Some(vec![af1, af2]),
+            attached_files: Some(vec![af1, af2]),
         };
         
         let der_struct: AttachedFileList = quick_xml::de::from_str(xml_string).unwrap();
@@ -1575,6 +1549,7 @@ mod tests {
             <orcid/>
             <contactTypes>
                 <contactType>Scientific</contactType>
+                <contactType>Public</contactType>
             </contactTypes>
             <contactDetails>
                 <address>Delphi GmbH Kaiserdamm 8</address>
@@ -1588,9 +1563,17 @@ mod tests {
             <privacy>Public</privacy>
         </contact>"#;
 
-        let ct = ContactType {
+        let ct1 = ContactType {
             contact_type: Some("Scientific".to_string()),
         };
+        let ct2 = ContactType {
+            contact_type: Some("Public".to_string()),
+        };
+
+        let ct_list = ContactTypeList {
+            contact_type_list: vec![ct1, ct2],
+        };
+
         let cdets = ContactDetails {
             address: Some("Delphi GmbH Kaiserdamm 8".to_string()),
             city: Some("Berlin".to_string()),
@@ -1600,13 +1583,14 @@ mod tests {
             telephone: Some("-".to_string()),
             email: Some("jonas@delphi-gesellschaft.de".to_string()),
         };
+
         let cn  = Contact {
             id: "8fad61c9-9167-4fc3-a286-826b5eeec568".to_string(),
             title: Some("Mr".to_string()),
             forename: Some("Benjamin".to_string()),
             surname: Some("Jonas".to_string()),
             orcid: Some("".to_string()),
-            contact_types: vec![ct],
+            contact_types: ct_list,
             contact_details: cdets,
             privacy: Some("Public".to_string()),
         };
@@ -1689,6 +1673,12 @@ mod tests {
         let ct1 = ContactType {
             contact_type: Some("Public".to_string()),
         };
+
+        let ct_list1 = ContactTypeList {
+            contact_type_list: vec![ct1],
+        };
+
+
         let cdets1 = ContactDetails {
             address: Some("Ul. Plachkovitsa 1, Entr. A, Floor 5, Apt.18 ".to_string()),
             city: Some("Sofia".to_string()),
@@ -1698,19 +1688,26 @@ mod tests {
             telephone: Some("".to_string()),
             email: Some("".to_string()),
         };
+
         let c1  = Contact {
             id: "a407a287-d1a5-4f7f-921b-c9a4cf8a8efc".to_string(),
             title: Some("Mr".to_string()),
             forename: Some("Christopher".to_string()),
             surname: Some("Hutchison".to_string()),
             orcid: Some("".to_string()),
-            contact_types: vec![ct1],
+            contact_types: ct_list1,
             contact_details: cdets1,
             privacy: Some("Protected".to_string()),
         };
+
         let ct2 = ContactType {
             contact_type: Some("Scientific".to_string()),
         };
+
+        let ct_list2 = ContactTypeList {
+            contact_type_list: vec![ct2],
+        };
+
         let cdets2 = ContactDetails {
             address: Some("\n                    Preston Specialist Mobility Rehabilitation Centre Preston Business Centre Watling Street Road\n                    ".to_string()),
             city: Some(" Fulwood, Preston".to_string()),
@@ -1726,7 +1723,7 @@ mod tests {
             forename: Some("Fergus".to_string()),
             surname: Some("Jepson".to_string()),
             orcid: Some("".to_string()),
-            contact_types: vec![ct2],
+            contact_types: ct_list2,
             contact_details: cdets2,
             privacy: Some("Protected".to_string()),
         };
@@ -1760,9 +1757,9 @@ mod tests {
             fund_ref: None,
         };
         let ta  = TrialAgents {
-            contact: vec![c1, c2],
-            sponsor: vec![sp],
-            funder: vec![f1, f2],
+            contacts: vec![c1, c2],
+            sponsors: vec![sp],
+            funders: vec![f1, f2],
         };
         let der_struct: TrialAgents = quick_xml::de::from_str(xml_string).unwrap();
         assert_eq!(ta, der_struct);
