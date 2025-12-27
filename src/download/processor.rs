@@ -1,4 +1,6 @@
 
+use crate::download::json_models::Participants;
+//use log::info;
 //use regex::Regex;
 //use std::sync::LazyLock;
 //use log::error;
@@ -6,14 +8,13 @@
 use crate::download::xml_models;
 use crate::download::json_models; 
 use crate::err::AppError;
-use super::json_models::{Registration, Title, Identifier, Summary, Ethics, EthicsCommittee};
-/* 
-use super::who_helper::{get_db_name, get_source_id, get_type, get_status, 
-    get_conditions, split_and_dedup_countries,
-    add_int_study_features, add_obs_study_features, add_eu_design_features,
-    add_masking_features, add_phase_features, add_eu_phase_features, split_and_add_ids};
-use super::gen_helper::{StringExtensions, DateExtensions};
-*/
+use super::json_models::{Registration, Title, Identifier, Summary, Design, 
+            Ethics, EthicsCommittee, Condition, Intervention, StudyContact, ContactType,
+            StudySponsor, StudyFunder, ParticipantType, Recruitment, StudyCentre,
+            Results, IPD, StudyOutput, AttachedFile};
+
+use super::gen_helper::{StringExtensions, OptionStringExtensions};
+
 
 // processes study, returns json file model that model can be printed, 
 // and / or it can be saved to the database...
@@ -38,155 +39,474 @@ fn from_string_opt(so:&Option<String>) -> &str {
 pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, AppError> {
 
     let study = s.trial;
-    let description = study.trial_description;
+
     let sd_sid = format!("ISRCTN{:?}", study.isrctn.value);
 
     let blank_entry = "null"; // Used for checking for missing data 
 
-    // Set up registration data block.
-    let mut doi = from_string_opt(&study.external_refs.doi);
-    if doi == "N/A" || doi.starts_with("Nil ") || doi.starts_with("Not ") {
-       doi = blank_entry;
-    }
-
-    let datetime_id_assigned = from_string_opt(&study.isrctn.date_assigned);
-    let date_id_assigned = if datetime_id_assigned == blank_entry { blank_entry } else {&datetime_id_assigned[0..10]};
-    let datetime_lastupdated = from_string_opt(&study.last_updated).to_string();
-    let last_updated = if datetime_lastupdated == blank_entry { blank_entry } else {&datetime_lastupdated[0..10]};
+    // Registration data block.
     
     let registration = Registration {
-         date_id_assigned: date_id_assigned.to_string(),
-         last_updated: last_updated.to_string(),
-         version: from_string_opt(&study.version).to_string(),
-         doi: doi.to_string()
+         date_id_assigned: study.isrctn.date_assigned.date_opt(),
+         last_updated: study.last_updated.date_opt(),
+         version: study.version.text_opt(),
+         doi: study.external_refs.doi.text_opt_filtered()
     };
 
     // Set up titles.
-    
-    let pt = from_string_opt(&description.title);
-    let st = from_string_opt(&description.scientific_title);
-    let ac = from_string_opt(&description.acronym);
+
+    let d = study.trial_description;
+
     let mut titles: Vec<Title> = Vec::new();
+    let mut pt: String = "".to_string();
+    let mut st: String = "".to_string();
 
-    if pt != blank_entry {
-        titles.push(Title::new(15, "Public_title".to_string(), pt.to_string()));
-    }
-    if st != blank_entry && st != pt {
-            titles.push(Title::new(16, "Scientific title".to_string(), st.to_string()));
-    }
-    if ac != blank_entry && ac != pt && ac != st {
-            titles.push(Title::new(14, "Acronym".to_string(), ac.to_string()));
+    if let Some(title) = d.title.text_opt() {
+        pt = title.clone();
+        titles.push(Title::new(15, "Public_title".to_string(), title));
     }
 
-    // Set up identifiers
+    if let Some(title) = d.scientific_title.text_opt() && title != pt {
+        st = title.clone();
+        titles.push(Title::new(16, "Scientific title".to_string(), title));
+    }
+
+    if let Some(title) = d.acronym.text_opt() && title != pt && title != st {
+        titles.push(Title::new(14, "Acronym".to_string(), title));
+    }
+
+    // Identifiers
 
     let er = study.external_refs;
     let mut identifiers: Vec<Identifier> = Vec::new();
 
-    let mut ema = from_string_opt(&er.eudra_ct_number);
-    if ema == "N/A" || ema.starts_with("Nil ") || ema.starts_with("Not ") {
-       ema = blank_entry;
-    }
-    if ema != blank_entry {
-        if &ema[4..6] == "-5" {
-            identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), ema.to_string()));
+    let ema = er.eudra_ct_number.text_opt_filtered();
+    if let Some(id) = ema {
+        if &id[4..6] == "-5" {
+            identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), id));
         } else {
-           identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), ema.to_string()));
+            identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), id));
         }
     }
 
-    let mut iras = from_string_opt(&er.iras_number);
-    if iras == "N/A" || iras.starts_with("Nil ") || iras.starts_with("Not ") {
-       iras = blank_entry;
-    }
-    if iras != blank_entry {
-        identifiers.push(Identifier::new(303, "IRAS Id".to_string(), iras.to_string()));
+    let iras = er.iras_number.text_opt_filtered();
+    if let Some(id) = iras {
+        identifiers.push(Identifier::new(303, "IRAS Id".to_string(), id));
     }
 
-    let mut ctg = from_string_opt(&er.ctg_number);
-    if ctg == "N/A" || ctg.starts_with("Nil ") || ctg.starts_with("Not ") {
-       ctg = blank_entry;
-    }
-    if ctg != blank_entry {
-        identifiers.push(Identifier::new(120, "NCT ID".to_string(), ctg.to_string()));
+    let ctg = er.ctg_number.text_opt_filtered();
+    if let Some(id) = ctg {
+        identifiers.push(Identifier::new(120, "NCT ID".to_string().to_string(), id));
     }
 
-    let mut prot = from_string_opt(&er.protocol_serial_number);
-    if prot == "N/A" || prot.starts_with("Nil ") || prot.starts_with("Not ") {
-       prot = blank_entry;
+    let prot = er.protocol_serial_number.text_opt_filtered();
+    if let Some(id) = prot {
+        identifiers.push(Identifier::new(502, "Sponsor's id (presumed)".to_string(), id));
     }
-    if prot != blank_entry {
-        identifiers.push(Identifier::new(502, "Sponsor's id (presumed)".to_string(), prot.to_string()));
-    }
-
+    
     let ids = er.secondary_number_list.secondary_numbers;
     if let Some(nums) = ids {
         for num in &nums {
-            let num_string = from_string_opt(&num.value);
-            if num_string != "N/A" && !num_string.starts_with("Nil ") && !num_string.starts_with("Not ") {
+            let num_string = num.value.text_opt_filtered();
+             if let Some(id) = num_string {
+
                 // Has number already been supplied? - in almost all cases they seem to be
-                if is_a_new_num(num_string, &identifiers) {
-                    identifiers.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), num_string.to_string()));
+
+                if is_a_new_num(&id, &identifiers) {
+                    identifiers.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), id));
                 }
             }
         }
     }
 
-    let datetime_end = from_string_opt(&study.trial_design.overall_end_date).to_string();
-    let overall_end_date = if datetime_lastupdated == blank_entry { blank_entry } else {&datetime_lastupdated[0..10]};
+    // Summary block
 
+    let mut plain_summ = d.plain_english_summary.text_opt();
+
+    if let Some(mut summ) = plain_summ {
+        let end_point =  summ.find("What are the possible benefits and risks");
+        if let Some(ep) = end_point {
+            summ = summ[..ep].to_string();
+        }
+
+        summ = summ.replace("Background and study aims", "Background and study aims\n");
+        summ = summ.replace("Who can participate?", "\nWho can participate?\n");
+        summ = summ.replace("What does the study involve?", "\nWhat does the study involve?\n");
+
+        plain_summ = summ.compress_spaces();
+    }
+    
     let summary = Summary {
-        plain_english_summary: from_string_opt(&description.plain_english_summary).to_string(),
-        study_hypothesis: from_string_opt(&description.study_hypothesis).to_string(),
-        primary_outcome: from_string_opt(&description.primary_outcome).to_string(),
-        secondary_outcome: from_string_opt(&description.secondary_outcome).to_string(),
-        overall_end_date: overall_end_date.to_string(),
-        trial_website: from_string_opt(&description.trial_website).to_string(),
+        plain_english_summary: plain_summ,
+        study_hypothesis: d.study_hypothesis.text_opt(),
+        primary_outcome: d.primary_outcome.text_opt(),
+        secondary_outcome: d.secondary_outcome.text_opt(),
+        overall_end_date: study.trial_design.overall_end_date.date_opt(),
+        trial_website: d.trial_website.text_opt(),
     };
 
+    // Ethics Committee data
+
     let ethics = Ethics {
-        ethics_approval_required: from_string_opt(&description.ethics_approval_required).to_string(),
-        ethics_approval: from_string_opt(&description.ethics_approval).to_string(),
+        ethics_approval_required: d.ethics_approval_required.text_opt(),
+        ethics_approval: d.ethics_approval.text_opt(),
     };
 
     let mut ethics_committees = Vec::new();
-    if description.ethics_committee_list.ethics_committees.len() > 0 {
-        for ec in description.ethics_committee_list.ethics_committees {
+    if d.ethics_committee_list.ethics_committees.len() > 0 {
+        for ec in d.ethics_committee_list.ethics_committees {
             let status_datetime = from_string_opt(&ec.status_date).to_string();
             let status_date = if status_datetime == blank_entry { blank_entry } else {&status_datetime[0..10]};
 
             let committee = EthicsCommittee {
-                name: from_string_opt(&ec.committee_name).to_string(),
-                approval_status: from_string_opt(&ec.approval_status).to_string(),
-                status_date: status_date.to_string(),
-                committee_reference: from_string_opt(&ec.committee_reference).to_string(),
+                name: ec.committee_name.text_opt(),
+                approval_status: ec.approval_status.text_opt(),
+                status_date: ec.status_date.date_opt(),
+                committee_reference: ec.committee_reference.text_opt(),
             };
             ethics_committees.push(committee);
         }
     }
 
+    // Design block
+
+    let ds = study.trial_design;
+
+    let design = Design {
+        study_design: ds.study_design.text_opt(),
+        primary_study_design: ds.primary_study_design.text_opt(),
+        secondary_study_design: ds.secondary_study_design.text_opt(),
+    };
+    
+
+    // Trial type list and trial settings list
+
     let mut trial_types: Vec<String> = Vec::new();
-    if study.trial_design.trial_type_list.trial_types.len() > 0 {
-        for tt in study.trial_design.trial_type_list.trial_types {
+    if ds.trial_type_list.trial_types.len() > 0 {
+        for tt in ds.trial_type_list.trial_types {
             trial_types.push(from_string_opt(&tt.trial_type).to_string());
         }
     }
     
     let mut trial_settings: Vec<String> = Vec::new();
-    if study.trial_design.trial_setting_list.trial_settings.len() > 0 {
-        for ts in study.trial_design.trial_setting_list.trial_settings {
+    if ds.trial_setting_list.trial_settings.len() > 0 {
+        for ts in ds.trial_setting_list.trial_settings {
             trial_settings.push(from_string_opt(&ts.trial_setting).to_string());
         }
     }
 
-    
+    // Conditions
 
+    let mut conditions: Vec<Condition> = Vec::new();
+    if study.condition_list.conditions.len() > 0 {
+        for c in study.condition_list.conditions {
+            conditions.push(Condition {
+                        description: from_string_opt(&c.description).to_string(),
+                        disease_class1: from_string_opt(&c.disease_class1).to_string(),
+                        disease_class2: from_string_opt(&c.disease_class2).to_string(),
+            });
+        }
+    }
 
-    
+    // Interventions
+
+    let mut interventions: Vec<Intervention> = Vec::new();
+    if study.intervention_list.interventions.len() > 0 {
+        for i in study.intervention_list.interventions {
+            interventions.push(Intervention {
+                        description: from_string_opt(&i.description).to_string(),
+                        int_type: from_string_opt(&i.intervention_type).to_string(),
+                        pharma_study_types: from_string_opt(&i.pharmaceutical_study_types).to_string(),
+                        phase: from_string_opt(&i.phase).to_string(),
+                        drug_names: from_string_opt(&i.drug_names).to_string(),
+            });
+        }
+    }
+
+    // Study Contacts
  
-    let _contacts = s.contacts;
-    let _sponsors = s.sponsors;
-    let _funders = s.funders;
+    let mut contacts:Vec<StudyContact> = Vec::new();
+    if s.contacts.len() > 0 {
+        for c in s.contacts {
+            let mut contact_types: Vec<ContactType> = Vec::new();
+            if c.contact_type_list.contact_types.len() > 0 {
+                for ct in c.contact_type_list.contact_types {
+                    contact_types.push (ContactType {
+                        contact_type: from_string_opt(&ct.contact_type).to_string(),
+                    });
+                }
+            }
+            contacts.push(StudyContact{
+                title: from_string_opt(&c.title).to_string(),
+                forename: from_string_opt(&c.forename).to_string(),
+                surname: from_string_opt(&c.surname).to_string(),
+                orcid: from_string_opt(&c.orcid).to_string(),
+                contact_types: contact_types,
+                address: from_string_opt(&c.contact_details.address).to_string(),
+                city: from_string_opt(&c.contact_details.city).to_string(),
+                country: from_string_opt(&c.contact_details.country).to_string(),
+                email: from_string_opt(&c.contact_details.email).to_string(),
+                privacy: from_string_opt(&c.privacy).to_string(),
+            });
+        }
+    }
+
+    // Study Sponsors
+
+    let mut sponsors:Vec<StudySponsor> = Vec::new();
+    if s.sponsors.len() > 0 {
+        for sp in s.sponsors {
+            sponsors.push (StudySponsor {
+                organisation: from_string_opt(&sp.organisation).to_string(),
+                website: from_string_opt(&sp.website).to_string(),
+                sponsor_type: from_string_opt(&sp.sponsor_type).to_string(),
+                ror_id: from_string_opt(&sp.ror_id).to_string(),
+                address: from_string_opt(&sp.contact_details.address).to_string(),
+                city: from_string_opt(&sp.contact_details.city).to_string(),
+                country: from_string_opt(&sp.contact_details.country).to_string(),
+                email: from_string_opt(&sp.contact_details.email).to_string(),
+                privacy: from_string_opt(&sp.privacy).to_string(),
+                commercial_status: from_string_opt(&sp.commercial_status).to_string(),
+            });
+        }
+    }
+
+    // Study Funders
+
+    let mut funders:Vec<StudyFunder> = Vec::new();
+    if s.funders.len() > 0 {
+        for f in s.funders {
+            funders.push(StudyFunder {
+                name: from_string_opt(&f.name).to_string(),
+                fund_ref: from_string_opt(&f.fund_ref).to_string(),
+            });
+        }
+    }
+
+    // Participanmt Types
+
+    let p = study.participants;
+
+    let mut participant_types: Vec<ParticipantType> = Vec::new();
+    if p.participant_type_list.participant_types.len() > 0 {
+        for pt in p.participant_type_list.participant_types {
+            participant_types.push (ParticipantType {
+                participant_type: from_string_opt(&pt.participant_type).to_string(),
+            });
+        }
+    }
+
+    // Participants
+
+    let lal = p.lower_age_limit;
+    let mut l_age_limit = blank_entry.to_string();
+    let mut l_age_limit_num= 0.0;
+    let mut l_age_limit_units = blank_entry.to_string();
+    if let Some(al) = lal {
+        l_age_limit = from_string_opt(&al.value).to_string();
+        l_age_limit_units = from_string_opt(&al.unit).to_string();
+        l_age_limit_num = match al.num_unit {
+            Some(s)  => {s.parse().unwrap_or_else(|_| 0.0)},
+            None => 0.0,
+        };
+    }
+    
+
+    let ual = p.upper_age_limit;
+    let mut u_age_limit = blank_entry.to_string();
+    let mut u_age_limit_num = 0.0;
+    let mut u_age_limit_units = blank_entry.to_string();
+    if let Some(al) = ual {
+        u_age_limit = from_string_opt(&al.value).to_string();
+        u_age_limit_units= from_string_opt(&al.unit).to_string();
+        u_age_limit_num = match al.num_unit {
+            Some(s)  => {s.parse().unwrap_or_else(|_| 0.0)},
+            None => 0.0,
+        };
+    }
+     
+    let participants = Participants {
+            age_range: from_string_opt(&p.age_range).to_string(),
+            l_age_limit: l_age_limit,
+            l_age_limit_num: l_age_limit_num,
+            l_age_limit_units: l_age_limit_units,
+            u_age_limit: u_age_limit,
+            u_age_limit_num: u_age_limit_num,
+            u_age_limit_units: u_age_limit_units,
+            gender: from_string_opt(&p.gender).to_string(),
+            inclusion: from_string_opt(&p.inclusion).to_string(),
+            exclusion: from_string_opt(&p.exclusion).to_string(),
+            patient_info_sheet: from_string_opt(&p.patient_info_sheet).to_string(),
+    };
+
+    // Recruitment
+
+    let recruitment_start_dt = from_string_opt(&p.recruitment_start).to_string();  
+    let recruitment_start = if recruitment_start_dt == blank_entry { blank_entry } else {&recruitment_start_dt[0..10]};
+    let recruitment_end_dt = from_string_opt(&p.recruitment_end).to_string();  
+    let recruitment_end = if recruitment_end_dt == blank_entry { blank_entry } else {&recruitment_end_dt[0..10]};
+
+    let recruitment = Recruitment {
+            target_enrolment: from_string_opt(&p.target_enrolment).to_string(),
+            total_final_enrolment: from_string_opt(&p.total_final_enrolment).to_string(),
+            total_target: from_string_opt(&p.total_target).to_string(),
+            recruitment_start: recruitment_start.to_string(),
+            recruitment_end: recruitment_end.to_string(),
+            recruitment_start_status_override: from_string_opt(&p.recruitment_start_status_override).to_string(),
+            recruitment_status_override: from_string_opt(&p.recruitment_status_override).to_string(),
+    };
+
+    let mut centres: Vec<StudyCentre> = Vec::new();
+    if p.centre_list.centres.len() > 0 {
+        for c in p.centre_list.centres {
+            centres.push(StudyCentre {
+                name: from_string_opt(&c.name).to_string(),
+                address: from_string_opt(&c.address).to_string(),
+                city: from_string_opt(&c.city).to_string(),
+                state: from_string_opt(&c.state).to_string(),
+                country: from_string_opt(&c.country).to_string(),
+            });
+        }  
+    }
+
+    let mut init_countries: Vec<String> = Vec::new();
+    if p.country_list.countries.len() > 0 {
+        for c in p.country_list.countries  {
+            init_countries.push(from_string_opt(&c.country).to_string());
+        }
+    }
+
+    // Some country name tidying to be done here
+    let mut countries: Vec<String> = Vec::new();
+    for c_init in init_countries {
+
+        // Regularise these common alternative spellings / allocations.
+
+        let mut c = c_init.replace("Korea, South", "South Korea");
+        c = c.replace("Congo, Democratic Republic", "Democratic Republic of the Congo");
+        
+        let c_lower = c.to_ascii_lowercase();
+        if c_lower == "england" || c_lower == "scotland" ||
+           c_lower == "wales" || c_lower == "northern ireland"
+        {
+                c = "United Kingdom".to_string();
+        }
+
+        if c_lower == "united states of america"
+        {
+                c = "United States".to_string();
+        }
+
+        // Check for duplicates before adding, especially after changes above.
+
+        if countries.len() == 0
+        {
+            countries.push(c);
+        }
+        else {
+            let mut add_country = true;
+            for c_check in &countries {
+                if c.as_str() == c_check {
+                    add_country = false;
+                    break;
+                }
+            }
+            if add_country {
+                countries.push(c);
+            }
+        }
+    }
+
+
+    // Results
+
+    let r = study.results;
+
+    let mut data_policies: Vec<String> = Vec::new();
+    if r.data_policy_list.data_policies.len() > 0 {
+        for dp in r.data_policy_list.data_policies  {
+            data_policies.push(from_string_opt(&dp.data_policy).to_string());
+        }
+    }
+
+    let results = Results {
+            publication_plan: from_string_opt(&r.publication_plan).to_string(),
+            intent_to_publish: from_string_opt(&r.intent_to_publish).to_string(),
+            publication_details: from_string_opt(&r.publication_details).to_string(),
+            publication_stage: from_string_opt(&r.publication_stage).to_string(),
+            biomed_related: from_string_opt(&r.biomed_related).to_string(),
+            basic_report: from_string_opt(&r.basic_report).to_string(),
+            plain_english_report: from_string_opt(&r.plain_english_report).to_string(),
+    };
+    
+    
+    let mut attached_files: Vec<AttachedFile> = Vec::new();
+    let afs = study.attached_file_list.attached_files;
+    if let Some(file_list) = afs {
+        for af in file_list {
+            attached_files.push( AttachedFile { 
+                description: from_string_opt(&af.description).to_string(),
+                name: from_string_opt(&af.name).to_string(),
+                id: from_string_opt(&af.id).to_string(),
+                is_public: from_string_opt(&af.public).to_string(),
+                mime_type: from_string_opt(&af.mime_type).to_string(),
+            });
+        }
+    }
+    
+    let mut outputs: Vec<StudyOutput> = Vec::new();
+    let ops = study.output_list.outputs;
+    if let Some(output_list) = ops {
+        for op in output_list {
+
+            // defaults 
+            let mut external_link_url = blank_entry.to_string();
+            let mut file_id = blank_entry.to_string();
+            let mut original_filename = blank_entry.to_string();
+            let mut download_filename = blank_entry.to_string();
+            let mut version = blank_entry.to_string();
+            let mut mime_type = blank_entry.to_string();
+
+            let external_link = op.external_link;
+            if let Some(el) = external_link {
+                external_link_url = from_string_opt(&el.url).to_string();
+            }
+
+            let local_file = op.local_file;
+            if let Some(lf) = local_file {
+                file_id = from_string_opt(&lf.file_id).to_string();
+                original_filename =from_string_opt(&lf.original_filename).to_string(); 
+                download_filename =from_string_opt(&lf.download_filename).to_string();
+                version = from_string_opt(&lf.version).to_string();
+                mime_type = from_string_opt(&lf.mime_type).to_string();
+            }
+
+            outputs.push(StudyOutput {
+                description: from_string_opt(&op.description).to_string(),
+                production_notes: from_string_opt(&op.production_notes).to_string(),
+                output_type: from_string_opt(&op.output_type).to_string(),
+                artefact_type: from_string_opt(&op.artefact_type).to_string(),
+                date_created: from_string_opt(&op.date_created).to_string(),
+                date_uploaded: from_string_opt(&op.date_uploaded).to_string(),
+                peer_reviewed: from_string_opt(&op.peer_reviewed).to_string(),
+                patient_facing: from_string_opt(&op.patient_facing).to_string(),
+                created_by: from_string_opt(&op.created_by).to_string(),
+
+                external_link_url: external_link_url,
+                file_id: file_id,
+                original_filename: original_filename, 
+                download_filename: download_filename,
+                version: version,
+                mime_type: mime_type,
+            });
+        }
+    }
+
+    let ipd = IPD {
+            ipd_sharing_plan: from_string_opt(&study.miscellaneous.ipd_sharing_plan).to_string(),
+            ipd_sharing_statement: from_string_opt(&r.ipd_sharing_statement).to_string(),
+    };
+
 
     let json_study = json_models::Study { 
         sd_sid, 
@@ -196,8 +516,24 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
         summary,
         ethics,
         ethics_committees,
+        design,
         trial_types,
         trial_settings,
+        conditions,
+        interventions, 
+        contacts,
+        sponsors,
+        funders,
+        participant_types,
+        participants,
+        recruitment,
+        centres,
+        countries,
+        data_policies,
+        results,
+        outputs,
+        attached_files,
+        ipd,
     };
 
     Ok(json_study)
@@ -205,11 +541,12 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
 }
 
 
-fn is_a_new_num(num_string: &str, identifiers: &Vec<Identifier>) -> bool {
+fn is_a_new_num(num_string: &String, identifiers: &Vec<Identifier>) -> bool {
 
+    
     let mut res = true;
     for id in identifiers {
-        if num_string == id.identifier_value {
+        if num_string.to_string() == id.identifier_value {
             res = false;
             break;
         }
@@ -219,207 +556,7 @@ fn is_a_new_num(num_string: &str, identifiers: &Vec<Identifier>) -> bool {
 
 
 /*
-Study st = new();
-
-        List<Identifier> identifiers = new();
-        List<string> recruitmentCountries = new();
-        List<StudyCentre> centres = new();
-        List<StudyOutput> outputs = new();
-        List<StudyAttachedFile> attachedFiles = new();
-        List<StudyContact> contacts = new();
-        List<StudySponsor> sponsors = new();
-        List<StudyFunder> funders = new();
-        List<string> dataPolicies = new();
-
-        var tr = ft.trial;
-        if (tr is null)
-        {
-            logging_helper.LogError("Unable to find ISRCTN trial data - cannot proceed");
-            return null;
-        }
-        if (tr.isrctn?.value is null)
-        {
-            logging_helper.LogError("Unable to find ISRCTN value - cannot proceed");
-            return null;
-        }
-        
-        st.sd_sid = "ISRCTN" + tr.isrctn.value.ToString("00000000");
-        st.dateIdAssigned = tr.isrctn?.dateAssigned;
-        st.lastUpdated = tr.lastUpdated;
-
-        var d = tr.trialDescription;
-        if (d is not null)
-        {
-            st.title = d.title;
-            st.scientificTitle = d.scientificTitle;
-            st.acronym = d.acronym;
-            st.studyHypothesis = d.studyHypothesis;
-            st.primaryOutcome = d.primaryOutcome;
-            st.secondaryOutcome = d.secondaryOutcome;
-            st.trialWebsite = d.trialWebsite;
-            st.ethicsApproval = d.ethicsApproval;
-
-            string? pes = d.plainEnglishSummary;
-            if (pes is not null)
-            {
-                // Attempt to find the beginning of the 'discarded' sections.
-                // If found discard those sections.
-
-                int endpos = pes.IndexOf("What are the possible benefits and risks", StringComparison.Ordinal);
-                if (endpos == -1)
-                {
-                    endpos = pes.IndexOf("What are the potential benefits and risks", StringComparison.Ordinal);
-                }
-                if (endpos != -1)
-                {
-                    pes = pes[..endpos];
-                }
-
-                pes = pes.Replace("Background and study aims", "Background and study aims\n");
-                pes = pes.Replace("Who can participate?", "\nWho can participate?\n");
-                pes = pes.Replace("What does the study involve?", "\nWhat does the study involve?\n");
-                pes = pes.CompressSpaces();
-                
-                st.plainEnglishSummary = pes;
-            }
-        }
-
-        var g = tr.trialDesign;
-        if (g is not null)
-        {
-            st.studyDesign = g.studyDesign;
-            st.primaryStudyDesign = g.primaryStudyDesign;
-            st.secondaryStudyDesign = g.secondaryStudyDesign;
-            st.trialSetting = g.trialSetting;
-            st.trialType = g.trialType;
-            st.overallStatusOverride = g.overallStatusOverride;
-            st.overallStartDate = g.overallStartDate;
-            st.overallEndDate = g.overallEndDate;
-        }
-
-        var p = tr.participants;
-        if (p is not null)
-        {
-            st.participantType = p.participantType;
-            st.inclusion = p.inclusion;
-            st.ageRange = p.ageRange;
-            st.gender = p.gender;
-            st.targetEnrolment = p.targetEnrolment;
-            st.totalFinalEnrolment = p.totalFinalEnrolment;
-            st.totalTarget = p.totalTarget;
-            st.exclusion = p.exclusion;
-            st.patientInfoSheet = p.patientInfoSheet;
-            st.recruitmentStart = p.recruitmentStart;
-            st.recruitmentEnd = p.recruitmentEnd;
-            st.recruitmentStatusOverride = p.recruitmentStatusOverride;
-
-            var trial_centres = p.trialCentres;
-            if (trial_centres?.Any() is true)
-            {
-                foreach (var cr in trial_centres)
-                {
-                    centres.Add(new StudyCentre(cr.name, cr.address, cr.city, 
-                                                cr.state, cr.country));
-                }
-            }
-
-            string[]? recruitment_countries = p.recruitmentCountries;
-            if (recruitment_countries?.Any() is true)
-            {
-                foreach(string s in recruitment_countries)
-                {
-                    // regularise these common alternative spellings
-                    var t = s.Replace("Korea, South", "South Korea");
-                    t = t.Replace("Congo, Democratic Republic", "Democratic Republic of the Congo");
-
-                    string t2 = t.ToLower();
-                    if (t2 == "england" || t2 == "scotland" ||
-                                    t2 == "wales" || t2 == "northern ireland")
-                    {
-                         t = "United Kingdom";
-                    }
-                    if (t2 == "united states of america")
-                    {
-                         t = "United States";
-                    }
-
-                    // Check for duplicates before adding,
-                    // especially after changes above
-
-                    if (recruitmentCountries.Count == 0)
-                    {
-                        recruitmentCountries.Add(t);
-                    }
-                    else
-                    {
-                        bool add_country = true;
-                        foreach (string cnt in recruitmentCountries)
-                        {
-                            if (cnt == t)
-                            {
-                                add_country = false;
-                                break;
-                            }
-                        }
-                        if (add_country)
-                        {
-                            recruitmentCountries.Add(t);
-                        }
-                    }
-                }
-            }
-        }
-
-        var c = tr.conditions?.condition;
-        if (c is not null)
-        {
-            st.conditionDescription = c.description;
-            st.diseaseClass1 = c.diseaseClass1;
-            st.diseaseClass2 = c.diseaseClass2;
-        }
-
-        var i = tr.interventions?.intervention;
-        if (i is not null)
-        {
-            st.interventionDescription = i.description;
-            st.interventionType = i.interventionType;
-            st.phase = i.phase;
-            st.drugNames = i.drugNames;
-        }
-
-        var r = tr.results;
-        if (r is not null)
-        {
-            st.publicationPlan = r.publicationPlan;
-            st.ipdSharingStatement = r.ipdSharingStatement;
-            st.intentToPublish = r.intentToPublish;
-            st.publicationDetails = r.publicationDetails;
-            st.publicationStage = r.publicationStage;
-            st.biomedRelated = r.biomedRelated;
-            st.basicReport = r.basicReport;
-            st.plainEnglishReport = r.plainEnglishReport;
-
-            var dps = r.dataPolicies;
-            if (dps?.Any() is true)
-            {
-                foreach (string s in dps)
-                {
-                    dataPolicies.Add(s);
-                }
-            }
-        }
-
-        // Do additional files first
-        // so that details can be checked from the outputs data
-
-        var afs = tr.attachedFiles;
-        if (afs?.Any() is true)
-        {
-            foreach (var v in afs)
-            {
-                attachedFiles.Add(new StudyAttachedFile(v.description, v.name, v.id, v.@public));
-            }
-        }
+       
 
         var ops = tr.outputs;
         if (ops?.Any() is true)
@@ -452,97 +589,7 @@ Study st = new();
                             }
                         }
                     }
-
-                    // need to go to the page to get the url for any local file
-                    // (Not available in the API data)
-                    // May have already been collected from an earlier output
-                    // in the 'ops' collection (i.e. if a study hgs 2 or more
-                    // local files). If not fill the url collection by web scraping.
-
-                    if (!local_urls_collected)
-                    {
-                        string details_url = "https://www.isrctn.com/" + st.sd_sid;
-                        ScrapingHelpers ch = new(logging_helper);
-                        Thread.Sleep(500);
-                        
-                        // ReSharper disable once RedundantAssignment (to study_page)
-                        // The initial web page access results in a blocking page
-                        // The second access is required to actually access the page.
-                        
-                        WebPage? study_page = await ch.GetPageAsync(details_url);
-                        Thread.Sleep(100); 
-                        study_page = await ch.GetPageAsync(details_url);
-                        if (study_page is not null)
-                        {
-                            output_urls = new();
-                            HtmlNode? section_div = study_page.Find("div", By.Class("l-Main")).FirstOrDefault();
-                            HtmlNode? article = section_div?.SelectSingleNode("article[1]");
-                            IEnumerable<HtmlNode>? publications = article?.SelectNodes("//section/div[1]/h2[text()='Results and Publications']/following-sibling::div[1]/h3");
-                            if (publications?.Any() is true)
-                            {
-                                foreach (var pub in publications)
-                                {
-                                    string? pub_name = pub.InnerText.Tidy();
-                                    if (pub_name == "Trial outputs")
-                                    {
-                                        HtmlNode? output_table = pub.SelectSingleNode("following-sibling::div[1]/table[1]/tbody[1]");
-                                        if (output_table is not null)
-                                        {
-                                            var table_rows = output_table.SelectNodes("tr");
-                                            if (table_rows?.Any() is true)
-                                            {
-                                                foreach (var table_row in table_rows)
-                                                {
-                                                    var output_attributes = table_row.SelectNodes("td")?.ToArray();
-                                                    if (output_attributes?.Any() is true)
-                                                    {
-                                                        HtmlNode? output_link = output_attributes[0]?.SelectSingleNode("a[1]");
-                                                        if (output_link is not null)
-                                                        {
-                                                            string? output_title = output_link.GetAttributeValue("title").ReplaceUnicodes();
-                                                            string? output_url = output_link.GetAttributeValue("href");
-                                                            if (!string.IsNullOrEmpty(output_title) && !string.IsNullOrEmpty(output_url))
-                                                            {
-                                                                if (!output_url.ToLower().StartsWith("http"))
-                                                                {
-                                                                    output_url = output_url.StartsWith("/") 
-                                                                        ? "https://www.isrctn.com" + output_url 
-                                                                        : "https://www.isrctn.com/" + output_url;
-                                                                }
-
-                                                                // Very occasionally the same file and output url is duplicated.
-                                                                // This must be trapped to avoid an exception.
-
-                                                                bool add_entry = true;
-                                                                if(output_urls.Count > 0)
-                                                                {
-                                                                    foreach(KeyValuePair<string, string> entry in output_urls)
-                                                                    {
-                                                                        if (output_title == entry.Key)
-                                                                        {
-                                                                            add_entry = false;
-                                                                            break;
-                                                                        }
-                                                                    }
-                                                                }
-                                                                
-                                                                if (add_entry)
-                                                                {
-                                                                    output_urls.Add(output_title, output_url);
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            local_urls_collected = true;
-                        }
-                    }
+                                      
 
                     if (output_urls?.Any() is true)
                     {
@@ -565,50 +612,7 @@ Study st = new();
             }
            
         }
-
-        var tr_contacts = ft.contact;
-        if(tr_contacts?.Any() is true)
-        {
-            foreach(var v in tr_contacts)
-            {
-                contacts.Add(new StudyContact(v.forename, v.surname, v.orcid, v.contactType,
-                             v.contactDetails?.address, v.contactDetails?.city, v.contactDetails?.country,
-                             v.contactDetails?.email));
-            }
-        }
-
-        var tr_sponsors = ft.sponsor;
-        if (tr_sponsors?.Any() is true)
-        {
-            foreach (var v in tr_sponsors)
-            {
-                sponsors.Add(new StudySponsor(v.organisation, v.website, v.sponsorType, v.gridId,
-                             v.contactDetails?.city, v.contactDetails?.country));            }
-        }
-
-        var tr_funders = ft.funder;
-        if (tr_funders?.Any() is true)
-        {
-            foreach (var v in tr_funders)
-            {
-                funders.Add(new StudyFunder(v.name, v.fundRef));
-            }
-        }
-
-        st.identifiers = identifiers;
-        st.recruitmentCountries = recruitmentCountries;
-        st.centres = centres;
-        st.outputs = outputs;
-        st.attachedFiles = attachedFiles;
-        st.contacts = contacts;
-        st.sponsors = sponsors;
-        st.funders = funders;
-        st.dataPolicies = dataPolicies;
-
-        return st;
-    }
-
-}
+               
 
 */
 
@@ -645,8 +649,6 @@ public class IsrctnProcessor : IStudyProcessor
 
         Study s = new();
 
-        List<StudyIdentifier> identifiers = new();
-        List<StudyTitle> titles = new();
         List<StudyOrganisation> organisations = new();
         List<StudyPerson> people = new();
         List<StudyReference> references = new();
@@ -654,16 +656,12 @@ public class IsrctnProcessor : IStudyProcessor
         List<StudyFeature> features = new();
         List<StudyLocation> sites = new();
         List<StudyCountry> countries = new();
-        List<StudyCondition> conditions = new();
         List<StudyIEC> iec = new();
 
         List<DataObject> data_objects = new();
         List<ObjectTitle> object_titles = new();
         List<ObjectDate> object_dates = new();
         List<ObjectInstance> object_instances = new();
-
-        IsrctnHelpers ih = new();
-        IECHelpers iech = new();
 
         string? sid = r.sd_sid;
 

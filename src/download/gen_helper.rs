@@ -1,14 +1,88 @@
-//use regex::Regex;
-/* 
+use regex::Regex;
+
+
+#[allow(dead_code)]
 pub trait StringExtensions {
     fn tidy(&self) -> Option<String>;
     fn replace_unicodes(&self) -> Option<String>;
     fn replace_tags_and_unicodes(&self) -> Option<String>;
+    fn compress_spaces(&self) -> Option<String>;
 }
 
+#[allow(dead_code)]
 pub trait DateExtensions {
     fn as_iso_date(&self) -> Option<String>;
     fn get_time_units(&self) -> String; 
+}
+
+pub trait OptionStringExtensions {
+    fn text_opt(&self) -> Option<String>;
+    fn text_opt_filtered(&self) -> Option<String>;
+    fn date_opt(&self) -> Option<String>;
+}
+
+
+impl OptionStringExtensions for Option<String> {
+
+    fn text_opt(&self) -> Option<String> {
+         match self {
+            Some(s) => { 
+                    let st = s.trim();
+                    if st == "" 
+                    {
+                        None
+                    } else {
+                        Some(st.to_string())
+                    }
+                },
+            None => None
+        }
+    }
+
+    fn text_opt_filtered(&self) -> Option<String> {
+        match self {
+            Some(s) => { 
+                    let st = s.trim();
+                    if st == "" 
+                    {
+                        None
+                    } 
+                    else {
+                        if st == "N/A" || st.starts_with("Nil ") || st.starts_with("Not ") {
+                            None
+                        }
+                        else {
+                            Some(st.to_string())
+                        }
+                    }
+                },
+            None => None
+        }
+    }
+
+    fn date_opt(&self) -> Option<String> {
+        match self {
+            Some(s) => { 
+                    let st = s.trim();
+                    if st == "" 
+                    {
+                        None
+                    } 
+                    else {
+                        let st2 = st.to_string();
+                        if st2.len() > 10 {
+                            let date_string = &st2[0..10];
+                            Some(date_string.to_string())
+                        }
+                        else {
+                            None
+                        }
+                    }
+                },
+            None => None
+        }
+    }
+
 }
 
 
@@ -114,7 +188,40 @@ impl StringExtensions for String {
             }
         }
     }
+
+
+    fn compress_spaces(&self) -> Option<String> {
+    
+       let trimmed = self.trim();
+       if trimmed == "NULL" ||  trimmed == "null" ||  trimmed == "\"NULL\"" ||  trimmed == "\"null\""
+       ||  trimmed == ""
+        {
+            None
+        }
+        else {
+            
+            let mut output_string = trimmed.replace("\r\n", "\n");    // regularise endings
+            output_string = output_string.replace("\r", "\n");
+
+            while output_string.contains("  ")
+            {
+                output_string = output_string.replace("  ", " ");
+            }
+
+            output_string = output_string.replace("\n:\n", ":\n");
+            output_string = output_string.replace("\n ", "\n");
+            while output_string.contains("\n\n")
+            {
+                output_string = output_string.replace("\n\n", "\n");
+            }
+
+            let result = output_string.trim();
+            Some(result.to_string())
+        }
+    }
 }
+
+
 
 impl DateExtensions for String {
     
@@ -321,7 +428,7 @@ impl DateExtensions for String {
 
 }
 
-*/
+
 
     /* 
     fn replace_nbr_spaces(&self) -> Option<String> {

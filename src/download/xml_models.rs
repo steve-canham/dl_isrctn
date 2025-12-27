@@ -63,13 +63,16 @@ pub struct Trial
     #[serde(rename = "trialDesign")]
     pub trial_design:Design,
     pub participants: Participants,
-    pub conditions: ConditionList,
-    pub interventions: InterventionList,
+    #[serde(rename = "conditions")]
+    pub condition_list: ConditionList,
+    #[serde(rename = "interventions")]
+    pub intervention_list: InterventionList,
     pub results: Results,
-    pub outputs: OutputList,
+    #[serde(rename = "outputs")]
+    pub output_list: OutputList,
     pub parties: Parties,
     #[serde(rename = "attachedFiles")]
-    pub attached_files: AttachedFileList,
+    pub attached_file_list: AttachedFileList,
     pub miscellaneous: Miscellaneous,
 
 }
@@ -241,13 +244,13 @@ pub struct TrialType
 pub struct Participants
 {
     #[serde(rename = "recruitmentCountries")]
-    pub recruitment_countries: CountryList,
+    pub country_list: CountryList,
 
     #[serde(rename = "trialCentres")]
-    pub trial_centres: CentreList,
+    pub centre_list: CentreList,
    
     #[serde(rename = "participantTypes")]
-    pub participant_types: ParticipantTypeList,
+    pub participant_type_list: ParticipantTypeList,
 
     pub inclusion: Option<String>,
     #[serde(rename = "ageRange")]
@@ -387,7 +390,7 @@ pub struct Results
     #[serde(rename = "intentToPublish")]
     pub intent_to_publish: Option<String>,
     #[serde(rename = "dataPolicies")]
-    pub data_policies: DataPolicyList,
+    pub data_policy_list: DataPolicyList,
     #[serde(rename = "publicationDetails")]
     pub publication_details: Option<String>,
     #[serde(rename = "publicationStage")]
@@ -495,7 +498,7 @@ pub struct Parties
 pub struct Miscellaneous
 {
     #[serde(rename = "ipdSharingPlan", default)]
-    ipd_sharing_plan: Option<String>, // Yes or No
+    pub ipd_sharing_plan: Option<String>, // Yes or No
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -533,7 +536,7 @@ pub struct Contact
     pub orcid:  Option<String>,
   
     #[serde(rename = "contactTypes")]
-    pub contact_types:ContactTypeList,
+    pub contact_type_list:ContactTypeList,
 
     #[serde(rename = "contactDetails")]
     pub contact_details: ContactDetails,
@@ -544,7 +547,7 @@ pub struct Contact
 pub struct ContactTypeList
 {
     #[serde(rename = "contactType", default)]
-    pub contact_type_list:  Vec<ContactType>,
+    pub contact_types:  Vec<ContactType>,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -961,9 +964,9 @@ mod tests {
         };
    
         let partics = Participants {
-            recruitment_countries: cy_list,
-            trial_centres: cn_list,
-            participant_types: pt_list,
+            country_list: cy_list,
+            centre_list: cn_list,
+            participant_type_list: pt_list,
             inclusion: Some("1. Medically stable adults aged 18–80 years 2. Experienced a first-ever ischemic or hemorrhagic stroke".to_string()),
             age_range: Some("Senior".to_string()),
             lower_age_limit: Some(lal),
@@ -1163,7 +1166,7 @@ mod tests {
             publication_plan: Some("".to_string()),
             ipd_sharing_statement: Some("Raw data will be stored on Complife servers. A backup copy of the raw data will be also in a cloud-based backup server. Tables containing the raw data (output of the measurements) will also be included in the study report...".to_string()),
             intent_to_publish: Some("2025-06-30T00:00:00.000Z".to_string()),
-            data_policies: dp_list,
+            data_policy_list: dp_list,
             publication_details: Some("".to_string()),
             publication_stage: Some("".to_string()),
             biomed_related: Some("false".to_string()),
@@ -1571,7 +1574,7 @@ mod tests {
         };
 
         let ct_list = ContactTypeList {
-            contact_type_list: vec![ct1, ct2],
+            contact_types: vec![ct1, ct2],
         };
 
         let cdets = ContactDetails {
@@ -1590,7 +1593,7 @@ mod tests {
             forename: Some("Benjamin".to_string()),
             surname: Some("Jonas".to_string()),
             orcid: Some("".to_string()),
-            contact_types: ct_list,
+            contact_type_list: ct_list,
             contact_details: cdets,
             privacy: Some("Public".to_string()),
         };
@@ -1675,7 +1678,7 @@ mod tests {
         };
 
         let ct_list1 = ContactTypeList {
-            contact_type_list: vec![ct1],
+            contact_types: vec![ct1],
         };
 
 
@@ -1695,7 +1698,7 @@ mod tests {
             forename: Some("Christopher".to_string()),
             surname: Some("Hutchison".to_string()),
             orcid: Some("".to_string()),
-            contact_types: ct_list1,
+            contact_type_list: ct_list1,
             contact_details: cdets1,
             privacy: Some("Protected".to_string()),
         };
@@ -1705,7 +1708,7 @@ mod tests {
         };
 
         let ct_list2 = ContactTypeList {
-            contact_type_list: vec![ct2],
+            contact_types: vec![ct2],
         };
 
         let cdets2 = ContactDetails {
@@ -1723,7 +1726,7 @@ mod tests {
             forename: Some("Fergus".to_string()),
             surname: Some("Jepson".to_string()),
             orcid: Some("".to_string()),
-            contact_types: ct_list2,
+            contact_type_list: ct_list2,
             contact_details: cdets2,
             privacy: Some("Protected".to_string()),
         };
