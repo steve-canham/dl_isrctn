@@ -2,12 +2,10 @@ mod xml_models;
 mod json_models;
 mod processor;
 pub mod data_access;
-pub mod gen_helper;
-mod isrctn_helper;
+pub mod isrctn_helper;
 
-//use std::collections::HashMap;
 use std::path::PathBuf;
-use crate::{AppError};
+use crate::AppError;
 use super::setup::InitParams;
 use super::DownloadResult;
 use chrono::{NaiveDate, Days};
@@ -16,21 +14,13 @@ use quick_xml::de;
 use std::fs::File;
 use std::io::Write;
 use serde_json::to_string_pretty;
-
-//use data_access::{update_who_study_mon, add_new_single_file_record, 
-// add_contents_record, store_who_summary};
-//use file_models::WHOLine;
-//use super::setup::config_reader::fetch_src_db_name;
-//use std::fs;
-//use std::fs::File;
-//use csv::ReaderBuilder;
-//use std::io::Write;
-//use serde_json::to_string_pretty;
+use std::{thread, time};
+use rand::prelude::*;
 use sqlx::{Pool, Postgres};
-//use log::info;
+use log::info;
 
 
-pub async fn process_data(params: &InitParams, _dl_id:i32, _mon_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+pub async fn process_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     // The base url, json file folder, log folder, and start and end dates have
     // already been checked as being present and reasonable.
@@ -51,9 +41,8 @@ pub async fn process_data(params: &InitParams, _dl_id:i32, _mon_pool: &Pool<Post
     //let folder_path = params.json_data_path.clone();
 
     let mut sd = params.start_date;
-    let res= DownloadResult::new();
-
-
+    let mut res = DownloadResult::new();
+    
     while sd < params.end_date  {
 
         // For each pass, set end date to be 4 days later than start date. 
@@ -67,26 +56,20 @@ pub async fn process_data(params: &InitParams, _dl_id:i32, _mon_pool: &Pool<Post
         let record_num = get_record_count(params, &sd, &ed).await?;
 
         if record_num > 0 {
-            if record_num > 100 {
-
-                // Split the (up to) 4 days up into single days
+            if record_num > 100 {    // Split the (up to) 4 days up into single days
 
                 let mut d = sd;
                 while d < ed {
-                    res.add(process_single_day(params, &d).await?);
+                    res = res + process_single_day(params, &d, dl_id, src_pool).await?;
                     d = d.checked_add_days(Days::new(1)).unwrap();
                 }
             }
-            else {
-
-                // Process all records.
-
-                res.add(process_batch(params, &sd, &ed).await?);
+            else {   // Process all records.
+                res = res + process_batch(params, &sd, &ed, dl_id, src_pool).await?;
             }
         }
         sd = ed;   // make the start date the old end date
     }
-
     Ok(res)
 
 }
@@ -108,7 +91,7 @@ async fn get_record_count(params: &InitParams, start_date: &NaiveDate, end_date:
 }
 
 
-async fn process_single_day(params: &InitParams, date: &NaiveDate) -> Result<DownloadResult, AppError>
+async fn process_single_day(params: &InitParams, date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
 {
     let start_date_param = date.format("%Y-%m-%d").to_string();
     let query_start_param = format!("lastEdited%20GE%20{}T00:00:00%20AND%20", start_date_param);
@@ -117,6 +100,7 @@ async fn process_single_day(params: &InitParams, date: &NaiveDate) -> Result<Dow
     let query_end_param = format!("lastEdited%20LT%20{}T23:59:59%20&limit=", end_date_param);
 
     // See how many records there are this day.
+
     let base_url = params.base_url.clone();
     let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, 1);
     let studies: AllTrials = get_studies(&url).await?;
@@ -126,13 +110,14 @@ async fn process_single_day(params: &InitParams, date: &NaiveDate) -> Result<Dow
 
     let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, limit);
     let studies: AllTrials = get_studies(&url).await?;
-    let res = process_studies(params, studies.full_trials).await?;
-   
+    let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+
+    info!("For single day: {} : Numbers checked:{}", start_date_param, res.num_checked);
     Ok(res)
 }
 
 
-async fn process_batch(params: &InitParams, date: &NaiveDate, end_date: &NaiveDate) -> Result<DownloadResult, AppError>
+async fn process_batch(params: &InitParams, date: &NaiveDate, end_date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
 {
     let start_date_param = date.format("%Y-%m-%d").to_string();
     let query_start_param = format!("lastEdited%20GE%20{}T00:00:00%20AND%20", start_date_param);
@@ -145,8 +130,9 @@ async fn process_batch(params: &InitParams, date: &NaiveDate, end_date: &NaiveDa
     let base_url = params.base_url.clone();
     let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, 100);
     let studies: AllTrials = get_studies(&url).await?;
-    let res = process_studies(params, studies.full_trials).await?;
-   
+    let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+
+    info!("For period: {} (inc) to {} (exc): Numbers checked:{}", start_date_param, end_date_param, res.num_checked);
     Ok(res)
 }
 
@@ -155,6 +141,15 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
+
+    // Add a pause after any access - random value between 0.5 and 1.5 seconds...
+    
+    let mut rng = rand::rng();
+    let num = &rng.random_range(1..=1000);
+    let millis = 500 + num;
+    let pause = time::Duration::from_millis(millis);
+    thread::sleep(pause);
+
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
    
@@ -164,9 +159,9 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 }
 
 
-async fn process_studies(params: &InitParams, studies: Vec<FullTrial>) -> Result<DownloadResult, AppError> {
+async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
-    let res = DownloadResult::new();
+    let mut res = DownloadResult::new();
 
         // iterate through studies, the vector of FullTrials
         // For each, call the process_studyroutine that goes through the xml 
@@ -180,18 +175,29 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>) -> Result
         // coding to be applied after each update)
 
         for s in studies {
+
+            res.num_checked += 1;
             let t= processor::process_study(s)?;
-            
-        write_out_file(t, &params.json_data_path).await?;
 
-        //let remote_url = format!("https://www.isrctn.com/{}", t.sd_sid);
+            let sd_sid = &t.sd_sid;
+            let record_date = &t.registration.last_updated;
+            let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
+                        
+            let full_path = write_out_file(&t, &params.json_data_path).await?;
 
+            let added = data_access::update_isrctn_mon(sd_sid, &remote_url, dl_id,
+                     &record_date, &full_path, src_pool).await?;
+
+            res.num_downloaded += 1;
+            if added {
+                res.num_added +=1;
+            }
         }
         Ok(res)
 }
 
 
-pub async fn write_out_file(t: json_models::Study, json_folder: &PathBuf) -> Result<(), AppError> {
+pub async fn write_out_file(t: &json_models::Study, json_folder: &PathBuf) -> Result<PathBuf, AppError> {
 
     // Writes out the file with the correct name to the correct folder, as indented json.
     // Called from the DownloadBatch function.
@@ -206,7 +212,7 @@ pub async fn write_out_file(t: json_models::Study, json_folder: &PathBuf) -> Res
     let mut file = File::create(&file_path)?;
     file.write_all(json_string.as_bytes())?;
 
-    Ok(())
+    Ok(file_path)
 
 }
       

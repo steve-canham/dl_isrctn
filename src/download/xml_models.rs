@@ -1,6 +1,3 @@
-//use chrono::NaiveDate;
-
-#[allow(dead_code)]
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 #[serde(rename = "allTrials")]
@@ -12,15 +9,6 @@ pub struct AllTrials
     #[serde(rename = "fullTrial")]
     pub full_trials: Vec<FullTrial>,
 }
-
-/* 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct TrialList
-{
-    #[serde(rename = "fullTrial", default)]
-    pub full_trial: Vec<FullTrial>,
-}
-*/
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct FullTrial

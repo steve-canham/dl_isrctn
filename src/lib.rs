@@ -9,6 +9,7 @@ use err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
+use std::ops::Add;
 
 //use crate::setup::InitParams;
 
@@ -27,15 +28,21 @@ impl DownloadResult {
         num_added: 0,
         }
    }
+}
 
-   pub fn add(&self, other: DownloadResult ) -> Self {
-        DownloadResult {  
+impl Add for DownloadResult {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self{  
             num_checked: self.num_checked + other.num_checked,
             num_downloaded: self.num_downloaded + other.num_downloaded,
             num_added: self.num_added + other.num_added,
         }
     }
 }
+   
+
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 

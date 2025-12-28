@@ -12,7 +12,6 @@ The module also provides a database connection pool on demand.
 pub mod cli_reader;
 pub mod config_reader;
 pub mod log_helper;
-pub mod create_tables;
 
 use std::fs;
 use std::sync::OnceLock;
