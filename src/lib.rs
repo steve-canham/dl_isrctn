@@ -41,7 +41,6 @@ impl Add for DownloadResult {
         }
     }
 }
-   
 
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
@@ -49,9 +48,9 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // The dl_isrctn program uses the API of the ISRCTN web site (https://www.isrctn.com/)
     // to download data about the trials registered on the site.
     // That data is then used to construct json files, that are stored locally, and 
-    // whichh can then later be used to construct a database of the data.
+    // which can then later be used to construct a database of the data.
 
-    // There are two types of download.
+    // There are three types of download.
     // Type 111 (-t 111 in the CLI) identifies and downloads studies edited since a cut-off date, 
     // usually from the previous week (i.e., the date of the most recent download). It must be 
     // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18")
@@ -65,12 +64,10 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // Both procedures need a start and end date, but in the case of type 111 the
     // end date is taken as the current date.
 
-    // There does not appear to be a way to rank or order results and select
-    // from within a returned set. If the number of available records for a selected 
-    // period is > 100 records the call is broken down calls for individual days. 
-    // If a day returns > 100 the limit must be raised to the amount concerned.
-
-    // 
+    // Type 117 (-t 117 in the CLI) can be used to download all records for a specified year,
+    // and is designed for bulk download scenarios. It takes a single parameter (e.g. -y 2009),
+    // and constructs start and end dates for that year, calling the -t 115 routine with those dates.
+    // It therefore wraps the -t 115 download type.
     
     let cli_pars: cli_reader::CliPars;
     cli_pars = cli_reader::fetch_valid_arguments(args)?;
@@ -84,8 +81,6 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     setup::establish_log(&params)?;
     let mon_pool = setup::get_mon_db_pool().await?;  // pool for the monitoring db
     let src_pool = setup::get_src_db_pool().await?;  // pool for the source specific db
-
-    //setup::create_tables::create_tables(&src_pool).await?;
 
     let dl_id = get_next_download_id(&mon_pool).await?;
     let res = download::process_data(&params, dl_id, &src_pool).await?;

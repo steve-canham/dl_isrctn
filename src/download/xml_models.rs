@@ -1,4 +1,17 @@
 
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+#[serde(rename = "allTrials")]
+pub struct TrialsCount
+{
+    // just used to get the study count fropm any API call
+    // The rest of the data(if any) is ignored
+
+    #[serde(rename = "@totalCount")]
+    pub total_count: i32,
+}
+
+
 #[derive(serde::Deserialize, Debug, PartialEq)]
 #[serde(rename = "allTrials")]
 pub struct AllTrials
@@ -78,8 +91,8 @@ pub struct Isrctn
 pub struct Description
 {
     #[serde(rename = "@thirdPartyFilesAcknowledgement")]
-    pub third_party_ack: Option<String>,  // actually a bool
-    pub acknowledgment: Option<String>,  // actually a bool
+    pub third_party_ack: Option<String>,  // actually a bool, but not used
+    pub acknowledgment: Option<String>,  // actually a bool, but not used
     pub title: Option<String>,
     #[serde(rename = "scientificTitle")]
     pub scientific_title: Option<String>,

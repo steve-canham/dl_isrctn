@@ -16,43 +16,73 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     let parse_result = parse_args(args.to_vec())?;
 
     let dl_type_as_string = parse_result.get_one::<String>("dl_type").unwrap();
-    let dl_type: i32 = dl_type_as_string.parse().unwrap_or_else(|_| 0);
+    let dl_type: i32 = dl_type_as_string.parse().unwrap_or_else(|_| 0);   // N.B. default is 111
 
-    let today = Local::now().date_naive();
-    let null_date =  NaiveDate::from_ymd_opt(1900, 1, 1).unwrap();
+    let year_as_string = parse_result.get_one::<String>("download_year").unwrap();
+    let year: i32 = year_as_string.parse().unwrap_or_else(|_| 0);
+
+    if dl_type == 117 && year == 0 {
+        return Result::Err(AppError::MissingProgramParameter("year for type 117 download".to_string()));
+    }
+
     let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+    let today = Local::now().date_naive();
 
     let start_date_as_string = parse_result.get_one::<String>("start_date").unwrap();
-    let mut start_date = match NaiveDate::parse_from_str(start_date_as_string, "%Y-%m-%d") {
-        Ok(date) => date,
-        Err(_) => null_date,
+    let start_date_opt = match NaiveDate::parse_from_str(start_date_as_string, "%Y-%m-%d") {
+        Ok(date) => Some(date),
+        Err(_) => None,
+    };
+    
+    let mut start_date = match start_date_opt {  
+        Some(d) => if dl_type == 117 {  // year known to be present
+                                    NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
+                                }
+                                else if d >= today {   // invalid
+                                    return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+                                }
+                                else {
+                                    d
+                                },
+        None => { 
+            if dl_type != 117 {  
+                return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+            }
+            else {  // year known to be present
+                NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
+            }
+        }
     };
 
-    let end_date_as_string = parse_result.get_one::<String>("end_date").unwrap();
-    let mut end_date = match NaiveDate::parse_from_str(end_date_as_string, "%Y-%m-%d") {
-        Ok(date) => date,
-        Err(_) => null_date,
-    };
-
-    // if no valid start date (i.e. before today) post an error
-    
-    if start_date == null_date || start_date >= today {
-        return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
-    }     
-
-    // if start date before start of ISRCTN registration set it to the start
-    
     if start_date < isrctn_start_date {
         start_date = isrctn_start_date;
     }
+  
+    let end_date_as_string = parse_result.get_one::<String>("end_date").unwrap();
+    let end_date_opt = match NaiveDate::parse_from_str(end_date_as_string, "%Y-%m-%d") {
+        Ok(date) => Some(date),
+        Err(_) => None,
+    };
 
-    // If end date is None make end date today
-    // Or if end date in the future make it today
+    let mut end_date = match end_date_opt {
+        Some(d) => if dl_type == 117 {  // year known to be present
+                                  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+                              }
+                              else {
+                                 d
+                              },
+        None => if dl_type != 117 { 
+                today
+            }
+            else {   // year known to be present
+                NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+            },
+    };
 
-    if end_date == null_date || end_date > today {
+    if end_date > today {
         end_date = today;
     }
-   
+
     Ok(CliPars {
         dl_type: dl_type,
         start_date: start_date,
@@ -81,13 +111,13 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
             .short('t')
             .long("type")
             .help("An integer indicating the type of download required")
-            .default_value("111")
+            .default_value("111")   // Note default value
         )
         .arg(
             Arg::new("start_date")
            .short('s')
            .long("start_date")
-           .required(true)
+           .required(false)
            .help("Only data last edited on or after this date should be downloaded")
            .default_value("")
         )
@@ -97,6 +127,14 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .long("end_date")
            .required(false)
            .help("Only data last edited before this date should be downloaded")
+           .default_value("")
+        )
+        .arg(
+            Arg::new("download_year")
+           .short('y')
+           .long("year")
+           .required(false)
+           .help("Only data last edited in this year should be downloaded")
            .default_value("")
         )
     .try_get_matches_from(args)
@@ -132,6 +170,19 @@ mod tests {
         assert_eq!(res.dl_type, 115);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 2, 6).unwrap());
+    }
+
+        #[test]
+    fn check_cli_all_type_117_params() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-t", "117", "-y", "2020",];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+
+        let res = fetch_valid_arguments(test_args).unwrap();
+
+        assert_eq!(res.dl_type, 117);
+        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
+        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 1, 1).unwrap());
     }
 
     #[test]
@@ -198,7 +249,15 @@ mod tests {
         let _res = fetch_valid_arguments(test_args).unwrap();
     }
 
+    #[test]
+    #[should_panic]
+    fn check_panics_with_no_year_if_type_117() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-t", "117", "-s", "2032-12-04"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
+        let _res = fetch_valid_arguments(test_args).unwrap();
+    }
 
 }
    

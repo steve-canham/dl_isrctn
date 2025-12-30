@@ -54,6 +54,16 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
 
     // Identifiers
 
+    // Processing identifiers involves two loops. The first simply gets the identifiers as written 
+    // from their source fields, checking for duplicates amongst the 'secondary id' list (in most,
+    // perhaps all, cases this list seems to duplicate the data present in the specific fields).
+
+    // The second loop goes through and tries to identify common identifier types amongst those
+    // simply listed as 'sponsor protocol id', because many of these are IRASS, CPMS or NIHR numbers.
+    // It also checks - amongst the 'sponsor protocol id' values - for commas, which often signify
+    // multiple identifiers written on the same line. If commas are found that signify listed
+    // identifiers the line is split and each constituent part is added as a separate identifier.
+
     let er = study.external_refs;
     let mut idents: Vec<Identifier> = Vec::new();
 
@@ -70,7 +80,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
     let mut iras_value = "".to_string();  // for possible comparison later - IRAS values often seem to be duplicated
     if let Some(id) = iras {
         iras_value = id.clone();
-        idents.push(Identifier::new(303, "IRAS Id".to_string(), id));
+        idents.push(Identifier::new(303, "IRAS ID".to_string(), id));
     }
 
     let ctg = er.ctg_number.as_filtered_text_opt();
@@ -80,7 +90,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
 
     let prot = er.protocol_serial_number.as_filtered_text_opt();
     if let Some(id) = prot {
-        idents.push(Identifier::new(502, "Sponsor's id (presumed)".to_string(), id));
+        idents.push(Identifier::new(502, "Sponsor's ID (presumed)".to_string(), id));
     }
     
     let ids = er.secondary_number_list.secondary_numbers;
@@ -143,8 +153,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
             }
         }
     else {
-        processed_idents.push(ident);
-    }
+            processed_idents.push(ident);
+        }
 
     }
 
