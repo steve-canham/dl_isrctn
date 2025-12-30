@@ -133,21 +133,6 @@ pub struct EthicsCommittee
     pub committee_reference: Option<String>,
 }
 
-/* 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct PrimaryOutcome
-{
-    #[serde(rename = "PrimaryOutcome")]
-    pub primary_outcome: Option<String>,
-}
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct SecondaryOutcome
-{
-    #[serde(rename = "SecondaryOutcome", default)]
-    pub secondary_outcome: Option<String>,
-}
-*/
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct ExternalRefs

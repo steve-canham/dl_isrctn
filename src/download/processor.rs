@@ -4,8 +4,10 @@ use crate::download::json_models;
 use crate::err::AppError;
 use super::json_models::*;
 use chrono::Utc;
+use log::info;
 
-use super::isrctn_helper::{count_option, StringExtensions, OptionStringExtensions};
+use super::isrctn_helper::{count_option, split_identifier, classify_identifier, 
+                            StringExtensions, OptionStringExtensions};
 
 
 // processes study, returns json file model that model can be printed, 
@@ -65,7 +67,9 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
     }
 
     let iras = er.iras_number.as_filtered_text_opt();
+    let mut iras_value = "".to_string();  // for possible comparison later - IRAS values often seem to be duplicated
     if let Some(id) = iras {
+        iras_value = id.clone();
         idents.push(Identifier::new(303, "IRAS Id".to_string(), id));
     }
 
@@ -94,14 +98,57 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
                         break;
                     }
                 }
-
                 if add_id {
+                    
+                    info!("New identifier listed in secondary numbers: {}, for {}", sd_sid, id);
                     idents.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), id));
+                   
                 }
             }
         }
     }
-    let identifiers = count_option(idents);
+
+    // If the 'protocol serial number' or any additional identifier contain commas, see if they can be split
+    // also see if they can be reclassified to something more specific. Other ids can be used unchanged.
+
+    let mut processed_idents: Vec<Identifier> = Vec::new();
+    for ident in idents {
+        if ident.identifier_type_id == 502 || ident.identifier_type_id == 990 {  // See if has a comma and could be split
+            if ident.identifier_value.contains(",") {
+                let split_ids = split_identifier(&ident.identifier_value);
+                if split_ids.len() > 1 {
+                    for split_id in split_ids {    // Process each ident and add to processed_idents
+                        let old_ident = Identifier::new(ident.identifier_type_id , ident.identifier_type.clone(), split_id);
+                        let new_ident = classify_identifier(old_ident);
+                        let mut add_new = true;
+                        if new_ident.identifier_type_id == 303 && new_ident.identifier_value == iras_value {
+                            add_new = false;
+                        }
+                        if add_new {
+                            processed_idents.push(new_ident);
+                        }
+                    }
+                }
+            }
+            else {   // no splitting - just process the ident and add to processed_idents vector
+
+                let new_ident = classify_identifier(ident);
+                let mut add_new = true;
+                if new_ident.identifier_type_id == 303 && new_ident.identifier_value == iras_value {
+                    add_new = false;
+                }
+                if add_new {
+                    processed_idents.push(new_ident);
+                }
+            }
+        }
+    else {
+        processed_idents.push(ident);
+    }
+
+    }
+
+    let identifiers = count_option(processed_idents);
     
     // Summary block
 
@@ -128,6 +175,15 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
         overall_end_date: study.trial_design.overall_end_date.as_date_opt(),
         trial_website: d.trial_website.as_text_opt(),
     };
+
+    let primary_outcomes = d.primary_outcomes.as_text_opt();
+    if let Some(s) = primary_outcomes {
+        info!("Primary outcomes (plural field) found for {}.\n {}", sd_sid, s);
+    }
+    let secondary_outcomes = d.secondary_outcomes.as_text_opt();
+    if let Some(s) = secondary_outcomes {
+        info!("Secondary outcomes (plural field) found for {}.\n {}", sd_sid, s);
+    }
 
     // Ethics Committee data
 
@@ -197,6 +253,11 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
             });
         }
     }
+
+    if conds.len() > 1 {
+        info!("{} conditions listed for {}", conds.len(), sd_sid);
+    }
+
     let conditions = count_option(conds);
 
 
@@ -214,6 +275,11 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
             });
         }
     }
+
+    if intervents.len() > 1 {
+        info!("{} conditions listed for {}", intervents.len(), sd_sid);
+    }
+
     let interventions = count_option(intervents);
 
 
