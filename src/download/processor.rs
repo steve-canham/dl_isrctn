@@ -6,7 +6,7 @@ use super::json_models::*;
 use chrono::Utc;
 use log::info;
 
-use super::isrctn_helper::{count_option, split_identifier, classify_identifier, 
+use super::isrctn_helper::{count_option, split_identifier, classify_identifier,
                             StringExtensions, OptionStringExtensions};
 
 
@@ -69,10 +69,12 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
 
     let ema = er.eudra_ct_number.as_filtered_text_opt();
     if let Some(id) = ema {
-        if &id[4..6] == "-5" {
-            idents.push(Identifier::new(135, "EMA CTIS ID".to_string(), id));
-        } else {
-            idents.push(Identifier::new(123, "EMA Eudract ID".to_string(), id));
+        if let Some(id2) = id.regularise_hyphens(){
+            if &id2[4..6] == "-5" {
+                idents.push(Identifier::new(135, "EMA CTIS ID".to_string(), id2));
+            } else {
+                idents.push(Identifier::new(123, "EMA Eudract ID".to_string(), id2));
+            }
         }
     }
 
@@ -100,6 +102,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
             if let Some(id) = num_string {
 
                 // Has number already been supplied? - in almost all cases they seem to be
+                // *** regularise hyphens here !!! ****  // Check August and October 2022
 
                 let mut add_id = true;
                 for ident in &idents {
@@ -110,6 +113,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
                 }
                 if add_id {
                     
+
                     info!("New identifier listed in secondary numbers: {}, for {}", sd_sid, id);
                     idents.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), id));
                    

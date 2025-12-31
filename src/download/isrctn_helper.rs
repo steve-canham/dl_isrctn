@@ -157,6 +157,7 @@ pub trait StringExtensions {
     fn tidy(&self) -> Option<String>;
     fn replace_unicodes(&self) -> Option<String>;
     fn replace_tags_and_unicodes(&self) -> Option<String>;
+    fn regularise_hyphens(&self) -> Option<String>;
     fn compress_spaces(&self) -> Option<String>;
 }
 
@@ -199,8 +200,8 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
-    // Filtering here is to translate 'null' or 'nil'
-    // type entries with None. theoptions used are ISCRTN specific -
+    // Filtering here is to translate 'n/a', 'null' or 'nil'
+    // type entries with None. the options used are ISRCTN specific -
     // other choices might be necessary in other systems.
 
     fn as_filtered_text_opt(&self) -> Option<String> {
@@ -212,7 +213,9 @@ impl OptionStringExtensions for Option<String> {
                         None
                     } 
                     else {
-                        if st == "N/A" || st.starts_with("Nil ") || st.starts_with("Not ") {
+                        let stl = st.to_ascii_lowercase();
+                        if stl == "n/a" || stl == "na" || stl == "no" 
+                        || stl.starts_with("nil ") || stl.starts_with("not ") {
                             None
                         }
                         else {
@@ -336,22 +339,15 @@ impl OptionStringExtensions for Option<String> {
 impl StringExtensions for String {
     
     fn tidy(&self) -> Option<String> {
-
-        if self == "NULL" ||  self == "null" ||  self == "\"NULL\"" ||  self == "\"null\""
-        ||  self.trim() == ""
+        
+        let quoteless = self.trim_matches('"');
+        if quoteless.to_ascii_lowercase() == "null" || quoteless.trim() == ""
         {
             None
         }
         else {
-            let trimmed: &str;
-            if self.starts_with("\"") {
-                let complex_trim = |c| c == ' ' || c == ';' || c == '"';
-                trimmed = self.trim_matches(complex_trim);
-            }
-            else {
-                let complex_trim = |c| c == ' ' || c == ';';
-                trimmed = self.trim_matches(complex_trim);
-            }
+            let complex_trim = |c| c == ' ' || c == ';';
+            let trimmed = quoteless.trim_matches(complex_trim);
             if trimmed == "" {
                 None
             }
@@ -436,12 +432,33 @@ impl StringExtensions for String {
         }
     }
 
+//  let new_string = teststring.replace(" ", "\u{00A0}");
+
+    fn regularise_hyphens(&self) -> Option<String> {
+
+        let quoteless = self.trim_matches('"');
+        if quoteless.to_ascii_lowercase() == "null" || quoteless.trim() == ""
+        {
+            None
+        }
+        else {
+            let mut output_string = quoteless.replace("\u{2010}", "-"); 
+            output_string = output_string.replace("\u{2011}", "-"); 
+            output_string = output_string.replace("\u{2012}", "-"); 
+            output_string = output_string.replace("\u{2013}", "-"); 
+            output_string = output_string.replace("\u{2212}", "-"); 
+
+            Some(output_string)
+        }
+    }
+    
+
 
     fn compress_spaces(&self) -> Option<String> {
     
        let trimmed = self.trim();
        if trimmed == "NULL" ||  trimmed == "null" ||  trimmed == "\"NULL\"" ||  trimmed == "\"null\""
-       ||  trimmed == ""
+            ||  trimmed == ""
         {
             None
         }
