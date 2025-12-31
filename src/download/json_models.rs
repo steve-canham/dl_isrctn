@@ -8,7 +8,10 @@ pub struct Study
 
     pub titles: Vec<Title>,
     pub identifiers: Option<Vec<Identifier>>,
+    
     pub summary: Summary,
+    pub primary_outcomes: Option<Vec<OutcomeMeasure>>,
+    pub secondary_outcomes: Option<Vec<OutcomeMeasure>>,
 
     pub ethics: Ethics,
     pub ethics_committees: Option<Vec<EthicsCommittee>>,
@@ -118,6 +121,12 @@ pub struct EthicsCommittee
     pub committee_reference: Option<String>,
 }
 
+#[derive(serde::Serialize)]pub struct OutcomeMeasure
+{
+    pub variable: Option<String>,
+    pub method: Option<String>,
+    pub timepoints: Option<String>,
+}
 
 #[derive(serde::Serialize)]
 pub struct Design

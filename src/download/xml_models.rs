@@ -102,13 +102,13 @@ pub struct Description
     #[serde(rename = "plainEnglishSummary")]
     pub plain_english_summary: Option<String>,
 
-    #[serde(rename = "primaryOutcomes", default)]
-    pub primary_outcomes: Option<String>,
+    #[serde(rename = "primaryOutcomes")]
+    pub primary_outcomes: PrimOutcomesList,
     #[serde(rename = "primaryOutcome", default)]
     pub primary_outcome: Option<String>,
 
-    #[serde(rename = "secondaryOutcomes", default)]
-    pub secondary_outcomes: Option<String>,
+    #[serde(rename = "secondaryOutcomes")]
+    pub secondary_outcomes: SecOutcomesList,
     #[serde(rename = "secondaryOutcome")]
     pub secondary_outcome: Option<String>,
 
@@ -144,6 +144,28 @@ pub struct EthicsCommittee
     pub contact_details: ContactDetails,
     #[serde(rename = "committeeReference")]
     pub committee_reference: Option<String>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct PrimOutcomesList
+{
+    #[serde(rename = "outcomeMeasure", default)]
+    pub outcome_measures: Vec<OutcomeMeasure>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct SecOutcomesList
+{
+    #[serde(rename = "outcomeMeasure", default)]
+    pub outcome_measures: Vec<OutcomeMeasure>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct OutcomeMeasure
+{
+    pub variable: Option<String>,
+    pub method: Option<String>,
+    pub timepoints: Option<String>,
 }
 
 
@@ -284,7 +306,7 @@ pub struct Country
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct CentreList
 {
-    #[serde(rename = "trialCentre")]
+    #[serde(rename = "trialCentre", default)]
     pub centres: Vec<Centre>,
 }
 
@@ -774,6 +796,13 @@ mod tests {
         let eclist = EthicsCommitteeList { 
             ethics_committees: vec![ecomm],
         };
+
+        let po_list = PrimOutcomesList {
+            outcome_measures: vec![],
+        };
+        let so_list = SecOutcomesList {
+            outcome_measures: vec![],
+        };
         
         let td = Description {
             third_party_ack: Some("true".to_string()),
@@ -783,9 +812,9 @@ mod tests {
             acronym: Some("".to_string()),
             study_hypothesis: Some("Expression of RBM15 in bladder cancer and normal tissue".to_string()),
             plain_english_summary: Some("Background and study aims In this study, patients with bladder cancer were examined".to_string()),
-            primary_outcomes: Some("".to_string()),
+            primary_outcomes: po_list,
             primary_outcome: Some("Survival measured using data collected at an annual telephone call for 6 years".to_string()),
-            secondary_outcomes: Some("".to_string()),
+            secondary_outcomes: so_list,
             secondary_outcome: Some("Transfer or not measured using data collected during a telephone call every 6 months".to_string()),
             trial_website: Some("".to_string()),
             ethics_approval_required: Some("Ethics approval required".to_string()),
@@ -797,6 +826,151 @@ mod tests {
         assert_eq!(td, der_struct);
 
     }  
+
+    #[test]
+    fn check_can_parse_trial_description2() {
+
+        let xml_string = r#"<trialDescription thirdPartyFilesAcknowledgement="true">
+            <acknowledgment>true</acknowledgment>
+            <title>Gene expression in bladder cancer and normal tissues</title>
+            <scientificTitle>Bladder cancer and normal tissues</scientificTitle>
+            <acronym/>
+            <studyHypothesis>Expression of RBM15 in bladder cancer and normal tissue</studyHypothesis>
+            <plainEnglishSummary>Background and study aims In this study, patients with bladder cancer were examined</plainEnglishSummary>
+            <primaryOutcomes>
+                <outcomeMeasure id="d4dfe23e-a1dc-475b-9fec-332c5a23095a">
+                    <variable>Recruitment rate (reach)</variable>
+                    <method>school recruitment rate: proportion of approached schools agreeing to participate (target: ≥60%); student recruitment</method>
+                    <timepoints>during recruitment period</timepoints>
+                </outcomeMeasure>
+                <outcomeMeasure id="bd1199e0-c515-4511-8266-a4527fa601c6">
+                    <variable>Retention rate</variable>
+                    <method>follow-up completion rate (target: ≥75%)</method>
+                    <timepoints>3 months post-intervention (T1) – Primary endpoint</timepoints>
+                </outcomeMeasure>
+                <outcomeMeasure id="1ba3dc23-1870-4d73-8141-766d053c8830">
+                    <variable>Implementation fidelity</variable>
+                    <method>proportion of core YAM content delivered (target: ≥80%), quality of delivery assessed via observation checklist</method>
+                    <timepoints>during intervention delivery</timepoints>
+                </outcomeMeasure>
+            </primaryOutcomes>
+            <primaryOutcome/>
+            <secondaryOutcomes>
+                <outcomeMeasure id="39e2b14f-0e52-4c50-842e-7972fa9df5af">
+                    <variable>Depression and anxiety symptoms</variable>
+                    <method>Revised Child Anxiety and Depression Scale, 25-item short version (RCADS-25)</method>
+                    <timepoints>Baseline (T0), 3 months (T1), 6 months (T2)</timepoints>
+                </outcomeMeasure>
+                <outcomeMeasure id="c68ba294-6b11-41b9-ac83-3a3a1182d23e">
+                    <variable>Suicide literacy (knowledge about suicide)</variable>
+                    <method>Literacy of Suicide Scale short form (LOSS)</method>
+                    <timepoints>Baseline (T0), 3 months (T1), 6 months (T2)</timepoints>
+                </outcomeMeasure>
+            </secondaryOutcomes>
+            <secondaryOutcome/>
+            <trialWebsite/>
+            <ethicsApprovalRequired>Ethics approval required</ethicsApprovalRequired>
+            <ethicsCommittees>
+                <ethicsCommittee id="5247b77a-f096-40ed-9b87-e836ee9d7a68" approvalStatus="approved" statusDate="2022-03-10T00:00:00.000Z">
+                <committeeName>Haikou Municipal People's Hospital Biomedical Ethics Committee</committeeName>
+                <contactDetails>
+                    <address>No.43 Renmin Avenue</address>
+                    <city>Haikou</city>
+                    <state/>
+                    <country>China</country>
+                    <zip>570208</zip>
+                    <telephone/>
+                    <email/>
+                </contactDetails>
+                <committeeReference>2023-055</committeeReference>
+                </ethicsCommittee>
+            </ethicsCommittees>
+        </trialDescription>"#;
+
+        let cdets = ContactDetails {
+            address: Some("No.43 Renmin Avenue".to_string()),
+            city: Some("Haikou".to_string()),
+            state: Some("".to_string()),
+            country: Some("China".to_string()),
+            zip: Some("570208".to_string()),
+            telephone: Some("".to_string()),
+            email: Some("".to_string()),
+        };
+
+        let ecomm = EthicsCommittee {
+            id: Some("5247b77a-f096-40ed-9b87-e836ee9d7a68".to_string()),
+            approval_status: Some("approved".to_string()),
+            status_date: Some("2022-03-10T00:00:00.000Z".to_string()),
+            committee_name: Some("Haikou Municipal People's Hospital Biomedical Ethics Committee".to_string()),
+            contact_details: cdets,
+            committee_reference: Some("2023-055".to_string()),
+        };
+
+        let eclist = EthicsCommitteeList { 
+            ethics_committees: vec![ecomm],
+        };
+
+        let pom1 = OutcomeMeasure {
+            variable: Some("Recruitment rate (reach)".to_string()),
+            method: Some("school recruitment rate: proportion of approached schools agreeing to participate (target: ≥60%); student recruitment".to_string()),
+            timepoints: Some("during recruitment period".to_string()),
+        };
+
+        let pom2 = OutcomeMeasure {
+            variable: Some("Retention rate".to_string()),
+            method: Some("follow-up completion rate (target: ≥75%)".to_string()),
+            timepoints: Some("3 months post-intervention (T1) – Primary endpoint".to_string()),
+        };
+
+        let pom3 = OutcomeMeasure {
+            variable: Some("Implementation fidelity".to_string()),
+            method: Some("proportion of core YAM content delivered (target: ≥80%), quality of delivery assessed via observation checklist".to_string()),
+            timepoints: Some("during intervention delivery".to_string()),
+        };
+
+        let som1 = OutcomeMeasure {
+            variable: Some("Depression and anxiety symptoms".to_string()),
+            method: Some("Revised Child Anxiety and Depression Scale, 25-item short version (RCADS-25)".to_string()),
+            timepoints: Some("Baseline (T0), 3 months (T1), 6 months (T2)".to_string()),
+        };
+
+        let som2 = OutcomeMeasure {
+            variable: Some("Suicide literacy (knowledge about suicide)".to_string()),
+            method: Some("Literacy of Suicide Scale short form (LOSS)".to_string()),
+            timepoints: Some("Baseline (T0), 3 months (T1), 6 months (T2)".to_string()),
+        };
+
+        let po_list  = PrimOutcomesList { 
+            outcome_measures: vec![pom1, pom2, pom3],
+        };
+
+        let so_list  = SecOutcomesList { 
+            outcome_measures: vec![som1, som2],
+        };
+        
+        let td = Description {
+            third_party_ack: Some("true".to_string()),
+            acknowledgment: Some("true".to_string()),
+            title: Some("Gene expression in bladder cancer and normal tissues".to_string()),
+            scientific_title: Some("Bladder cancer and normal tissues".to_string()),
+            acronym: Some("".to_string()),
+            study_hypothesis: Some("Expression of RBM15 in bladder cancer and normal tissue".to_string()),
+            plain_english_summary: Some("Background and study aims In this study, patients with bladder cancer were examined".to_string()),
+            primary_outcomes: po_list,
+            primary_outcome: Some("".to_string()),
+            secondary_outcomes: so_list,
+            secondary_outcome: Some("".to_string()),
+            trial_website: Some("".to_string()),
+            ethics_approval_required: Some("Ethics approval required".to_string()),
+            ethics_committee_list: eclist,
+            ethics_approval: None,
+        };
+
+        let der_struct: Description = quick_xml::de::from_str(xml_string).unwrap();
+        assert_eq!(td, der_struct);
+
+    }  
+
 
     #[test]
     fn check_can_parse_trial_design() {

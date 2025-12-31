@@ -89,13 +89,11 @@ pub async fn process_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgr
             info!("For period GE {}, to LT {}, no records found", start_date_param, end_date_param);
         }
 
-        if res.num_checked % 500 == 0 && res.num_checked > 0 {
-            info!("{} records checked so far", res.num_checked);
-        }
-
         sd = ed;    // make the start date the old end date
          
     }
+    
+    info!("{} records checked in total. {} Files written ({} of them new)", res.num_checked, res.num_downloaded, res.num_added);
 
     Ok(res)
 
@@ -114,13 +112,19 @@ async fn process_single_day(params: &InitParams, date: &NaiveDate, dl_id: i32, s
     let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, 1);
     let limit = get_study_count(&url).await?;
 
-    // Get the full set of records (i.e. set limit to be all the records aavailable)...
+    if limit > 0 {
 
-    let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, limit);
-    let studies: AllTrials = get_studies(&url).await?;
-    let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+        // Get the full set of records (i.e. set limit to be all the records aavailable)...
 
-    Ok(res)
+        let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, limit);
+        let studies: AllTrials = get_studies(&url).await?;
+        let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+
+        Ok(res) 
+    }
+    else {
+        Ok(DownloadResult::new())
+    }
 }
 
 
@@ -223,6 +227,7 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
                 res.num_added +=1;
             }
         }
+
         Ok(res)
 }
 

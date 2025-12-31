@@ -4,6 +4,8 @@ use crate::download::json_models;
 use crate::err::AppError;
 use super::json_models::*;
 use chrono::Utc;
+use std::sync::LazyLock;
+use regex::Regex;
 use log::info;
 
 use super::isrctn_helper::{count_option, split_identifier, classify_identifier,
@@ -54,115 +56,163 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
 
     // Identifiers
 
-    // Processing identifiers involves two loops. The first simply gets the identifiers as written 
-    // from their source fields, checking for duplicates amongst the 'secondary id' list (in most,
-    // perhaps all, cases this list seems to duplicate the data present in the specific fields).
+    // Processing identifiers involves the array of secondary identifiers only.
+    // These seem to always repeat the data in the specific fields (which is therefore redundant)
+    // and in the later records at least contain more data - i.e. lists of multiple ids
+    // are split properly and in many cases have their 'type' identified more accurately.
 
-    // The second loop goes through and tries to identify common identifier types amongst those
-    // simply listed as 'sponsor protocol id', because many of these are IRASS, CPMS or NIHR numbers.
-    // It also checks - amongst the 'sponsor protocol id' values - for commas, which often signify
-    // multiple identifiers written on the same line. If commas are found that signify listed
-    // identifiers the line is split and each constituent part is added as a separate identifier.
+    // The system therefore loops through these secondary id recordsw. For each record,
+    // if a valid id is found, the 'type', as described in the data, is used to determine further
+    // action. Some id types can be pushed straight to the collecting vector. In other cases the 
+    // id is sent to a helper function to see if its type can be identified. In the case of the 
+    // 'Sponsor's protocol number' the id is also examined to see if it should be split before 
+    // further processing. If the type can be idfentified the value is pushed to the vector with
+    // that additional information. Otherwise it is added as a general grant or sponsor's protocol id.
 
     let er = study.external_refs;
-    let mut idents: Vec<Identifier> = Vec::new();
+    let sec_ids = er.secondary_number_list.secondary_numbers;
+    let mut s_identifiers =  Vec::new();
+    let mut iras_number = "0".to_string(); // for possible future check against repetition;
+ 
+    static RE_CPMS_NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{5}$").unwrap());
+    static RE_NIHR_NUM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{6}$").unwrap());
 
-    let ema = er.eudra_ct_number.as_filtered_text_opt();
-    if let Some(id) = ema {
-        if let Some(id2) = id.regularise_hyphens(){
-            if &id2[4..6] == "-5" {
-                idents.push(Identifier::new(135, "EMA CTIS ID".to_string(), id2));
-            } else {
-                idents.push(Identifier::new(123, "EMA Eudract ID".to_string(), id2));
+    if let Some(idents) = sec_ids {
+        for ident in &idents {
+
+            let id_value = ident.value.as_filtered_text_opt();
+            if let Some(id) = id_value {
+
+                let id_type = ident.number_type.as_text_opt();
+                if let Some(id_type_string) = id_type {
+
+                    match id_type_string.as_str() {
+                        "iras" => {
+                            iras_number = id.clone();
+                            s_identifiers.push(Identifier::new(303, "IRAS ID".to_string(), id));
+                        }, 
+
+                        "ctis" => {
+                            if let Some(id_reg) = id.regularise_hyphens(){
+                               if  id_reg.len() == 14 || id_reg.len() == 17 {
+                                    if &id_reg[4..6] == "-5" {
+                                        s_identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), id_reg));
+                                    } else {
+                                        s_identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), id_reg));
+                                    }
+                                }
+                                else {
+                                    s_identifiers.push(Identifier::new(179, "Malformed registry Id (CTIS claimed)".to_string(), id_reg));
+                                }
+                            }
+                        }, 
+
+                        "nct" => {
+                            s_identifiers.push(Identifier::new(120, "NCT ID".to_string(), id));
+                        }, 
+
+                        "cpms" => {   // May need to have prefix removed
+                            if RE_CPMS_NUM.is_match(&id) {   // already a digit string
+                                s_identifiers.push(Identifier::new(304, "CPMS ID".to_string(), id));
+                            }
+                            else {
+                                let (type_id, type_string, id_post) = classify_identifier(id);
+                                s_identifiers.push(Identifier::new(type_id, type_string, id_post));
+                            }
+                        }, 
+
+                        "nihr" => {   
+                            if RE_NIHR_NUM.is_match(&id) {   // already a digit string
+                                s_identifiers.push(Identifier::new(416, "NIHR ID".to_string(), id));
+                            }
+                            else {// May need to have prefix removed
+                                let (type_id, type_string, id_post) = classify_identifier(id);
+                                s_identifiers.push(Identifier::new(type_id, type_string, id_post));
+                            }
+                        }, 
+
+                        "Grant Code" => {
+                            if let Some(id_reg) = id.regularise_hyphens(){
+
+                                // Try to classify. if unable assume it is an as yet undefined funder / grant code
+
+                                let (mut type_id, mut type_string, id_post) = classify_identifier(id_reg);
+                                if type_string == "???".to_string() {
+                                    type_id = 400;
+                                    type_string = "Grant / Contract ID (unclassified)".to_string();
+                                }
+                                s_identifiers.push(Identifier::new(type_id, type_string, id_post));
+
+                            }
+                        }, 
+
+                        "Protocol serial number" => {
+                            if let Some(id_reg) = id.regularise_hyphens(){
+
+                                // Turn current value into a vector.
+                                // If it includes a comma or a sem-colon it may be a vector of multiple strings
+                                // (Until recently this category of id was used as a 'catch all' for additional ids)
+
+                                let mut split_ids = vec![id_reg.clone()];
+                                if id_reg.contains(",") || id_reg.contains(";"){
+                                    split_ids = split_identifier(&id_reg);
+                                }
+                                
+                                for each_id in split_ids {
+
+                                    // For each try to classify. If unable assume it is a spionsor id.
+
+                                    let (mut type_id, mut type_string, id_post) = classify_identifier(each_id);
+                                    if type_string == "???".to_string() {
+                                        if id_post.to_lowercase().starts_with("grant")
+                                        || id_post.to_lowercase().starts_with("contract") {
+                                            type_id = 400;
+                                            type_string = "Grant / Contract ID (unclassified)".to_string();
+                                        } 
+                                        else {
+                                            type_id = 502;
+                                            type_string = "Sponsor's ID (presumed)".to_string();
+                                        }
+                                    }
+
+                                    // In some cases this id seems to include the IRAS number - check before adding.
+
+                                    let mut add_new = true;
+                                    if type_id == 303 && id_post == iras_number {
+                                        add_new = false;
+                                    }
+                                    if add_new {
+                                        s_identifiers.push(Identifier::new(type_id, type_string, id_post));
+                                    }
+                                }
+                            }
+                        }, 
+
+                        _ => {
+
+                            // Some other string used for the id type - try to classify, if unable use 'as is'
+
+                            if let Some(id_reg) = id.regularise_hyphens(){
+                                let (mut type_id, mut type_string, id_post) = classify_identifier(id_reg);
+                                if type_string == "???".to_string() {
+                                    type_id = 990;
+                                    type_string = id_type_string;
+                                }
+                                s_identifiers.push(Identifier::new(type_id, type_string, id_post));
+
+
+                            }
+                        },
+          
+                    }
+                }
             }
         }
-    }
-
-    let iras = er.iras_number.as_filtered_text_opt();
-    let mut iras_value = "".to_string();  // for possible comparison later - IRAS values often seem to be duplicated
-    if let Some(id) = iras {
-        iras_value = id.clone();
-        idents.push(Identifier::new(303, "IRAS ID".to_string(), id));
-    }
-
-    let ctg = er.ctg_number.as_filtered_text_opt();
-    if let Some(id) = ctg {
-        idents.push(Identifier::new(120, "NCT ID".to_string().to_string(), id));
-    }
-
-    let prot = er.protocol_serial_number.as_filtered_text_opt();
-    if let Some(id) = prot {
-        idents.push(Identifier::new(502, "Sponsor's ID (presumed)".to_string(), id));
     }
     
-    let ids = er.secondary_number_list.secondary_numbers;
-    if let Some(nums) = ids {
-        for num in &nums {
-            let num_string = num.value.as_filtered_text_opt();
-            if let Some(id) = num_string {
 
-                // Has number already been supplied? - in almost all cases they seem to be
-                // *** regularise hyphens here !!! ****  // Check August and October 2022
 
-                let mut add_id = true;
-                for ident in &idents {
-                    if id == ident.identifier_value {
-                        add_id = false;
-                        break;
-                    }
-                }
-                if add_id {
-                    
-
-                    info!("New identifier listed in secondary numbers: {}, for {}", sd_sid, id);
-                    idents.push(Identifier::new(990, "Other Id (provenance not supplied)".to_string(), id));
-                   
-                }
-            }
-        }
-    }
-
-    // If the 'protocol serial number' or any additional identifier contain commas, see if they can be split
-    // also see if they can be reclassified to something more specific. Other ids can be used unchanged.
-
-    let mut processed_idents: Vec<Identifier> = Vec::new();
-    for ident in idents {
-        if ident.identifier_type_id == 502 || ident.identifier_type_id == 990 {  // See if has a comma and could be split
-            if ident.identifier_value.contains(",") {
-                let split_ids = split_identifier(&ident.identifier_value);
-                if split_ids.len() > 1 {
-                    for split_id in split_ids {    // Process each ident and add to processed_idents
-                        let old_ident = Identifier::new(ident.identifier_type_id , ident.identifier_type.clone(), split_id);
-                        let new_ident = classify_identifier(old_ident);
-                        let mut add_new = true;
-                        if new_ident.identifier_type_id == 303 && new_ident.identifier_value == iras_value {
-                            add_new = false;
-                        }
-                        if add_new {
-                            processed_idents.push(new_ident);
-                        }
-                    }
-                }
-            }
-            else {   // no splitting - just process the ident and add to processed_idents vector
-
-                let new_ident = classify_identifier(ident);
-                let mut add_new = true;
-                if new_ident.identifier_type_id == 303 && new_ident.identifier_value == iras_value {
-                    add_new = false;
-                }
-                if add_new {
-                    processed_idents.push(new_ident);
-                }
-            }
-        }
-    else {
-            processed_idents.push(ident);
-        }
-
-    }
-
-    let identifiers = count_option(processed_idents);
+    let identifiers = count_option(s_identifiers);
     
     // Summary block
 
@@ -190,14 +240,31 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
         trial_website: d.trial_website.as_text_opt(),
     };
 
-    let primary_outcomes = d.primary_outcomes.as_text_opt();
-    if let Some(s) = primary_outcomes {
-        info!("Primary outcomes (plural field) found for {}.\n {}", sd_sid, s);
+    // 
+
+    let mut s_primary_outcomes: Vec<OutcomeMeasure> = Vec::new();
+    if d.primary_outcomes.outcome_measures.len() > 0 {
+        for om in d.primary_outcomes.outcome_measures {
+            s_primary_outcomes.push(OutcomeMeasure { 
+                variable: om.variable, 
+                method: om.method, 
+                timepoints: om.timepoints,
+            })
+        }
     }
-    let secondary_outcomes = d.secondary_outcomes.as_text_opt();
-    if let Some(s) = secondary_outcomes {
-        info!("Secondary outcomes (plural field) found for {}.\n {}", sd_sid, s);
-    }
+    let primary_outcomes =  count_option(s_primary_outcomes);
+
+    let mut s_secondary_outcomes: Vec<OutcomeMeasure> = Vec::new();
+    if d.secondary_outcomes.outcome_measures.len() > 0 {
+        for om in d.secondary_outcomes.outcome_measures {
+            s_secondary_outcomes.push(OutcomeMeasure { 
+                variable: om.variable, 
+                method: om.method, 
+                timepoints: om.timepoints,
+            })
+        }
+    } 
+    let secondary_outcomes =  count_option(s_secondary_outcomes);
 
     // Ethics Committee data
 
@@ -600,6 +667,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
         titles, 
         identifiers,
         summary,
+        primary_outcomes,
+        secondary_outcomes,
         ethics,
         ethics_committees,
         design,

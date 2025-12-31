@@ -29,7 +29,7 @@ pub fn setup_log (data_folder: &PathBuf) -> Result<log4rs::Handle, AppError> {
 fn get_log_file_path(data_folder: &PathBuf) -> PathBuf {
     
     let datetime_string = Local::now().format("%m-%d %H%M%S").to_string();
-    let log_file_name = format!("ANZCTR DL {} ", datetime_string);
+    let log_file_name = format!("ISRCTN DL {} ", datetime_string);
     [data_folder, &PathBuf::from(&log_file_name)].iter().collect()
     
 }

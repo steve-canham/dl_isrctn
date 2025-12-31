@@ -1,6 +1,5 @@
 use std::sync::LazyLock;
 use regex::Regex;
-use super::json_models::Identifier;
 
 pub fn count_option<T>(v: Vec<T>) -> Option<Vec<T>> {
     match v.len() {
@@ -16,7 +15,11 @@ pub fn split_identifier(id: &String) -> Vec<String> {
 
     let mut this_id = id.to_string();
 
-    // As an initial stage try to get the commas replaced when they immediately follow a common id type
+    // As an initial step replace semi-colons with a split marker
+
+    this_id = this_id.replace(";", "||");
+
+    // Then try to get the commas replaced when they immediately follow a common id type
 
     static RE_IRASC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"IRAS:? ?\d{6,7},").unwrap());
     static RE_CPMSC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"CPMS:? ?\d{5},").unwrap());
@@ -27,31 +30,31 @@ pub fn split_identifier(id: &String) -> Vec<String> {
         Some(s) => {
             this_id = this_id.replace(&s[0], &s[0].replace(",", "||"))
         },
-        None => {},  // no eu match at all
+        None => {},  // no iras match at all
     }
     
     match RE_CPMSC.captures(&this_id) {
         Some(s) => {
             this_id = this_id.replace(&s[0], &s[0].replace(",", "||"))
         },
-        None => {},  // no eu match at all
+        None => {},  // no cpms match at all
     }
 
     match RE_NIHRC.captures(&this_id) {
         Some(s) => {
             this_id = this_id.replace(&s[0], &s[0].replace(",", "||"))
         },
-        None => {},  // no eu match at all
+        None => {},  // no nihr match at all
     }
 
     match RE_HTAC.captures(&this_id) {
         Some(s) => {
             this_id = this_id.replace(&s[0], &s[0].replace(",", "||"))
         },
-        None => {},  // no eu match at all
+        None => {},  // no hta match at all
     }
 
-    // Then replace remaining commas if they preceeed common combined entities
+    // Then replace remaining commas if they preceed common combined entities
 
     if this_id.contains("," ) {   //still
         if this_id.contains(", NIHR") { this_id = this_id.replace(", NIHR", "||NIHR"); }
@@ -64,7 +67,7 @@ pub fn split_identifier(id: &String) -> Vec<String> {
         if this_id.contains(", MR") { this_id = this_id.replace(", MR", "||MR"); }
     }
 
-    // Again, try to replace remaining commas if they preceeed common combined entities
+    // Again, try to replace remaining commas if they preceed common combined entities
 
     if this_id.contains("," ) {   // still
         if this_id.contains(", Sponsor") { this_id = this_id.replace(", Sponsor", "||Sponsor"); }
@@ -85,57 +88,72 @@ pub fn split_identifier(id: &String) -> Vec<String> {
 }
 
 
-pub fn classify_identifier(ident: Identifier) -> Identifier {
+pub fn classify_identifier(identifier_value: String) -> (i32, String, String) {
 
     // Attempts to identify the type of some of the more common / distinctive (non trial registry) identifiers
-     
+
     static RE_IRAS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"IRAS:? ?\d{6,7}").unwrap());
     static RE_CPMS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"CPMS:? ?\d{5}").unwrap());
     static RE_NIHR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"NIHR:? ?\d{6}").unwrap());
     static RE_HTA: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"HTA \d{2}/\d{2,3}/\d{2,3}").unwrap());
+    static RE_NTR: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"NTR:? ?\d{2,6}").unwrap());
     static RE_CCMO: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"NL\d{5}.\d{3}.\d{2}").unwrap());
     static RE_CIV: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"CIV-\d{2}-\d{2}-\d{6}").unwrap());
-
-    let old_value = ident.identifier_value.clone();
-    let new_ident = match RE_IRAS.captures(&old_value) {
+    static RE_ANSM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d{4}-A\d{5}-\d{2}").unwrap());
+    
+    match RE_IRAS.captures(&identifier_value) {
         Some(s) => {
             let new_value = s[0].to_string().replace("IRAS", "").replace(":", "").trim().to_string();
-            Identifier::new(303, "IRAS ID".to_string(), new_value)
+            (303, "IRAS ID".to_string(), new_value)
         },
         None => {
-            match RE_CPMS.captures(&old_value) {
+            match RE_CPMS.captures(&identifier_value) {
                 Some(s) => {
                     let new_value = s[0].to_string().replace("CPMS", "").replace(":", "").trim().to_string();
-                    Identifier::new(304, "CPMS ID".to_string(), new_value)
+                    (304, "CPMS ID".to_string(), new_value)
                 },
                 None => {
-                    match RE_NIHR.captures(&old_value) {
+                    match RE_NIHR.captures(&identifier_value) {
                         Some(s) => {
                             let new_value = s[0].to_string().replace("NIHR", "").replace(":", "").trim().to_string();
-                            Identifier::new(416, "NIHR ID".to_string(), new_value)
+                            (416, "NIHR ID".to_string(), new_value)
                         },
                         None => {
-                            match RE_HTA.captures(&old_value) {
+                            match RE_HTA.captures(&identifier_value) {
                                 Some(s) => {
                                     let new_value = s[0].to_string();
-                                    Identifier::new(417, "HTA ID".to_string(), new_value)
+                                    (417, "HTA ID".to_string(), new_value)
                                 },
                                 None => {
-                                    match RE_CCMO.captures(&old_value) {
+                                    match RE_NTR.captures(&identifier_value) {
                                         Some(s) => {
                                             let new_value = s[0].to_string();
-                                            Identifier::new(801, "CCMO ID".to_string(), new_value)
+                                            (181, "Obsolete NTR ID".to_string(), new_value)
                                         },
-                                        None => {
-                                            match RE_CIV.captures(&old_value) {
+                                        None =>  {
+                                            match RE_CCMO.captures(&identifier_value) {
                                                 Some(s) => {
                                                     let new_value = s[0].to_string();
-                                                    Identifier::new(186, "Eudamed ID".to_string(), new_value)
+                                                    (801, "CCMO ethics ID".to_string(), new_value)
                                                 },
-                                                None => {  // revert to the original
-                                                    Identifier::new(ident.identifier_type_id, ident.identifier_type, ident.identifier_value)
-                                                },  
-                                            }
+                                                None => {
+                                                    match RE_CIV.captures(&identifier_value) {
+                                                        Some(s) => {
+                                                            let new_value = s[0].to_string();
+                                                            (186, "Eudamed CIV ID".to_string(), new_value)
+                                                        },
+                                                        None => {
+                                                            match RE_ANSM.captures(&identifier_value) {
+                                                                Some(s) => {
+                                                                    let new_value = s[0].to_string();
+                                                                    (301, "ANSM (ID-RCB number)".to_string(), new_value)
+                                                                },
+                                                                None => (502, "???".to_string(), identifier_value)
+                                                            }
+                                                        },  
+                                                    }
+                                                },
+                                            }  
                                         },  
                                     }
                                 },  
@@ -145,9 +163,8 @@ pub fn classify_identifier(ident: Identifier) -> Identifier {
                 },  
             }
         },  
-    };
-    
-    new_ident
+    }
+   
 
 }
 
@@ -205,24 +222,31 @@ impl OptionStringExtensions for Option<String> {
     // other choices might be necessary in other systems.
 
     fn as_filtered_text_opt(&self) -> Option<String> {
+        
+        static RE_ONE_AND_ZEROS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[01\. -]+$").unwrap());
         match self {
             Some(s) => { 
-                    let st = s.trim();
-                    if st == "" 
-                    {
+                let st = s.trim();
+                if st == "" || st.len() < 2  // 1 character ids not meaningful or useful
+                {
+                    None
+                } 
+                else {
+                    let stl = st.to_ascii_lowercase();
+                    if stl == "n/a" || stl == "na" || stl == "no" || stl == "none"
+                    || stl.starts_with("nil ") || stl.starts_with("not ") {
                         None
-                    } 
+                    }
                     else {
-                        let stl = st.to_ascii_lowercase();
-                        if stl == "n/a" || stl == "na" || stl == "no" 
-                        || stl.starts_with("nil ") || stl.starts_with("not ") {
+                        if RE_ONE_AND_ZEROS.is_match(st) {  // ids just with 1s and 0s rarely meaningful or useful
                             None
                         }
                         else {
                             Some(st.to_string())
                         }
                     }
-                },
+                }
+            },
             None => None
         }
     }
@@ -252,7 +276,7 @@ impl OptionStringExtensions for Option<String> {
                         }
                     }
                 },
-                None => None
+            None => None
         }
     }
 
@@ -339,9 +363,11 @@ impl OptionStringExtensions for Option<String> {
 impl StringExtensions for String {
     
     fn tidy(&self) -> Option<String> {
-        
+
         let quoteless = self.trim_matches('"');
-        if quoteless.to_ascii_lowercase() == "null" || quoteless.trim() == ""
+        let lower = quoteless.to_lowercase();
+        if lower == "null" || lower == "n/a"
+        || lower == "na" || lower == "none"
         {
             None
         }
@@ -352,28 +378,24 @@ impl StringExtensions for String {
                 None
             }
             else {
-                Some(trimmed.to_owned())
+                Some(trimmed.to_string())
             }
         }
     }
 
 
     fn replace_unicodes(&self) -> Option<String> {
-        if self == "NULL" ||  self == "null" ||  self == "\"NULL\"" ||  self == "\"null\""
-        ||  self.trim() == ""
+
+        let quoteless = self.trim_matches('"');
+        let lower = quoteless.to_lowercase();
+        if lower == "null" || lower == "n/a"
+        || lower == "na" || lower == "none"
         {
             None
         }
         else {
-            let trimmed: &str;
-            if self.starts_with("\"") {
-                let complex_trim = |c| c == ' ' || c == ';' || c == '"';
-                trimmed = self.trim_matches(complex_trim);
-            }
-            else {
-                let complex_trim = |c| c == ' ' || c == ';';
-                trimmed = self.trim_matches(complex_trim);
-            }
+            let complex_trim = |c| c == ' ' || c == ';';
+            let trimmed = quoteless.trim_matches(complex_trim);
             if trimmed == "" {
                 None
             }
@@ -392,21 +414,16 @@ impl StringExtensions for String {
 
 
     fn replace_tags_and_unicodes(&self) -> Option<String> {
-        if self == "NULL" ||  self == "null" ||  self == "\"NULL\"" ||  self == "\"null\""
-        ||  self.trim() == ""
+        let quoteless = self.trim_matches('"');
+        let lower = quoteless.to_lowercase();
+        if lower == "null" || lower == "n/a"
+        || lower == "na" || lower == "none"
         {
             None
         }
         else {
-            let trimmed: &str;
-            if self.starts_with("\"") {
-                let complex_trim = |c| c == ' ' || c == ';' || c == '"';
-                trimmed = self.trim_matches(complex_trim);
-            }
-            else {
-                let complex_trim = |c| c == ' ' || c == ';';
-                trimmed = self.trim_matches(complex_trim);
-            }
+            let complex_trim = |c| c == ' ' || c == ';';
+            let trimmed = quoteless.trim_matches(complex_trim);
             if trimmed == "" {
                 None
             }
@@ -432,17 +449,18 @@ impl StringExtensions for String {
         }
     }
 
-//  let new_string = teststring.replace(" ", "\u{00A0}");
 
     fn regularise_hyphens(&self) -> Option<String> {
 
-        let quoteless = self.trim_matches('"');
-        if quoteless.to_ascii_lowercase() == "null" || quoteless.trim() == ""
-        {
+        // assumed this call is immediately after a 'tidy' call, either
+        // on a string or string option, so only basic null check required
+
+        if self.trim() == "" {
             None
         }
         else {
-            let mut output_string = quoteless.replace("\u{2010}", "-"); 
+
+            let mut output_string = self.replace("\u{2010}", "-"); 
             output_string = output_string.replace("\u{2011}", "-"); 
             output_string = output_string.replace("\u{2012}", "-"); 
             output_string = output_string.replace("\u{2013}", "-"); 
@@ -450,6 +468,7 @@ impl StringExtensions for String {
 
             Some(output_string)
         }
+
     }
     
 
@@ -492,82 +511,68 @@ mod tests {
 
     #[test]
     fn check_can_identify_iras_number() {
+        let (type_id, type_string, id) = classify_identifier("IRAS 123456".to_string());
 
-        let old_identifier  = Identifier::new(502, "Sponsor's id (presumed)".to_string(), "IRAS 123456".to_string());
-        let new_identfier = classify_identifier(old_identifier);
-    
-        assert_eq!(new_identfier.identifier_type_id, 303);
-        assert_eq!(new_identfier.identifier_type, "IRAS ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "123456".to_string());
+        assert_eq!(type_id, 303);
+        assert_eq!(type_string, "IRAS ID".to_string());
+        assert_eq!(id, "123456".to_string());
     } 
     
     #[test]
     fn check_can_identify_cpms_number() {
-
-        let old_identifier  = Identifier::new(502, "Sponsor's id (presumed)".to_string(), "CPMS 12345".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("CPMS 12345".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 304);
-        assert_eq!(new_identfier.identifier_type, "CPMS ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "12345".to_string());
+        assert_eq!(type_id, 304);
+        assert_eq!(type_string, "CPMS ID".to_string());
+        assert_eq!(id, "12345".to_string());
     } 
     
     #[test]
     fn check_can_identify_cpms_number_with_colon() {
-
-        let old_identifier  = Identifier::new(502, "Sponsor's id (presumed)".to_string(), "CPMS:54321".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("CPMS:54321".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 304);
-        assert_eq!(new_identfier.identifier_type, "CPMS ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "54321".to_string());
+        assert_eq!(type_id, 304);
+        assert_eq!(type_string, "CPMS ID".to_string());
+        assert_eq!(id, "54321".to_string());
     } 
     
     #[test]
     fn check_can_identify_nihr() {
-
-        let old_identifier  = Identifier::new(990, "Other Id (provenance not supplied)".to_string(), "NIHR123456".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("NIHR123456".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 416);
-        assert_eq!(new_identfier.identifier_type, "NIHR ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "123456".to_string());
+        assert_eq!(type_id, 416);
+        assert_eq!(type_string, "NIHR ID".to_string());
+        assert_eq!(id, "123456".to_string());
     } 
 
 
     
     #[test]
     fn check_can_identify_hta_number() {
-
-        let old_identifier  = Identifier::new(990, "Other Id (provenance not supplied)".to_string(), "Some HTA 12/123/123 id".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("Some HTA 12/123/123 id".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 417);
-        assert_eq!(new_identfier.identifier_type, "HTA ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "HTA 12/123/123".to_string());
+        assert_eq!(type_id, 417);
+        assert_eq!(type_string, "HTA ID".to_string());
+        assert_eq!(id, "HTA 12/123/123".to_string());
     } 
 
     
     #[test]
     fn check_can_identify_ccmo_number() {
-
-        let old_identifier  = Identifier::new(502, "Sponsor's id (presumed)".to_string(), "ccmo -- NL12345.789.34".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("ccmo -- NL12345.789.34".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 801);
-        assert_eq!(new_identfier.identifier_type, "CCMO ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "NL12345.789.34".to_string());
+        assert_eq!(type_id, 801);
+        assert_eq!(type_string, "CCMO ethics ID".to_string());
+        assert_eq!(id, "NL12345.789.34".to_string());
     } 
 
      #[test]
     fn check_can_identify_eudamed_number() {
-
-        let old_identifier  = Identifier::new(502, "Sponsor's id (presumed)".to_string(),  "Eudamed: CIV-12-34-654321".to_string());
-        let new_identfier = classify_identifier(old_identifier);
+        let (type_id, type_string, id) = classify_identifier("Eudamed: CIV-12-34-654321".to_string());
     
-        assert_eq!(new_identfier.identifier_type_id, 186);
-        assert_eq!(new_identfier.identifier_type, "Eudamed ID".to_string());
-        assert_eq!(new_identfier.identifier_value, "CIV-12-34-654321".to_string());
+        assert_eq!(type_id, 186);
+        assert_eq!(type_string, "Eudamed CIV ID".to_string());
+        assert_eq!(id, "CIV-12-34-654321".to_string());
     } 
 
 
