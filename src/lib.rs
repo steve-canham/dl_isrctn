@@ -46,12 +46,30 @@ impl Add for DownloadResult {
     }
 }
 
+
 pub struct ImportResult {
     pub num_available: i64,
     pub num_imported: i64,
     pub cut_off_date: NaiveDate,
 }
 
+#[derive(PartialEq, Debug)]
+pub enum ImportType {
+    None,
+    Recent,
+    All,
+}
+
+impl ImportType {
+    fn to_int(&self) -> i32 {
+        match self { 
+            ImportType::None => 0, 
+            ImportType::Recent => 1,
+            ImportType::All => 2,
+        }
+    }
+}
+ 
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
@@ -103,8 +121,8 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     else {
         
         // an import requested
-        let imp_id = get_next_import_id(params.import_type, &mon_pool).await?;
-        let imp_res = import::import_data(params.import_type, imp_id, &src_pool).await?;
+        let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
+        let imp_res = import::import_data(&params.import_type, imp_id, &src_pool).await?;
         update_imp_event_record (imp_id, imp_res, &mon_pool).await?;
     }
     

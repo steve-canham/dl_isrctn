@@ -23,13 +23,13 @@ use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
 use cli_reader::CliPars;
-
+use super::ImportType;
 
 pub struct InitParams {
     pub base_url: String,
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
-    pub import_type: i32,
+    pub import_type: ImportType,
     pub dl_type: i32,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -53,9 +53,9 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
         fs::create_dir_all(&log_folder_path)?;
     }
     
-    let mut import_type = 0;
+    let mut import_type = ImportType::None;
     if cli_pars.import_recent || cli_pars.import_all {
-        import_type = if cli_pars.import_all{2} else {1};
+        import_type = if cli_pars.import_all{ImportType::All} else {ImportType::Recent};
     }
     
     Ok(InitParams {
@@ -191,7 +191,7 @@ src_db_name="isrctn"
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
-        assert_eq!(res.import_type, 0);
+        assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, today);
@@ -229,7 +229,7 @@ src_db_name="isrctn"
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
-        assert_eq!(res.import_type, 0);
+        assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, 117);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
@@ -268,7 +268,7 @@ src_db_name="isrctn"
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
-        assert_eq!(res.import_type, 1);
+        assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.dl_type, 0);
         assert_eq!(res.start_date, today);
         assert_eq!(res.end_date, today);

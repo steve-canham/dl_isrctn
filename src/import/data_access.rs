@@ -1,7 +1,7 @@
 use sqlx::{Pool, Postgres};
 use crate::err::AppError;
 use chrono::{Utc};
-use super::ImportResult;
+use super::{ImportType, ImportResult};
 
 #[allow(dead_code)]
 pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Pool<Postgres>) -> Result<(), AppError> {
@@ -21,7 +21,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Po
 }
 
 
-pub async fn get_next_import_id(import_type: i32, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
+pub async fn get_next_import_id(import_type: &ImportType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
     let sql = "select max(id) from evs.import_events ";
     let last_id: i32 = sqlx::query_scalar(sql).fetch_one(mon_pool)
@@ -32,7 +32,7 @@ pub async fn get_next_import_id(import_type: i32, mon_pool: &Pool<Postgres>) -> 
 
     let now = Utc::now();
     let sql = "Insert into evs.import_events(id, source_id, type_id, time_started) values ($1, $2, $3, $4)";
-    sqlx::query(sql).bind(new_id).bind(100126).bind(import_type).bind(now)
+    sqlx::query(sql).bind(new_id).bind(100126).bind(import_type.to_int()).bind(now)
             .execute(mon_pool)
             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
 
@@ -46,7 +46,7 @@ pub async fn update_imp_event_record (imp_event_id: i32, imp_res: ImportResult, 
              num_records_available = $2,
              num_records_imported = $3,
              cut_off_date = $4,
-             time_ended = $5,
+             time_ended = $5
              where id = $1"#;
     let res = sqlx::query(sql).bind(imp_event_id).bind(imp_res.num_available)
           .bind(imp_res.num_imported).bind(imp_res.cut_off_date).bind(now)
