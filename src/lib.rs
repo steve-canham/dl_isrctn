@@ -2,8 +2,11 @@
 pub mod setup;
 pub mod err;
 mod download;
+mod import;
+mod data_models;
 
 use download::data_access::{get_next_download_id, update_dl_event_record};
+use import::data_access::{get_next_import_id, update_imp_event_record};
 use setup::cli_reader;
 use err::AppError;
 use std::ffi::OsString;
@@ -82,10 +85,23 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     let mon_pool = setup::get_mon_db_pool().await?;  // pool for the monitoring db
     let src_pool = setup::get_src_db_pool().await?;  // pool for the source specific db
 
-    let dl_id = get_next_download_id(&mon_pool).await?;
-    let res = download::process_data(&params, dl_id, &src_pool).await?;
+    if params.dl_type > 0 {
 
-    update_dl_event_record (dl_id, params.dl_type, res, &mon_pool).await?;
+        // a download reuested
+
+        let dl_id = get_next_download_id(&mon_pool).await?;
+        let res = download::download_data(&params, dl_id, &src_pool).await?;
+        update_dl_event_record (dl_id, params.dl_type, res, &mon_pool).await?;
+    }
+    else {
+        
+        // an import requested
+
+
+        let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
+        let num_imported = import::import_data(&params.import_type, imp_id, &src_pool).await?;
+        update_imp_event_record (&params.import_type, imp_id, num_imported, &mon_pool).await?;
+    }
     
     Ok(())  
 }

@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct CliPars {
+    pub import_recent: bool,
+    pub import_all: bool,
     pub dl_type: i32,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -15,79 +17,104 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 { 
     let parse_result = parse_args(args.to_vec())?;
 
-    let dl_type_as_string = parse_result.get_one::<String>("dl_type").unwrap();
-    let dl_type: i32 = dl_type_as_string.parse().unwrap_or_else(|_| 0);   // N.B. default is 111
-
-    let year_as_string = parse_result.get_one::<String>("download_year").unwrap();
-    let year: i32 = year_as_string.parse().unwrap_or_else(|_| 0);
-
-    if dl_type == 117 && year == 0 {
-        return Result::Err(AppError::MissingProgramParameter("year for type 117 download".to_string()));
-    }
-
-    let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+    let i_flag = parse_result.get_flag("i_flag");
+    let mut a_flag = parse_result.get_flag("a_flag");
     let today = Local::now().date_naive();
 
-    let start_date_as_string = parse_result.get_one::<String>("start_date").unwrap();
-    let start_date_opt = match NaiveDate::parse_from_str(start_date_as_string, "%Y-%m-%d") {
-        Ok(date) => Some(date),
-        Err(_) => None,
-    };
+    // import and download functions mutually exclusive        
+
+    if i_flag || a_flag {
+
+        if i_flag && a_flag {
+            a_flag = false;   // if both true only recent import done
+        }
+
+        Ok(CliPars {
+            import_recent: i_flag,
+            import_all: a_flag,
+            dl_type: 0,     // overrides the default ofd 111
+            start_date: today,
+            end_date: today,
+        }) 
+
+    }
+    else {
+
+        let dl_type_as_string = parse_result.get_one::<String>("dl_type").unwrap();
+        let dl_type: i32 = dl_type_as_string.parse().unwrap_or_else(|_| 0);   // N.B. default is 111
+
+        let year_as_string = parse_result.get_one::<String>("download_year").unwrap();
+        let year: i32 = year_as_string.parse().unwrap_or_else(|_| 0);
+
+        if dl_type == 117 && year == 0 {
+            return Result::Err(AppError::MissingProgramParameter("year for type 117 download".to_string()));
+        }
+
+        let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+
+        let start_date_as_string = parse_result.get_one::<String>("start_date").unwrap();
+        let start_date_opt = match NaiveDate::parse_from_str(start_date_as_string, "%Y-%m-%d") {
+            Ok(date) => Some(date),
+            Err(_) => None,
+        };
+        
+        let mut start_date = match start_date_opt {  
+            Some(d) => if dl_type == 117 {  // year known to be present
+                                        NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
+                                    }
+                                    else if d >= today {   // invalid
+                                        return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+                                    }
+                                    else {
+                                        d
+                                    },
+            None => { 
+                if dl_type != 117 {  
+                    return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+                }
+                else {  // year known to be present
+                    NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
+                }
+            }
+        };
+
+        if start_date < isrctn_start_date {
+            start_date = isrctn_start_date;
+        }
     
-    let mut start_date = match start_date_opt {  
-        Some(d) => if dl_type == 117 {  // year known to be present
-                                    NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
-                                }
-                                else if d >= today {   // invalid
-                                    return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+        let end_date_as_string = parse_result.get_one::<String>("end_date").unwrap();
+        let end_date_opt = match NaiveDate::parse_from_str(end_date_as_string, "%Y-%m-%d") {
+            Ok(date) => Some(date),
+            Err(_) => None,
+        };
+
+        let mut end_date = match end_date_opt {
+            Some(d) => if dl_type == 117 {  // year known to be present
+                                    NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
                                 }
                                 else {
                                     d
                                 },
-        None => { 
-            if dl_type != 117 {  
-                return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
-            }
-            else {  // year known to be present
-                NaiveDate::from_ymd_opt(year, 1, 1).unwrap()
-            }
+            None => if dl_type != 117 { 
+                    today
+                }
+                else {   // year known to be present
+                    NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+                },
+        };
+
+        if end_date > today {
+            end_date = today;
         }
-    };
 
-    if start_date < isrctn_start_date {
-        start_date = isrctn_start_date;
+        Ok(CliPars {
+            import_recent: false,
+            import_all: false,
+            dl_type: dl_type,
+            start_date: start_date,
+            end_date: end_date,
+        }) 
     }
-  
-    let end_date_as_string = parse_result.get_one::<String>("end_date").unwrap();
-    let end_date_opt = match NaiveDate::parse_from_str(end_date_as_string, "%Y-%m-%d") {
-        Ok(date) => Some(date),
-        Err(_) => None,
-    };
-
-    let mut end_date = match end_date_opt {
-        Some(d) => if dl_type == 117 {  // year known to be present
-                                  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-                              }
-                              else {
-                                 d
-                              },
-        None => if dl_type != 117 { 
-                today
-            }
-            else {   // year known to be present
-                NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-            },
-    };
-
-    if end_date > today {
-        end_date = today;
-    }
-
-    Ok(CliPars {
-        dl_type: dl_type,
-        start_date: start_date,
-        end_date: end_date,
-    }) 
 }
 
 
@@ -137,6 +164,22 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .help("Only data last edited in this year should be downloaded")
            .default_value("")
         )
+        .arg(
+            Arg::new("i_flag")
+           .short('i')
+           .long("import")
+           .required(false)
+           .help("A flag signifying import files downloade since the last import")
+           .action(clap::ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("a_flag")
+           .short('a')
+           .long("import_all")
+           .required(false)
+           .help("A flag signifying (re-)import all data from source json files")
+           .action(clap::ArgAction::SetTrue)
+        )
     .try_get_matches_from(args)
 }
 
@@ -154,6 +197,8 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         let today = Local::now().date_naive();
 
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, today);
@@ -167,6 +212,8 @@ mod tests {
 
         let res = fetch_valid_arguments(test_args).unwrap();
 
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 115);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 2, 6).unwrap());
@@ -180,6 +227,8 @@ mod tests {
 
         let res = fetch_valid_arguments(test_args).unwrap();
 
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 117);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 1, 1).unwrap());
@@ -193,6 +242,9 @@ mod tests {
 
         let res = fetch_valid_arguments(test_args).unwrap();
         let today = Local::now().date_naive();
+
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, today);
@@ -208,6 +260,8 @@ mod tests {
         let res = fetch_valid_arguments(test_args).unwrap();
         let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
 
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, isrctn_start_date);
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 2, 6).unwrap());
@@ -222,6 +276,9 @@ mod tests {
 
         let res = fetch_valid_arguments(test_args).unwrap();
         let today = Local::now().date_naive();
+        
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, false);
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, today);
@@ -257,6 +314,54 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
 
         let _res = fetch_valid_arguments(test_args).unwrap();
+    }
+
+    #[test]
+    fn check_correct_pars_for_recent_import() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-i"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+
+        let res = fetch_valid_arguments(test_args).unwrap();
+        let today = Local::now().date_naive();
+        
+        assert_eq!(res.import_recent, true);
+        assert_eq!(res.import_all, false);
+        assert_eq!(res.dl_type, 0);
+        assert_eq!(res.start_date, today);
+        assert_eq!(res.end_date, today);
+    }
+
+    #[test]
+    fn check_correct_pars_for_all_import() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-a"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+
+        let res = fetch_valid_arguments(test_args).unwrap();
+        let today = Local::now().date_naive();
+        
+        assert_eq!(res.import_recent, false);
+        assert_eq!(res.import_all, true);
+        assert_eq!(res.dl_type, 0);
+        assert_eq!(res.start_date, today);
+        assert_eq!(res.end_date, today);
+    }
+
+    #[test]
+    fn check_correct_pars_for_both_import_pars() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-i", "-a"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+
+        let res = fetch_valid_arguments(test_args).unwrap();
+        let today = Local::now().date_naive();
+        
+        assert_eq!(res.import_recent, true);
+        assert_eq!(res.import_all, false);
+        assert_eq!(res.dl_type, 0);
+        assert_eq!(res.start_date, today);
+        assert_eq!(res.end_date, today);
     }
 
 }

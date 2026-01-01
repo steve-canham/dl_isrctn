@@ -1,8 +1,9 @@
-mod xml_models;
-mod json_models;
 mod processor;
 pub mod data_access;
 pub mod isrctn_helper;
+
+use crate::data_models::xml_models;
+use crate::data_models::json_models;
 
 use std::path::PathBuf;
 use crate::AppError;
@@ -19,8 +20,7 @@ use rand::prelude::*;
 use sqlx::{Pool, Postgres};
 use log::info;
 
-
-pub async fn process_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     // The base url, json file folder, log folder, and start and end dates have
     // already been checked as being present and reasonable.
@@ -257,3 +257,80 @@ fn folder_exists(folder_name: &PathBuf) -> bool {
     };
     res
 }
+
+
+/*
+
+// Routines below used temporarily for correctinmg some downloads after code change
+// Retained in case similar use case arises in the future
+
+pub async fn correct_data(params: &InitParams, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+    
+    // get the dataset of individual ids to correct
+    // In this instance the correcvtion is of studies with incorrect IDs, that were
+    // 'tagged' in the database by insertring specific values in the last_aggregation_id field
+
+    #[derive(sqlx::FromRow)]
+    struct SdSid {
+        sd_sid: String,
+    }
+
+    let sql = r#"select sd_sid from mn.source_data
+            where last_aggregation_id in (12, 13) and last_dl_id < 101970
+            ORDER BY sd_sid"#;
+
+    let ids: Vec<SdSid> = sqlx::query_as(&sql).fetch_all(src_pool).await
+                    .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;       
+    
+    let dl_id = 101970;  // static, indicates successful re-processing, change if re-used
+    let mut res = DownloadResult::new();
+    let mut n = 0;
+
+    for id in ids {
+
+        //for each id...construct the single trial url
+
+        let url = format!("https://www.isrctn.com/api/trial/{}/format/default", id.sd_sid);
+        info!("{}", url);
+        n += 1;
+
+        // call it to get and process the data
+        // that should also change the details in mn.source_data
+
+        let study: FullTrial = get_study(&url).await?;
+        let studies = vec![study];
+        res = res + process_studies(params, studies, dl_id, src_pool).await?;
+
+        if n > 100 {  // just to limit numbers per batch
+            break;
+        }
+    }
+    Ok(res)
+}
+
+
+async fn get_study(url: &String) -> Result<FullTrial, AppError> {
+
+    let response = reqwest::get(url.clone()).await
+        .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
+
+    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
+    
+    let mut rng = rand::rng();
+    let num = &rng.random_range(1..=1000);
+    let millis = 800 + num;   
+    let pause = time::Duration::from_millis(millis);
+    thread::sleep(pause);
+
+    // Extract api text and deserialise it to the xml model
+
+    let xml_content = response.text().await
+        .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
+   
+    de::from_str(&xml_content)
+        .map_err(|e| AppError::QuickXMLError(url.clone(), e))
+
+}
+
+
+*/

@@ -1,8 +1,6 @@
-
-use crate::download::xml_models;
-use crate::download::json_models; 
+use crate::data_models::xml_models;
+use crate::data_models::json_models::*; 
 use crate::err::AppError;
-use super::json_models::*;
 use chrono::Utc;
 use std::sync::LazyLock;
 use regex::Regex;
@@ -16,11 +14,11 @@ use super::isrctn_helper::{count_option, split_identifier, classify_identifier,
 // and / or it can be saved to the database...
 
 #[allow(unused_variables)]
-pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, AppError> {
+pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
 
     let study = s.trial;
 
-    let sd_sid = format!("ISRCTN{:?}", study.isrctn.value);
+    let sd_sid = format!("ISRCTN{}", study.isrctn.value);
     let downloaded = Utc::now().to_rfc3339()[0..19].to_string(); // current date time as ISO 8601
 
     // Registration data block.
@@ -660,7 +658,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<json_models::Study, App
     };
 
 
-    let json_study = json_models::Study { 
+    let json_study = Study { 
         sd_sid, 
         downloaded,
         registration, 

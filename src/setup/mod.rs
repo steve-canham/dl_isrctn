@@ -29,6 +29,7 @@ pub struct InitParams {
     pub base_url: String,
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
+    pub import_type: String,
     pub dl_type: i32,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
@@ -43,7 +44,7 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     let base_url = config_file.api.base_url;
     let json_data_path = config_file.folders.json_data_path; 
 
-    if !folder_exists(&json_data_path) {
+    if !folder_exists(&json_data_path) { 
         fs::create_dir_all(&json_data_path)?;
     }
 
@@ -52,10 +53,16 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
         fs::create_dir_all(&log_folder_path)?;
     }
     
+    let mut import_type = "".to_uppercase();
+    if cli_pars.import_recent || cli_pars.import_all {
+        import_type = if cli_pars.import_all{"a".to_string()} else {"i".to_string()};
+    }
+    
     Ok(InitParams {
         base_url: base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
+        import_type: import_type,
         dl_type: cli_pars.dl_type,
         start_date: cli_pars.start_date,
         end_date:cli_pars.end_date,
@@ -154,7 +161,7 @@ mod tests {
     use chrono::{NaiveDate, Local};
 
     #[test]
-    fn check_results_with_min_params() {
+    fn check_results_with_min_download_params() {
         let config = r#"
 [api]
 base_url = "https://www.isrctn.com/api/query/format/default?q="
@@ -184,9 +191,86 @@ src_db_name="isrctn"
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
-
+        assert_eq!(res.import_type, "".to_string());
         assert_eq!(res.dl_type, 111);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
+        assert_eq!(res.end_date, today);
+
+    }
+
+
+    #[test]
+    fn check_results_with_year_download_params() {
+        let config = r#"
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
+[folders]
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+
+[database]
+db_host="localhost"
+db_user="pg_user"
+db_password="foo"
+db_port="5432"
+mon_db_name="mon"
+src_db_name="isrctn"
+        "#;
+        let config_string = config.to_string();
+        config_reader::populate_config_vars(&config_string).unwrap();
+
+        let args : Vec<&str> = vec!["dummy target", "-t", "117", "-y", "2024"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
+
+        let res = get_params(cli_pars, &config_string).unwrap();
+ 
+        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
+        assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
+        assert_eq!(res.import_type, "".to_string());
+        assert_eq!(res.dl_type, 117);
+        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
+        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+
+    }
+
+
+    #[test]
+    fn check_results_with_import_recent_params() {
+        let config = r#"
+[api]
+base_url = "https://www.isrctn.com/api/query/format/default?q="
+
+[folders]
+json_data_path="/home/steve/Data/MDR json files/isrctn"
+log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+
+[database]
+db_host="localhost"
+db_user="pg_user"
+db_password="foo"
+db_port="5432"
+mon_db_name="mon"
+src_db_name="isrctn"
+        "#;
+        let config_string = config.to_string();
+        config_reader::populate_config_vars(&config_string).unwrap();
+
+        let args : Vec<&str> = vec!["dummy target", "-i"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
+
+        let res = get_params(cli_pars, &config_string).unwrap();
+        let today = Local::now().date_naive();
+
+        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
+        assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
+        assert_eq!(res.import_type, "i".to_string());
+        assert_eq!(res.dl_type, 0);
+        assert_eq!(res.start_date, today);
         assert_eq!(res.end_date, today);
 
     }

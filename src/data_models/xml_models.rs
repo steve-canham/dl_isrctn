@@ -4,7 +4,7 @@
 #[serde(rename = "allTrials")]
 pub struct TrialsCount
 {
-    // just used to get the study count fropm any API call
+    // just used to get the study count from any API call
     // The rest of the data(if any) is ignored
 
     #[serde(rename = "@totalCount")]
@@ -38,7 +38,7 @@ pub struct FullTrial
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct TrialAgents          // stripped down version of FullTrial for testing purposes
+pub struct TrialAgents          // A stripped down version of FullTrial for testing purposes
 {
     #[serde(rename = "contact", default)]
     pub contacts: Vec<Contact>,
@@ -84,7 +84,7 @@ pub struct Isrctn
     #[serde(rename = "@dateAssigned")]
     pub date_assigned: Option<String>,
     #[serde(rename = "$value")]
-    pub value: i32,
+    pub value: String,
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -621,7 +621,7 @@ mod tests {
       
         let isrctn = Isrctn {
             date_assigned: Some("2025-02-26T07:23:16.665489Z".to_string()),
-            value: 10601218,
+            value: "10601218".to_string(),
         };
         let der_struct: Isrctn = quick_xml::de::from_str(xml_string).unwrap();
         assert_eq!(isrctn, der_struct);
