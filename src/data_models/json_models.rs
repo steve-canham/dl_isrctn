@@ -1,5 +1,6 @@
+use serde::{Serialize, Deserialize};
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Study
 {
     pub sd_sid: String, 
@@ -42,7 +43,7 @@ pub struct Study
 
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Registration
 {
     pub date_id_assigned: Option<String>,
@@ -56,7 +57,7 @@ pub struct Registration
 // and therefore do not need to be 'Options',
 // and are created most easily using the new() function
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Title
 {
     pub title_type_id: i32,
@@ -74,7 +75,7 @@ impl Title {
    }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Identifier
 {
     pub identifier_type_id: i32,
@@ -82,7 +83,6 @@ pub struct Identifier
     pub identifier_value: String,
 }
 
-#[allow(dead_code)]
 impl Identifier {
     pub fn new(identifier_type_id: i32, identifier_type: String, identifier_value: String) -> Self {
         Identifier {
@@ -93,7 +93,7 @@ impl Identifier {
    }
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Summary
 {
     pub plain_english_summary: Option<String>,
@@ -105,14 +105,14 @@ pub struct Summary
 }
 
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Ethics
 {
     pub ethics_approval_required: Option<String>,
     pub ethics_approval: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct EthicsCommittee
 {
     pub name: Option<String>,
@@ -121,14 +121,15 @@ pub struct EthicsCommittee
     pub committee_reference: Option<String>,
 }
 
-#[derive(serde::Serialize)]pub struct OutcomeMeasure
+#[derive(Serialize, Deserialize)]
+pub struct OutcomeMeasure
 {
     pub variable: Option<String>,
     pub method: Option<String>,
     pub timepoints: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Design
 {
     pub study_design: Option<String>,
@@ -136,7 +137,7 @@ pub struct Design
     pub secondary_study_design: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Condition
 {
     pub description: Option<String>,
@@ -145,7 +146,7 @@ pub struct Condition
 }
 
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Intervention 
 {
     pub description: Option<String>,
@@ -156,7 +157,7 @@ pub struct Intervention
 }
 
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StudyContact
 {
     pub title: Option<String>,
@@ -171,7 +172,7 @@ pub struct StudyContact
     pub privacy: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StudySponsor
 {
     pub organisation: Option<String>,
@@ -186,14 +187,14 @@ pub struct StudySponsor
     pub commercial_status: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StudyFunder
 {
     pub name: Option<String>,
     pub fund_ref: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Participants
 {
     pub age_range: Option<String>,
@@ -209,7 +210,7 @@ pub struct Participants
     pub patient_info_sheet: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Recruitment
 {
     pub target_enrolment: Option<String>,
@@ -221,7 +222,7 @@ pub struct Recruitment
     pub recruitment_status_override: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StudyCentre
 {
     pub name: Option<String>,
@@ -231,7 +232,7 @@ pub struct StudyCentre
     pub country: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Results
 {
     pub publication_plan: Option<String>,
@@ -243,7 +244,7 @@ pub struct Results
     pub plain_english_report: Option<String>,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct IPD
 {
     pub ipd_sharing_plan: Option<bool>,    
@@ -251,7 +252,7 @@ pub struct IPD
 
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct StudyOutput
 {
     pub output_type: Option<String>,
@@ -271,7 +272,7 @@ pub struct StudyOutput
     pub mime_type: Option<String>,
 }  
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct AttachedFile
 {
     pub description: Option<String>,

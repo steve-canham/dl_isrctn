@@ -13,6 +13,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
 use std::ops::Add;
+use chrono::NaiveDate;
 
 //use crate::setup::InitParams;
 
@@ -43,6 +44,12 @@ impl Add for DownloadResult {
             num_added: self.num_added + other.num_added,
         }
     }
+}
+
+pub struct ImportResult {
+    pub num_available: i64,
+    pub num_imported: i64,
+    pub cut_off_date: NaiveDate,
 }
 
 
@@ -90,17 +97,15 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
         // a download reuested
 
         let dl_id = get_next_download_id(&mon_pool).await?;
-        let res = download::download_data(&params, dl_id, &src_pool).await?;
-        update_dl_event_record (dl_id, params.dl_type, res, &mon_pool).await?;
+        let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
+        update_dl_event_record (dl_id, params.dl_type, dl_res, &mon_pool).await?;
     }
     else {
         
         // an import requested
-
-
-        let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
-        let num_imported = import::import_data(&params.import_type, imp_id, &src_pool).await?;
-        update_imp_event_record (&params.import_type, imp_id, num_imported, &mon_pool).await?;
+        let imp_id = get_next_import_id(params.import_type, &mon_pool).await?;
+        let imp_res = import::import_data(params.import_type, imp_id, &src_pool).await?;
+        update_imp_event_record (imp_id, imp_res, &mon_pool).await?;
     }
     
     Ok(())  
