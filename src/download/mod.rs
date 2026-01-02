@@ -1,19 +1,19 @@
 mod processor;
-pub mod data_access;
+pub mod monitoring;
 pub mod isrctn_helper;
 
 use crate::data_models::xml_models;
 use crate::data_models::json_models;
 
-use std::path::PathBuf;
 use crate::AppError;
-use super::setup::InitParams;
-use super::DownloadResult;
+use crate::base_types::*;
+
 use chrono::{NaiveDate, Days};
 use xml_models::{AllTrials, FullTrial, TrialsCount};
 use quick_xml::de;
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
 use serde_json::to_string_pretty;
 use std::{thread, time};
 use rand::prelude::*;
@@ -178,6 +178,9 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 }
 
 
+
+
+
 async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     let mut res = DownloadResult::new();
@@ -219,7 +222,7 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
                              
             let full_path = write_out_file(&t, &file_folder).await?;
 
-            let added = data_access::update_isrctn_mon(sd_sid, &remote_url, dl_id,
+            let added = monitoring::update_isrctn_mon(sd_sid, &remote_url, dl_id,
                      &record_date, &full_path, src_pool).await?;
 
             res.num_downloaded += 1;

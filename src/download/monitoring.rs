@@ -1,7 +1,10 @@
+use crate::base_types::*;
+use crate::AppError;
+
 use sqlx::{Pool, Postgres};
 use std::path::PathBuf;
-use crate::{err::AppError, DownloadResult};
 use chrono::Utc;
+
 
 pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
                      record_date: &Option<String>, full_path: &PathBuf, src_pool: &Pool<Postgres>) -> Result<bool, AppError> {
@@ -41,7 +44,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
 }
 
 
-pub async fn get_next_download_id(mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
+pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
     let sql = "select max(id) from evs.dl_events ";
     let last_id: i32 = sqlx::query_scalar(sql).fetch_one(mon_pool)
@@ -51,47 +54,37 @@ pub async fn get_next_download_id(mon_pool: &Pool<Postgres>) -> Result<i32, AppE
     // Create the new record (to be updated later).
 
     let now = Utc::now();
-    let sql = "Insert into evs.dl_events(id, source_id, time_started) values ($1, $2, $3)";
-    sqlx::query(sql).bind(new_id).bind(100126).bind(now).execute(mon_pool)
-             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
+    let sql = "Insert into evs.dl_events(id, source_id, dl_type, time_started) values ($1, $2, $3)";
+    sqlx::query(sql).bind(new_id).bind(100126).bind(dl_type.to_string()).bind(now)
+            .execute(mon_pool)
+            .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
 
     Ok(new_id)
 }
 
 
-pub async fn update_dl_event_record (dl_id: i32, type_id: i32, dl_res: DownloadResult, mon_pool: &Pool<Postgres>) ->  Result<bool, AppError> {
+pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params: &InitParams, mon_pool: &Pool<Postgres>) ->  Result<bool, AppError> {
      
     let now = Utc::now();
     let sql = r#"Update evs.dl_events set 
              num_records_checked = $1,
-             num_records_downloaded = $2,
-             num_records_added = $3,
-             time_ended = $4,
-             type_id = $5
-             where id = $6"#;
-    let res = sqlx::query(sql).bind(dl_res.num_checked).bind(dl_res.num_downloaded).bind(dl_res.num_added)
-          .bind(now).bind(type_id).bind(dl_id).execute(mon_pool)
-             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?; 
+             time_ended = $2,
+             num_records_checked = $3,
+             num_records_downloaded = $4,
+             num_records_added = $5,
+             start_date = $6,
+             end_date = $7,
+             filefolder_path = $8
+             where id = $1"#;
+    let res = sqlx::query(sql).bind(dl_id).bind(now)
+            .bind(dl_res.num_checked).bind(dl_res.num_downloaded).bind(dl_res.num_added)
+            .bind(params.start_date).bind(params.end_date).bind(params.json_data_path.to_string_lossy())
+            .execute(mon_pool)
+            .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?; 
     Ok(res.rows_affected() == 1)
 }
 
 
-/*
-
-pub fn is_who_test_study() -> bool {
-
-    public bool IsWHOTestStudy(string dbname, string sd_sid)
-    {
-        string whoConnString = _credentials.GetConnectionString(dbname);
-        using NpgsqlConnection conn = new(whoConnString);
-        string sql_string = @$"select for_testing
-                    from mn.source_data where sd_sid = '{sd_sid}';";
-        bool? res = conn.QueryFirstOrDefault<bool?>(sql_string);
-        return res == true;
-    }
-    false
-}
 
 
 
-*/

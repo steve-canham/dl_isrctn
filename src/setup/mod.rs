@@ -16,24 +16,14 @@ pub mod log_helper;
 use std::fs;
 use std::sync::OnceLock;
 use crate::err::AppError;
-use chrono::{NaiveDate};
 use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
 use std::path::PathBuf;
 use std::time::Duration;
 use sqlx::ConnectOptions;
 use config_reader::Config;
 use cli_reader::CliPars;
-use super::ImportType;
+use crate::base_types::InitParams;
 
-pub struct InitParams {
-    pub base_url: String,
-    pub json_data_path: PathBuf,
-    pub log_folder_path: PathBuf,
-    pub import_type: ImportType,
-    pub dl_type: i32,
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
-}
 
 pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
 
@@ -52,17 +42,12 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     if !folder_exists(&log_folder_path) {
         fs::create_dir_all(&log_folder_path)?;
     }
-    
-    let mut import_type = ImportType::None;
-    if cli_pars.import_recent || cli_pars.import_all {
-        import_type = if cli_pars.import_all{ImportType::All} else {ImportType::Recent};
-    }
-    
+        
     Ok(InitParams {
         base_url: base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
-        import_type: import_type,
+        import_type: cli_pars.import_type,
         dl_type: cli_pars.dl_type,
         start_date: cli_pars.start_date,
         end_date:cli_pars.end_date,
@@ -159,6 +144,7 @@ mod tests {
     use super::*;
     use std::ffi::OsString;
     use chrono::{NaiveDate, Local};
+    use crate::base_types::{DownloadType, ImportType};
 
     #[test]
     fn check_results_with_min_download_params() {
@@ -192,7 +178,7 @@ src_db_name="isrctn"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.dl_type, 111);
+        assert_eq!(res.dl_type, DownloadType::Recent);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
         assert_eq!(res.end_date, today);
 
@@ -220,7 +206,7 @@ src_db_name="isrctn"
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
 
-        let args : Vec<&str> = vec!["dummy target", "-t", "117", "-y", "2024"];
+        let args : Vec<&str> = vec!["dummy target", "-w", "-y", "2024"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
 
@@ -230,7 +216,7 @@ src_db_name="isrctn"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.dl_type, 117);
+        assert_eq!(res.dl_type, DownloadType::ByYear);
         assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
         assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
 
@@ -269,7 +255,7 @@ src_db_name="isrctn"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
         assert_eq!(res.import_type, ImportType::Recent);
-        assert_eq!(res.dl_type, 0);
+        assert_eq!(res.dl_type, DownloadType::None);
         assert_eq!(res.start_date, today);
         assert_eq!(res.end_date, today);
 

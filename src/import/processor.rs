@@ -7,6 +7,18 @@ pub fn process_study_json(sd_sid: &String, s: Study) -> Result<(), AppError> {
     let vvv = s.sd_sid;
     info!("{},   {}", sd_sid, vvv);
 
+    
+     
+
+
+
+
+
+
+
+
+    
+
     Ok(())
 
 }

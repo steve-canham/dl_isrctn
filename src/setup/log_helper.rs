@@ -7,8 +7,8 @@
 
 use chrono::Local;
 use std::path::PathBuf;
-use crate::err::AppError;
-use crate::setup::InitParams;
+use crate::base_types::*;
+use crate::AppError;
 
 use log::{info, LevelFilter};
 use log4rs::{
@@ -80,19 +80,30 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("************************************");
     info!("");
     info!("base_url: {:?}", ip.base_url);
-    info!("json data parth: {:?}", ip.json_data_path);
+    info!("json data path: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
-    info!("dl type: {:?}", ip.dl_type);
-    info!("start date: {:?}", ip.start_date);
-    info!("end date: {:?}", ip.end_date);
+
+    if ip.dl_type != DownloadType::None {
+        let dl_type = match ip.dl_type {
+            DownloadType::Recent => "Data recently updated",
+            DownloadType::BetweenDates => "Data updated between dates",
+            DownloadType::ByYear => "Data updated in a set year",
+            DownloadType::None => "",
+        }; 
+        info!("dl type: {:?}", dl_type);
+        info!("start date: {:?}", ip.start_date);
+        info!("end date: {:?}", ip.end_date);
+    } 
+    else {
+        let imp_type = match ip.import_type {
+            ImportType::Recent => "Files recently downloaded",
+            ImportType::All => "All files",
+            ImportType::None => "",
+        }; 
+        info!("import type: {:?}", imp_type); 
+    }
+
     info!("");
     info!("************************************");
-    info!("");
-}
-
-pub fn write_config (config_string: &String) {
-    info!("Config file created or modified");
-    info!("New file is:");
-    info!("{}", config_string);
     info!("");
 }

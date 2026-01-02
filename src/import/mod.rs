@@ -1,4 +1,4 @@
-pub mod data_access;
+pub mod monitoring;
 mod processor;
 mod db_sd_tables;
 use std::fs;
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::data_models::json_models::*;
 use crate::AppError;
 use sqlx::{Pool, Postgres};
-use super::{ImportType, ImportResult};
+use crate::base_types::{ImportType, ImportResult};
 use chrono::Local;
 use log::info;
 
@@ -74,6 +74,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if i> 4 { break;}
         } 
 
+        if n > 2000 {
+            break;
+        }
+
     }
 
     info!("number of files found: {}",  num_files);
@@ -81,6 +85,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
     Ok(ImportResult {
         num_available: num_files,
         num_imported: 0,
-        cut_off_date: Local::now().date_naive(),
+        earliest_dl_date: Local::now().date_naive(),
+        latest_dl_date: Local::now().date_naive(),
     })
 }

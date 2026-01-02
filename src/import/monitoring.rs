@@ -11,7 +11,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Po
     let now = Utc::now();
     let sql = r#"Update mn.source_data set 
                 last_import_id = $2,
-                last_importeded = $3
+                last_imported = $3
                 where sd_sid = $1;"#;
     sqlx::query(&sql).bind(sd_sid).bind(imp_event_id).bind(now)
         .execute(src_pool).await
@@ -31,8 +31,8 @@ pub async fn get_next_import_id(import_type: &ImportType, mon_pool: &Pool<Postgr
     // Create the new record (to be updated later).
 
     let now = Utc::now();
-    let sql = "Insert into evs.import_events(id, source_id, type_id, time_started) values ($1, $2, $3, $4)";
-    sqlx::query(sql).bind(new_id).bind(100126).bind(import_type.to_int()).bind(now)
+    let sql = "Insert into evs.imp_events(id, source_id, imp_type, time_started) values ($1, $2, $3, $4)";
+    sqlx::query(sql).bind(new_id).bind(100126).bind(import_type.to_string()).bind(now)
             .execute(mon_pool)
             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
 
@@ -42,15 +42,18 @@ pub async fn get_next_import_id(import_type: &ImportType, mon_pool: &Pool<Postgr
 pub async fn update_imp_event_record (imp_event_id: i32, imp_res: ImportResult, mon_pool: &Pool<Postgres>) ->  Result<bool, AppError> {
      
     let now = Utc::now();
-    let sql = r#"Update evs.import_events set 
-             num_records_available = $2,
-             num_records_imported = $3,
-             cut_off_date = $4,
-             time_ended = $5
+    let sql = r#"Update evs.imp_events set 
+             time_ended = $2
+             num_records_available = $3,
+             num_records_imported = $4,
+             earliest_dl_date = $6,
+             latest_dl_date = $6
              where id = $1"#;
-    let res = sqlx::query(sql).bind(imp_event_id).bind(imp_res.num_available)
-          .bind(imp_res.num_imported).bind(imp_res.cut_off_date).bind(now)
+    let res = sqlx::query(sql).bind(imp_event_id).bind(now)
+          .bind(imp_res.num_available).bind(imp_res.num_imported)
+          .bind(imp_res.earliest_dl_date).bind(imp_res.latest_dl_date)
           .execute(mon_pool)
           .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?; 
     Ok(res.rows_affected() == 1)
 }
+

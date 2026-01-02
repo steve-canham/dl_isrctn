@@ -1,75 +1,20 @@
 
 pub mod setup;
 pub mod err;
+pub mod base_types;
 mod download;
 mod import;
 mod data_models;
 
-use download::data_access::{get_next_download_id, update_dl_event_record};
-use import::data_access::{get_next_import_id, update_imp_event_record};
+use download::monitoring::{get_next_download_id, update_dl_event_record};
+use import::monitoring::{get_next_import_id, update_imp_event_record};
 use setup::cli_reader;
 use err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
-use std::ops::Add;
-use chrono::NaiveDate;
 
-//use crate::setup::InitParams;
-
-#[derive(Clone)]
-pub struct DownloadResult {
-    pub num_checked: i32,
-    pub num_downloaded: i32,
-    pub num_added: i32,
-}
-
-impl DownloadResult {
-    pub fn new() -> Self {
-        DownloadResult {  
-        num_checked: 0,
-        num_downloaded: 0,
-        num_added: 0,
-        }
-   }
-}
-
-impl Add for DownloadResult {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self{  
-            num_checked: self.num_checked + other.num_checked,
-            num_downloaded: self.num_downloaded + other.num_downloaded,
-            num_added: self.num_added + other.num_added,
-        }
-    }
-}
-
-
-pub struct ImportResult {
-    pub num_available: i64,
-    pub num_imported: i64,
-    pub cut_off_date: NaiveDate,
-}
-
-#[derive(PartialEq, Debug)]
-pub enum ImportType {
-    None,
-    Recent,
-    All,
-}
-
-impl ImportType {
-    fn to_int(&self) -> i32 {
-        match self { 
-            ImportType::None => 0, 
-            ImportType::Recent => 1,
-            ImportType::All => 2,
-        }
-    }
-}
- 
+use crate::base_types::DownloadType;
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
@@ -110,13 +55,13 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     let mon_pool = setup::get_mon_db_pool().await?;  // pool for the monitoring db
     let src_pool = setup::get_src_db_pool().await?;  // pool for the source specific db
 
-    if params.dl_type > 0 {
+    if params.dl_type != DownloadType::None {
 
         // a download reuested
 
-        let dl_id = get_next_download_id(&mon_pool).await?;
+        let dl_id = get_next_download_id(&params.dl_type, &mon_pool).await?;
         let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
-        update_dl_event_record (dl_id, params.dl_type, dl_res, &mon_pool).await?;
+        update_dl_event_record (dl_id, dl_res, &params, &mon_pool).await?;
     }
     else {
         
