@@ -30,8 +30,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     // last edited up to the (end date - 1). This avoids duplications when stepping through the
     // full set in the API. It also means that the best time for regular downloading is in the very 
     // early morning (European time) as this means a minimal number of records are missed.
-    
-    // test change
+
     // Each period is broken up into periods of 4 days. There does not appear to be a way to rank or 
     // order results and select from within a returned set, so record sets are returned 'as is'.
     // If the number of available records for a selected period is > 100 records the call is 

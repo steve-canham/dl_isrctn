@@ -4,7 +4,37 @@ use log::info;
 
 pub async fn build_sd_tables (pool: &Pool<Postgres>) -> Result<(), AppError> {  
     
+    execute_sql(get_schema_sql(), pool).await?;
+    execute_sql(get_studies_sql(), pool).await?;
+    execute_sql(get_study_dates_sql(), pool).await?;
+    execute_sql(get_study_partics_sql(), pool).await?;
+    execute_sql(get_titles_sql(), pool).await?;
+    execute_sql(get_idents_sql(), pool).await?;
+    execute_sql(get_orgs_sql(), pool).await?;
+    execute_sql(get_people_sql(), pool).await?;
+    execute_sql(get_ie_sql(), pool).await?;
+    execute_sql(get_locations_sql(), pool).await?;
+    execute_sql(get_countries_sql(), pool).await?;
+    execute_sql(get_topics_sql(), pool).await?;
+    execute_sql(get_conditions_sql(), pool).await?;
+    execute_sql(get_features_sql(), pool).await?;
+
+    execute_sql(get_rels_sql(), pool).await?;
+    execute_sql(get_refs_sql(), pool).await?;
+    execute_sql(get_ipd_available_sql(), pool).await?;
+    execute_sql(get_data_objects_sql(), pool).await?;
+    execute_sql(get_datasets_sql(), pool).await?;
+    execute_sql(get_obj_dates_sql(), pool).await?;
+    execute_sql(get_obj_instances_sql(), pool).await?;
+    execute_sql(get_obj_titles_sql(), pool).await?;
+
+    info!("all sd tables recreated");
+
+    Ok(())
+/*
     build_studies_table (pool).await?;
+    build_study_dates_table (pool).await?;
+    build_study_partics_table (pool).await?;
     build_titles_table (pool).await?;
     build_idents_table (pool).await?;
     build_orgs_table (pool).await?;
@@ -26,10 +56,11 @@ pub async fn build_sd_tables (pool: &Pool<Postgres>) -> Result<(), AppError> {
     build_obj_instances_table (pool).await?;
     build_obj_dates_table (pool).await?;
 
-    Ok(())
-    
-}
+    info!("sd tables table (re)created");
 
+    Ok(())
+    */ 
+}
 
 
 pub async fn execute_sql(sql: &str, pool: &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
@@ -38,10 +69,13 @@ pub async fn execute_sql(sql: &str, pool: &Pool<Postgres>) -> Result<PgQueryResu
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
 }
 
-pub async fn build_studies_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_schema_sql <'a>() -> &'a str {
+    r#"SET client_min_messages TO WARNING; 
+    create schema if not exists sd;"#
+}
 
-    let sql = r#"SET client_min_messages TO WARNING; 
-    create schema if not exists sd;
+fn get_studies_sql <'a>() -> &'a str {
+    r#"SET client_min_messages TO WARNING; 
 	DROP TABLE IF EXISTS sd.studies;
 	CREATE TABLE sd.studies(
 	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
@@ -49,6 +83,23 @@ pub async fn build_studies_table (pool: &Pool<Postgres>) -> Result<(), AppError>
 	, display_title          VARCHAR         NULL
 	, title_lang_code        VARCHAR         NOT NULL default 'en'
 	, brief_description      VARCHAR         NULL
+	, type_id                INT             NOT NULL default 0
+	, status_id        	     INT             NOT NULL default 0
+	, iec_flag               INT             NOT NULL default 0 
+	, ipd_sharing			 VARCHAR         NULL
+	, dt_of_data    	     TIMESTAMPTZ     NULL
+	, added_on               TIMESTAMPTZ     NOT NULL default now()
+	);
+	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#
+}
+
+fn get_study_dates_sql<'a>() -> &'a str {
+
+    r#"SET client_min_messages TO WARNING; 
+	DROP TABLE IF EXISTS sd.study_dates;
+	CREATE TABLE sd.study_dates(
+	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
+	, sd_sid                 VARCHAR         NOT NULL
 	, reg_year           	 INT             NULL
 	, reg_month        	     INT             NULL
     , reg_date_type          CHAR(1)         NULL
@@ -61,52 +112,36 @@ pub async fn build_studies_table (pool: &Pool<Postgres>) -> Result<(), AppError>
 	, res_year      		 INT             NULL
 	, res_month      		 INT             NULL
     , res_date_type          CHAR(1)         NULL
-	, type_id                INT             NOT NULL default 0
-	, status_id        	     INT             NOT NULL default 0
+	, added_on               TIMESTAMPTZ     NOT NULL default now()
+	);
+	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#
+}
+
+fn get_study_partics_sql<'a>() -> &'a str {
+
+    r#"SET client_min_messages TO WARNING; 
+	DROP TABLE IF EXISTS sd.study_partics;
+	CREATE TABLE sd.study_partics(
+	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
+	, sd_sid                 VARCHAR         NOT NULL
 	, enrolment              VARCHAR         NULL
 	, enrolment_type         CHAR(1)         NULL
 	, gender_flag            CHAR(1)         NULL
+	, min_age_as_string      VARCHAR         NULL
 	, min_age                INT             NULL
 	, min_age_units_id       INT             NULL
+	, max_age_as_string      VARCHAR         NULL
 	, max_age                INT             NULL
 	, max_age_units_id       INT             NULL
 	, age_group_flag         INT             NOT NULL default 0
-	, iec_flag               INT             NOT NULL default 0 
-	, ipd_sharing			 VARCHAR         NULL
-	, dt_of_data    	     TIMESTAMPTZ     NULL
 	, added_on               TIMESTAMPTZ     NOT NULL default now()
 	);
-	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("studies table (re)created");
-    
-    Ok(())
-
+	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#
 }
 
-/*
+fn get_titles_sql<'a>() -> &'a str {
 
-#[derive(serde::Serialize)]
-pub struct Participants
-{
-    pub age_range: Option<String>,
-    pub l_age_limit: Option<String>,
-    pub l_age_limit_num: Option<f32>,
-    pub l_age_limit_units: Option<String>,
-    pub u_age_limit: Option<String>,
-    pub u_age_limit_num: Option<f32>,
-    pub u_age_limit_units: Option<String>,
-    pub gender: Option<String>,
-    pub inclusion: Option<String>,
-    pub exclusion: Option<String>,
-    pub patient_info_sheet: Option<String>,
-}
-*/
-
-pub async fn build_titles_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_titles;
     CREATE TABLE sd.study_titles(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -118,61 +153,28 @@ pub async fn build_titles_table (pool: &Pool<Postgres>) -> Result<(), AppError> 
     , comments               VARCHAR
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study titles table (re)created");
-    Ok(())
-
+    CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);"#
 }
 
-/*
+fn get_idents_sql<'a>() -> &'a str {
 
-#[derive(serde::Serialize)]
-pub struct Title
-{
-    pub title_type_id: i32,
-    pub title_type: String,
-    pub title_value: String,
+    r#"SET client_min_messages TO WARNING; 
+    DROP TABLE IF EXISTS sd.study_identifiers;
+    CREATE TABLE sd.study_identifiers(
+        id                     INT             NOT NULL GENERATED BY DEFAULT AS IDENTITY
+    , sd_sid                 VARCHAR         NOT NULL
+    , id_value               VARCHAR         NULL
+    , id_type_id             INT             NULL
+    , id_type                VARCHAR         NULL
+    , added_on               TIMESTAMPTZ     NOT NULL default now()
+    , coded_on               TIMESTAMPTZ     NULL                                     
+    );
+    CREATE INDEX study_identifiers_sid ON sd.study_identifiers(sd_sid);"#
 }
 
-#[derive(serde::Serialize)]
-pub struct Identifier
-{
-    pub identifier_type_id: i32,
-    pub identifier_type: String,
-    pub identifier_value: String,
-}
-*/
-
-pub async fn build_idents_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-        let sql = r#"SET client_min_messages TO WARNING; 
-        DROP TABLE IF EXISTS sd.study_identifiers;
-        CREATE TABLE sd.study_identifiers(
-          id                     INT             NOT NULL GENERATED BY DEFAULT AS IDENTITY
-        , sd_sid                 VARCHAR         NOT NULL
-        , id_value               VARCHAR         NULL
-        , id_type_id             INT             NULL
-        , id_type                VARCHAR         NULL
-        , added_on               TIMESTAMPTZ     NOT NULL default now()
-        , coded_on               TIMESTAMPTZ     NULL                                     
-        );
-        CREATE INDEX study_identifiers_sid ON sd.study_identifiers(sd_sid);"#;
-
-       execute_sql(sql, pool).await?;
-       info!("study identifiers table (re)created");
-
-
-    Ok(())
-
-}
-
-
-
-pub async fn build_orgs_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+fn get_orgs_sql<'a>() -> &'a str {
+    
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_organisations;
     CREATE TABLE sd.study_organisations(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -184,13 +186,7 @@ pub async fn build_orgs_table (pool: &Pool<Postgres>) -> Result<(), AppError> {
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL
     );
-    CREATE INDEX study_organisations_sid ON sd.study_organisations(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study orgs table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_organisations_sid ON sd.study_organisations(sd_sid);"#
 }
 
 /*
@@ -235,9 +231,9 @@ pub struct StudyContact
 }
 */
 
-pub async fn build_people_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_people_sql<'a>() -> &'a str {
 
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_people;
     CREATE TABLE sd.study_people(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -254,20 +250,12 @@ pub async fn build_people_table (pool: &Pool<Postgres>) -> Result<(), AppError> 
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL
     );
-    CREATE INDEX study_people_sid ON sd.study_people(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study people table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_people_sid ON sd.study_people(sd_sid);"#
 }
 
+fn get_ie_sql<'a>() -> &'a str {
 
-
-pub async fn build_ie_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_titles;
     CREATE TABLE sd.study_titles(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -278,17 +266,12 @@ pub async fn build_ie_table (pool: &Pool<Postgres>) -> Result<(), AppError> {
     , criterion              VARCHAR
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study titles table (re)created");
-    Ok(())
-
+    CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);"#
 }
 
-pub async fn build_locations_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_locations_sql<'a>() -> &'a str {
 
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_locations;
     CREATE TABLE sd.study_locations(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -306,19 +289,12 @@ pub async fn build_locations_table (pool: &Pool<Postgres>) -> Result<(), AppErro
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL          
     );
-    CREATE INDEX study_locations_sid ON sd.study_locations(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study locations table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_locations_sid ON sd.study_locations(sd_sid);"#
 }
 
+fn get_countries_sql<'a>() -> &'a str {
 
-pub async fn build_countries_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_countries;
     CREATE TABLE sd.study_countries(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -329,19 +305,12 @@ pub async fn build_countries_table (pool: &Pool<Postgres>) -> Result<(), AppErro
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL  default now()       -- already coded when added                                   
     );
-    CREATE INDEX study_countries_sid ON sd.study_countries(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study countries table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_countries_sid ON sd.study_countries(sd_sid);"#
 }
 
+fn get_topics_sql<'a>() -> &'a str {
 
-pub async fn build_topics_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_topics;
     CREATE TABLE sd.study_topics(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -355,18 +324,12 @@ pub async fn build_topics_table (pool: &Pool<Postgres>) -> Result<(), AppError> 
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL
     );
-    CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("study topics table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);"#
 }
 
-pub async fn build_conditions_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_conditions_sql<'a>() -> &'a str {
 
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_conditions;
     CREATE TABLE sd.study_conditions(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -379,13 +342,7 @@ pub async fn build_conditions_table (pool: &Pool<Postgres>) -> Result<(), AppErr
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL
     );
-    CREATE INDEX study_conditions_sid ON sd.study_conditions(sd_sid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("study conditions table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_conditions_sid ON sd.study_conditions(sd_sid);"#
 }
 
 /*
@@ -400,10 +357,9 @@ pub struct Condition
 
 */
 
+fn get_features_sql<'a>() -> &'a str {
 
-pub async fn build_features_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_features;
     CREATE TABLE sd.study_features(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -411,21 +367,13 @@ pub async fn build_features_table (pool: &Pool<Postgres>) -> Result<(), AppError
     , feature_type_id        INT             NULL
     , feature_value_id       INT             NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-
     );
-    CREATE INDEX study_features_sid ON sd.study_features(sd_sid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("study features table (re)created");
-    
-    Ok(())
+    CREATE INDEX study_features_sid ON sd.study_features(sd_sid);"#
 }
 
-
-
-pub async fn build_rels_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+fn get_rels_sql<'a>() -> &'a str {
+    
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_relationships;
     CREATE TABLE sd.study_relationships(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -435,20 +383,12 @@ pub async fn build_rels_table (pool: &Pool<Postgres>) -> Result<(), AppError> {
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
     CREATE INDEX study_relationships_sid ON sd.study_relationships(sd_sid);
-    CREATE INDEX study_relationships_target_sid ON sd.study_relationships(target_sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study relationships table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_relationships_target_sid ON sd.study_relationships(target_sd_sid);"#
 }
 
+fn get_refs_sql<'a>() -> &'a str {
 
-
-pub async fn build_refs_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_references;
     CREATE TABLE sd.study_references(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -460,40 +400,12 @@ pub async fn build_refs_table (pool: &Pool<Postgres>) -> Result<(), AppError> {
     , comments               VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_references_sid ON sd.study_references(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study refs table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_references_sid ON sd.study_references(sd_sid);"#
 }
 
+fn get_ipd_available_sql<'a>() -> &'a str {
 
-pub async fn build_links_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
-    DROP TABLE IF EXISTS sd.study_links;
-    CREATE TABLE sd.study_links(
-      id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-    , sd_sid                 VARCHAR         NOT NULL
-    , link_label             VARCHAR         NULL
-    , link_url               VARCHAR         NULL
-    , added_on               TIMESTAMPTZ     NOT NULL default now()
-    );
-    CREATE INDEX study_links_sid ON sd.study_links(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study links table (re)created");
-    
-    Ok(())
-
-}
-
-
-pub async fn build_ipd_available_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.study_ipd_available;
     CREATE TABLE sd.study_ipd_available(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -504,20 +416,12 @@ pub async fn build_ipd_available_table (pool: &Pool<Postgres>) -> Result<(), App
     , ipd_comment            VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_ipd_available_sid ON sd.study_ipd_available(sd_sid);"#;
-
-	execute_sql(sql, pool).await?;
-    info!("study ipd available table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX study_ipd_available_sid ON sd.study_ipd_available(sd_sid);"#
 }
 
+fn get_data_objects_sql<'a>() -> &'a str {
 
-
-pub async fn build_data_objects_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"DROP TABLE IF EXISTS sd.data_objects;
+    r#"DROP TABLE IF EXISTS sd.data_objects;
     CREATE TABLE sd.data_objects(
       id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
     , sd_oid                 VARCHAR         NOT NULL
@@ -546,19 +450,12 @@ pub async fn build_data_objects_table (pool: &Pool<Postgres>) -> Result<(), AppE
     , coded_on               TIMESTAMPTZ     NULL   
     );    
     CREATE INDEX data_objects_oid ON sd.data_objects(sd_oid);
-    CREATE INDEX data_objects_sid ON sd.data_objects(sd_sid);
-    "#;
-
-    execute_sql(sql, pool).await?;
-    info!("data objects table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX data_objects_sid ON sd.data_objects(sd_sid);"#
 }
 
-pub async fn build_datasets_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_datasets_sql<'a>() -> &'a str {
 
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.object_datasets;
     CREATE TABLE sd.object_datasets(
       id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
@@ -582,20 +479,12 @@ pub async fn build_datasets_table (pool: &Pool<Postgres>) -> Result<(), AppError
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
 
-    CREATE INDEX object_datasets_oid ON sd.object_datasets(sd_oid)
-    "#;
-
-    execute_sql(sql, pool).await?;
-    info!("object datasets table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX object_datasets_oid ON sd.object_datasets(sd_oid)"#
 }
 
+fn get_obj_dates_sql<'a>() -> &'a str { 
 
-pub async fn build_obj_dates_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.object_dates;
     CREATE TABLE sd.object_dates(
       id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
@@ -612,18 +501,12 @@ pub async fn build_obj_dates_table (pool: &Pool<Postgres>) -> Result<(), AppErro
     , details                VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX object_dates_oid ON sd.object_dates(sd_oid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("object dates table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX object_dates_oid ON sd.object_dates(sd_oid);"#
 }
 
-pub async fn build_obj_instances_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
+fn get_obj_instances_sql<'a>() -> &'a str {
 
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.object_instances;
     CREATE TABLE sd.object_instances(
       id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
@@ -640,19 +523,13 @@ pub async fn build_obj_instances_table (pool: &Pool<Postgres>) -> Result<(), App
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     , coded_on               TIMESTAMPTZ     NULL   
     );
-    CREATE INDEX object_instances_oid ON sd.object_instances(sd_oid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("object instances table (re)created");
-    
-    Ok(())
+    CREATE INDEX object_instances_oid ON sd.object_instances(sd_oid);"#
 
 }
 
+fn get_obj_titles_sql<'a>() -> &'a str {
 
-pub async fn build_obj_titles_table (pool: &Pool<Postgres>) -> Result<(), AppError> {  
-
-    let sql = r#"SET client_min_messages TO WARNING; 
+    r#"SET client_min_messages TO WARNING; 
     DROP TABLE IF EXISTS sd.object_titles;
     CREATE TABLE sd.object_titles(
       id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
@@ -665,13 +542,7 @@ pub async fn build_obj_titles_table (pool: &Pool<Postgres>) -> Result<(), AppErr
     , comments               VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX object_titles_oid ON sd.object_titles(sd_oid);"#;
-
-    execute_sql(sql, pool).await?;
-    info!("object titles table (re)created");
-    
-    Ok(())
-
+    CREATE INDEX object_titles_oid ON sd.object_titles(sd_oid);"#
 }
 
 
@@ -684,16 +555,10 @@ pub struct Study
     pub sd_sid: String, 
     pub downloaded: String,
     pub registration: Registration,
-
-    pub titles: Vec<Title>,
-    pub identifiers: Option<Vec<Identifier>>,
     
     pub summary: Summary,
     pub primary_outcomes: Option<Vec<OutcomeMeasure>>,
     pub secondary_outcomes: Option<Vec<OutcomeMeasure>>,
-
-    pub ethics: Ethics,
-    pub ethics_committees: Option<Vec<EthicsCommittee>>,
 
     pub design: Design,
     pub trial_types: Option<Vec<String>>,
