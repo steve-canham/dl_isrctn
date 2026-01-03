@@ -1,7 +1,9 @@
 pub mod monitoring;
 mod processor;
 mod datavecs;
+mod import_helper;
 mod db_sd_tables;
+mod db_ad_tables;
 use std::fs;
 use std::path::PathBuf;
 

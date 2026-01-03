@@ -6,7 +6,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 use log::info;
 
-use super::isrctn_helper::{count_option, split_identifier, classify_identifier,
+use super::download_helper::{count_option, split_identifier, classify_identifier,
                             StringExtensions, OptionStringExtensions};
 
 

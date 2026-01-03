@@ -1,6 +1,6 @@
 mod processor;
 pub mod monitoring;
-pub mod isrctn_helper;
+pub mod download_helper;
 
 use crate::data_models::xml_models;
 use crate::data_models::json_models;
@@ -223,7 +223,7 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
             let full_path = write_out_file(&t, &file_folder).await?;
 
             let added = monitoring::update_isrctn_mon(sd_sid, &remote_url, dl_id,
-                     &record_date, &full_path, src_pool).await?;
+                     record_date, &full_path, src_pool).await?;
 
             res.num_downloaded += 1;
             if added {

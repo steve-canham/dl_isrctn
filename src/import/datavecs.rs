@@ -8,8 +8,8 @@ pub struct StudyVecs {
     pub sd_sids: Vec<String>,
     pub display_titles: Vec<Option<String>>,
     pub brief_descriptions: Vec<Option<String>>,
-    pub type_ids: Vec<Option<i32>>,
-	pub status_ids: Vec<Option<i32>>,
+    pub type_ids: Vec<i32>,
+	pub status_ids: Vec<i32>,
     pub iec_flags: Vec<Option<i32>>,
     pub ipd_sharings: Vec<Option<bool>>,
 	pub ipd_sharing_plans: Vec<Option<String>>,
@@ -34,9 +34,9 @@ impl StudyVecs{
     }
     
 
-    pub fn add(&mut self, r: &DBSummary) 
+    pub fn add(&mut self, sd_sid:&String, r: &DBSummary) 
     {
-        self.sd_sids.push(r.sd_sid.clone());
+        self.sd_sids.push(sd_sid.clone());
         self.display_titles.push(r.display_title.clone());
         self.brief_descriptions.push(r.brief_description.clone());
         self.type_ids.push(r.type_id);
@@ -106,9 +106,9 @@ impl StudyDatesVecs{
         }
     }
 
-    pub fn add(&mut self, r: &DBStudyDates) 
+    pub fn add(&mut self, sd_sid:&String, r: &DBStudyDates) 
     {
-        self.sd_sids.push(r.sd_sid.clone());
+        self.sd_sids.push(sd_sid.clone());
         self.reg_years.push(r.reg_year);
         self.reg_months.push(r.reg_month);
         self.reg_date_types.push(r.reg_date_type.clone());
@@ -184,9 +184,9 @@ impl StudyParticsVecs{
         }
     }
 
-    pub fn add(&mut self, r: &DBStudyPartics) 
+    pub fn add(&mut self, sd_sid:&String, r: &DBStudyPartics) 
     {
-        self.sd_sids.push(r.sd_sid.clone());
+        self.sd_sids.push(sd_sid.clone());
         self.enrolments.push(r.enrolment.clone());
         self.enrolment_types.push(r.enrolment_type.clone());
         self.gender_flags.push(r.gender_flag.clone());
@@ -257,10 +257,10 @@ impl TitleVecs{
     }
 
 
-    pub fn add(&mut self, v: &Vec<DBTitle>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTitle>) 
     {
         for r in v {
-            self.sd_sids.push(r.sd_sid.clone());
+            self.sd_sids.push(sd_sid.clone());
             self.title_type_ids.push(r.title_type_id);
             self.title_texts.push(r.title_text.clone());
             self.is_defaults.push(r.is_default);
@@ -305,10 +305,10 @@ impl IdentifierVecs{
         }
     }
 
-    pub fn add(&mut self, v: &Vec<DBIdentifier>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBIdentifier>) 
     {
         for r in v {
-            self.sd_sids.push(r.sd_sid.clone());
+            self.sd_sids.push(sd_sid.clone());
             self.id_values.push(r.id_value.clone());
             self.id_type_ids.push(r.id_type_id);
             self.id_types.push(r.id_type.clone());
