@@ -1,7 +1,7 @@
 use crate::data_models::db_models::*;
 use crate::AppError;
 use sqlx::{Pool, Postgres, postgres::PgQueryResult};
-use chrono::{DateTime, Utc};
+use chrono::{NaiveDateTime};
 
 #[allow(dead_code)]
 pub struct StudyVecs {
@@ -10,10 +10,12 @@ pub struct StudyVecs {
     pub brief_descriptions: Vec<Option<String>>,
     pub type_ids: Vec<i32>,
 	pub status_ids: Vec<i32>,
+    pub status_overrides: Vec<Option<String>>,
+    pub start_status_overrides: Vec<Option<String>>,
     pub iec_flags: Vec<Option<i32>>,
     pub ipd_sharings: Vec<Option<bool>>,
 	pub ipd_sharing_plans: Vec<Option<String>>,
-	pub dt_of_datas: Vec<DateTime<Utc>>,
+	pub dt_of_datas: Vec<NaiveDateTime>,
 
 }
 
@@ -26,6 +28,8 @@ impl StudyVecs{
             brief_descriptions: Vec::with_capacity(vsize),
             type_ids: Vec::with_capacity(vsize),
             status_ids: Vec::with_capacity(vsize),
+            status_overrides: Vec::with_capacity(vsize),
+            start_status_overrides: Vec::with_capacity(vsize),
             iec_flags: Vec::with_capacity(vsize),
             ipd_sharings: Vec::with_capacity(vsize),
 	        ipd_sharing_plans: Vec::with_capacity(vsize),
@@ -41,6 +45,8 @@ impl StudyVecs{
         self.brief_descriptions.push(r.brief_description.clone());
         self.type_ids.push(r.type_id);
         self.status_ids.push(r.status_id);
+        self.status_overrides.push(r.status_override.clone());
+        self.start_status_overrides.push(r.start_status_override.clone());
         self.iec_flags.push(r.iec_flag);
         self.ipd_sharings.push(r.ipd_sharing);
         self.ipd_sharing_plans.push(r.ipd_sharing_plan.clone());
@@ -49,8 +55,10 @@ impl StudyVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.studies (sd_sid, display_title, brief_description, type_id, status_id, iec_flag, ipd_sharing, ipd_sharing, dt_of_data) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::int[], $5::int[], $6::int[], $7::text[], $8::text[], $9::timestamp)"#;
+        let sql = r#"INSERT INTO sd.studies (sd_sid, display_title, brief_description, type_id, status_id, status_override, start_status_override,
+                        iec_flag, ipd_sharing, ipd_sharing_plan, dt_of_data) 
+                        SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::int[], $5::int[], $6::text[], $7::text[], 
+                        $8::int[], $9::text[], $10::text[], $11::timestamp[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
@@ -58,6 +66,8 @@ impl StudyVecs{
         .bind(&self.brief_descriptions)
         .bind(&self.type_ids)
         .bind(&self.status_ids)
+        .bind(&self.status_overrides)
+        .bind(&self.start_status_overrides)
         .bind(&self.iec_flags)
         .bind(&self.ipd_sharings)
         .bind(&self.ipd_sharing_plans)
@@ -125,10 +135,10 @@ impl StudyDatesVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_titles (sd_sid, reg_year, reg_month, reg_date_type, start_year, start_month, start_date_type,
+        let sql = r#"INSERT INTO sd.study_dates (sd_sid, reg_year, reg_month, reg_date_type, start_year, start_month, start_date_type,
                         comp_year, comp_month, comp_date_type, res_year, res_month, res_date_type) 
             SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::int[], $6::int[], $7::text[], 
-                                 $8::int[], $9::int[], $10::text[], $11::int[], $12::int[], $13::text[]])"#;
+                                 $8::int[], $9::int[], $10::text[], $11::int[], $12::int[], $13::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
@@ -202,7 +212,7 @@ impl StudyParticsVecs{
     
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_titles (sd_sid, enrolment, enrolment_type, gender_flag, 
+        let sql = r#"INSERT INTO sd.study_partics (sd_sid, enrolment, enrolment_type, gender_flag, 
                 min_age_as_string, min_age, min_age_units_id, max_age_as_string, max_age, max_age_units_id, age_group_flag) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], 
                     $5::text[], $6::float[], $7::int[], $8::text[], $9::float[], $10::int[], $11::int[])"#;
@@ -271,8 +281,8 @@ impl TitleVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_titles (sd_sid, title_type_id, title_text, lang_code, is_default, comments) 
-            SELECT * FROM UNNEST($1::text[], $2::int[], $3::text[], $4::text[], $5::bool[], $6::text[])"#;
+        let sql = r#"INSERT INTO sd.study_titles (sd_sid, title_type_id, title_text, is_default, comments) 
+            SELECT * FROM UNNEST($1::text[], $2::int[], $3::text[], $4::bool[], $5::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)

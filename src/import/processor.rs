@@ -1,6 +1,6 @@
 use crate::data_models::json_models::Study;
 use crate::data_models::db_models::*;
-use chrono::{DateTime, Local, Utc}; 
+use chrono::{NaiveDateTime, Local}; 
 use super::import_helper::*;
 //use crate::AppError;
 //use log::info;
@@ -90,56 +90,64 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             status_string = "Terminated";
         }
         else {
-            if let Some(se_date) = date_from_iso_string(s.summary.overall_end_date.clone()) {
-                
-                let today = Local::now().date_naive();
-                if se_date <= today {
-                    status_string = "Completed";
-                }
-                else {
+           status_string = st; 
+        }
+    }
+    else {
+        if let Some(se_date) = date_from_iso_string(s.summary.overall_end_date.clone()) {
+            
+            let today = Local::now().date_naive();
+            if se_date <= today {
+                status_string = "Completed";
+            }
+            else {
 
-                    // Study is still ongoing - recruitment dates required for exact status.
+                // Study is still ongoing - recruitment dates required for exact status.
 
-                    if let Some(rs_date) = date_from_iso_string(s.recruitment.recruitment_start.clone()) {
-                        if rs_date > today
-                        {
-                            status_string = "Not yet recruiting";
-                        }
-                        else
-                        {
-                            status_string = "Recruiting";
-                        }
+                if let Some(rs_date) = date_from_iso_string(s.recruitment.recruitment_start.clone()) {
+                    if rs_date > today
+                    {
+                        status_string = "Not yet recruiting";
                     }
+                    else
+                    {
+                        status_string = "Recruiting";
+                    }
+                }
 
-                    // But check if recruiting has now finished.
+                // But check if recruiting has now finished.
 
-                    if status_string == "Recruiting" && let Some(re_date) = date_from_iso_string(s.recruitment.recruitment_end.clone()) {
-                        
-                        if re_date <= today
-                        {
-                            status_string = "Active, not recruiting";
-                        }
+                if status_string == "Recruiting" && let Some(re_date) = date_from_iso_string(s.recruitment.recruitment_end.clone()) {
+                    
+                    if re_date <= today
+                    {
+                        status_string = "Active, not recruiting";
                     }
                 }
             }
         }
     }
+
     
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
     
     let iec_flag = Some(0);   // for now
-    let data_datetime = DateTime::parse_from_rfc3339(&s.downloaded).unwrap();
-    let dt_of_data = data_datetime.with_timezone(&Utc);    // convert the string into DateTime<Utc>
+
+    // needs to change in the download regime to not crop it ????
+
+    let dt_of_data = NaiveDateTime::parse_from_str(&s.downloaded, "%Y-%m-%dT%H:%M:%S").unwrap();
+
+    //let data_datetime = DateTime::parse_from_rfc3339(&s.downloaded).unwrap();
+
+    //let dt_of_data = data_datetime.with_timezone(&Utc);    // convert the string into DateTime<Utc>
 
     let summary = DBSummary {
         display_title: display_title,
         brief_description: s.summary.plain_english_summary.clone(),
         type_id: get_study_type(&s.design.primary_study_design),
         status_id: get_study_status(&status_opt),
-
-        rec_status_override: s.recruitment.recruitment_status_override.clone(),
-        rec_start_status_override: s.recruitment.recruitment_start_status_override.clone(),
-
+        status_override: s.recruitment.recruitment_status_override.clone(),
+        start_status_override: s.recruitment.recruitment_start_status_override.clone(),
         iec_flag: iec_flag,
         ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 

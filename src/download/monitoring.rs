@@ -46,7 +46,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
 
 pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
-    let sql = "select max(id) from evs.dl_events ";
+    let sql = "select coalesce(max(id), 10001) from evs.dl_events ";
     let last_id: i32 = sqlx::query_scalar(sql).fetch_one(mon_pool)
                       .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
     let new_id = last_id + 1;

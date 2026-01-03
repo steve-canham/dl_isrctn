@@ -55,9 +55,12 @@ fn get_studies_sql <'a>() -> &'a str {
 	, brief_description      VARCHAR         NULL
 	, type_id                INT             NOT NULL default 0
 	, status_id        	     INT             NOT NULL default 0
+    , status_override        VARCHAR         NULL
+    , start_status_override  VARCHAR         NULL
 	, iec_flag               INT             NOT NULL default 0 
 	, ipd_sharing			 VARCHAR         NULL
-	, dt_of_data    	     TIMESTAMPTZ     NULL
+    , ipd_sharing_plan   	 VARCHAR         NULL
+	, dt_of_data    	     TIMESTAMP       NULL
 	, added_on               TIMESTAMPTZ     NOT NULL default now()
 	);
 	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#
@@ -94,9 +97,9 @@ fn get_study_partics_sql<'a>() -> &'a str {
 	CREATE TABLE sd.study_partics(
 	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
 	, sd_sid                 VARCHAR         NOT NULL
-    , enrolment_target       VARCHAR         NOT NULL
-    , enrolment_final        VARCHAR         NOT NULL
-    , enrolment_total        VARCHAR         NOT NULL
+    , enrolment_target       VARCHAR         NULL
+    , enrolment_final        VARCHAR         NULL
+    , enrolment_total        VARCHAR         NULL
 	, enrolment              VARCHAR         NULL
 	, enrolment_type         CHAR(1)         NULL
 	, gender_flag            CHAR(1)         NULL
@@ -109,7 +112,7 @@ fn get_study_partics_sql<'a>() -> &'a str {
 	, age_group_flag         INT             NOT NULL default 0
 	, added_on               TIMESTAMPTZ     NOT NULL default now()
 	);
-	CREATE INDEX study_partics_sid ON sd.ststudy_particsudies(sd_sid);"#
+	CREATE INDEX study_partics_sid ON sd.study_partics(sd_sid);"#
 }
 
 fn get_titles_sql<'a>() -> &'a str {
@@ -234,7 +237,7 @@ fn get_ie_sql<'a>() -> &'a str {
     , criterion              VARCHAR
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);"#
+    CREATE INDEX study_iec_sid ON sd.study_iec(sd_sid);"#
 }
 
 fn get_locations_sql<'a>() -> &'a str {

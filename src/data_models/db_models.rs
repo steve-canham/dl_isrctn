@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 
 
 #[allow(dead_code)]
@@ -56,13 +56,13 @@ pub struct DBSummary {
     pub type_id: i32,
 	pub status_id: i32,
 
-    pub rec_status_override: Option<String>,
-    pub rec_start_status_override: Option<String>,
+    pub status_override: Option<String>,
+    pub start_status_override: Option<String>,
 
     pub iec_flag: Option<i32>,
     pub ipd_sharing: Option<bool>,
 	pub ipd_sharing_plan: Option<String>,
-	pub dt_of_data: DateTime<Utc>,
+	pub dt_of_data: NaiveDateTime,
 }
 
 #[allow(dead_code)]
@@ -221,7 +221,7 @@ pub struct DBDataObjectSummary {
     pub access_details_url: Option<String>,
 
     pub eosc_category: Option<i32>,
-    pub dt_of_data: DateTime<Utc>,
+    pub dt_of_data: NaiveDateTime,
 }
 
 #[allow(dead_code)]

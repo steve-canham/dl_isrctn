@@ -23,7 +23,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Po
 
 pub async fn get_next_import_id(import_type: &ImportType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
-    let sql = "select max(id) from evs.import_events ";
+    let sql = "select coalesce(max(id), 10001) from evs.imp_events ";
     let last_id: i32 = sqlx::query_scalar(sql).fetch_one(mon_pool)
                       .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
     let new_id = last_id + 1;
@@ -43,7 +43,7 @@ pub async fn update_imp_event_record (imp_event_id: i32, imp_res: ImportResult, 
      
     let now = Utc::now();
     let sql = r#"Update evs.imp_events set 
-             time_ended = $2
+             time_ended = $2,
              num_records_available = $3,
              num_records_imported = $4,
              earliest_dl_date = $6,

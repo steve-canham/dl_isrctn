@@ -8,7 +8,7 @@ use std::fs;
 use std::path::PathBuf;
 
 //use crate::data_models::db_models;
-use crate::data_models::json_models::*;
+use crate::{data_models::json_models::*, import::processor::process_study_data};
 use datavecs::*;
 //use processor::*;
 use crate::AppError;
@@ -59,9 +59,9 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
         // iniitalise the data vectors
 
-        let studies_dv = StudyVecs::new(batch_size);
-        let study_dates_dv = StudyDatesVecs::new(batch_size);
-        let study_partics_dv = StudyParticsVecs::new(batch_size);
+        let mut studies_dv = StudyVecs::new(batch_size);
+        let mut study_dates_dv = StudyDatesVecs::new(batch_size);
+        let mut study_partics_dv = StudyParticsVecs::new(batch_size);
         let mut study_titles_dv = TitleVecs::new(3*batch_size);
         let mut study_idents_dv = IdentifierVecs::new(3*batch_size);
 
@@ -93,7 +93,17 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
             let p= PathBuf::from(&path.local_path);
             let json_data = fs::read_to_string(&p)?;
-            let _s: Study = serde_json::from_str(&json_data)?;
+            let s: Study = serde_json::from_str(&json_data)?;
+            let sd_sid = &s.sd_sid;
+            let dbs = process_study_data(&s);
+
+            studies_dv.add(sd_sid,&dbs.summary);
+            study_dates_dv.add(sd_sid, &dbs.dates);
+            study_partics_dv.add(sd_sid, &dbs.participants);
+
+            if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
+            if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
+
 
             // pass s to the procesor and receive a 'database friendly' version, 
             // with the data arranged to match the tables in the DB.
