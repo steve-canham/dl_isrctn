@@ -1,14 +1,13 @@
 use crate::data_models::xml_models;
 use crate::data_models::json_models::*; 
+use crate::helpers::string_extensions::*;
+use crate::helpers::download_helpers::{count_option, split_identifier, classify_identifier};
+
 use crate::err::AppError;
 use chrono::Utc;
 use std::sync::LazyLock;
 use regex::Regex;
 use log::info;
-
-use super::download_helper::{count_option, split_identifier, classify_identifier,
-                            StringExtensions, OptionStringExtensions};
-
 
 // processes study, returns json file model that model can be printed, 
 // and / or it can be saved to the database...
@@ -78,7 +77,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     if let Some(idents) = sec_ids {
         for ident in &idents {
 
-            let id_value = ident.value.as_filtered_text_opt();
+            let id_value = &ident.value.as_filtered_text_opt();
             if let Some(id) = id_value {
 
                 let id_type = ident.number_type.as_text_opt();
@@ -87,50 +86,50 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
                     match id_type_string.as_str() {
                         "iras" => {
                             iras_number = id.clone();
-                            s_identifiers.push(Identifier::new(303, "IRAS ID".to_string(), id));
+                            s_identifiers.push(Identifier::new(303, "IRAS ID".to_string(), id.to_string()));
                         }, 
 
                         "ctis" => {
-                            if let Some(id_reg) = id.regularise_hyphens(){
+                            if let Some(id_reg) = id_value.regularise_hyphens(){
                                if  id_reg.len() == 14 || id_reg.len() == 17 {
                                     if &id_reg[4..6] == "-5" {
-                                        s_identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), id_reg));
+                                        s_identifiers.push(Identifier::new(135, "EMA CTIS ID".to_string(), id_reg.to_string()));
                                     } else {
-                                        s_identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), id_reg));
+                                        s_identifiers.push(Identifier::new(123, "EMA Eudract ID".to_string(), id_reg.to_string()));
                                     }
                                 }
                                 else {
-                                    s_identifiers.push(Identifier::new(179, "Malformed registry Id (CTIS claimed)".to_string(), id_reg));
+                                    s_identifiers.push(Identifier::new(179, "Malformed registry Id (CTIS claimed)".to_string(), id_reg.to_string()));
                                 }
                             }
                         }, 
 
                         "nct" => {
-                            s_identifiers.push(Identifier::new(120, "NCT ID".to_string(), id));
+                            s_identifiers.push(Identifier::new(120, "NCT ID".to_string(), id.to_string()));
                         }, 
 
                         "cpms" => {   // May need to have prefix removed
                             if RE_CPMS_NUM.is_match(&id) {   // already a digit string
-                                s_identifiers.push(Identifier::new(304, "CPMS ID".to_string(), id));
+                                s_identifiers.push(Identifier::new(304, "CPMS ID".to_string(), id.to_string()));
                             }
                             else {
-                                let (type_id, type_string, id_post) = classify_identifier(id);
+                                let (type_id, type_string, id_post) = classify_identifier(id.to_string());
                                 s_identifiers.push(Identifier::new(type_id, type_string, id_post));
                             }
                         }, 
 
                         "nihr" => {   
                             if RE_NIHR_NUM.is_match(&id) {   // already a digit string
-                                s_identifiers.push(Identifier::new(416, "NIHR ID".to_string(), id));
+                                s_identifiers.push(Identifier::new(416, "NIHR ID".to_string(), id.to_string()));
                             }
                             else {// May need to have prefix removed
-                                let (type_id, type_string, id_post) = classify_identifier(id);
+                                let (type_id, type_string, id_post) = classify_identifier(id.to_string());
                                 s_identifiers.push(Identifier::new(type_id, type_string, id_post));
                             }
                         }, 
 
                         "Grant Code" => {
-                            if let Some(id_reg) = id.regularise_hyphens(){
+                            if let Some(id_reg) = id_value.regularise_hyphens(){
 
                                 // Try to classify. if unable assume it is an as yet undefined funder / grant code
 
@@ -145,7 +144,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
                         }, 
 
                         "Protocol serial number" => {
-                            if let Some(id_reg) = id.regularise_hyphens(){
+                            if let Some(id_reg) = id_value.regularise_hyphens(){
 
                                 // Turn current value into a vector.
                                 // If it includes a comma or a sem-colon it may be a vector of multiple strings
@@ -190,7 +189,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
 
                             // Some other string used for the id type - try to classify, if unable use 'as is'
 
-                            if let Some(id_reg) = id.regularise_hyphens(){
+                            if let Some(id_reg) = id_value.regularise_hyphens(){
                                 let (mut type_id, mut type_string, id_post) = classify_identifier(id_reg);
                                 if type_string == "???".to_string() {
                                     type_id = 990;
@@ -226,7 +225,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         summ = summ.replace("Who can participate?", "\nWho can participate?\n");
         summ = summ.replace("What does the study involve?", "\nWhat does the study involve?\n");
 
-        plain_summ = summ.compress_spaces();
+        plain_summ = Some(summ).compress_spaces();
     }
     
     let summary = Summary {

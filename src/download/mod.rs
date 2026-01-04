@@ -1,6 +1,5 @@
 mod processor;
 pub mod monitoring;
-pub mod download_helper;
 
 use crate::data_models::xml_models;
 use crate::data_models::json_models;

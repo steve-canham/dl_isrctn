@@ -55,12 +55,13 @@ fn get_studies_sql <'a>() -> &'a str {
 	, brief_description      VARCHAR         NULL
 	, type_id                INT             NOT NULL default 0
 	, status_id        	     INT             NOT NULL default 0
-    , status_override        VARCHAR         NULL
-    , start_status_override  VARCHAR         NULL
+  , status_override        VARCHAR         NULL
+  , start_status_override  VARCHAR         NULL
 	, iec_flag               INT             NOT NULL default 0 
-	, ipd_sharing			 VARCHAR         NULL
-    , ipd_sharing_plan   	 VARCHAR         NULL
-	, dt_of_data    	     TIMESTAMP       NULL
+	, ipd_sharing		         VARCHAR         NULL
+  , ipd_sharing_plan   	   VARCHAR         NULL
+  , date_last_revised      Date            NULL
+	, dt_of_data_fetch 	     TIMESTAMP       NULL
 	, added_on               TIMESTAMPTZ     NOT NULL default now()
 	);
 	CREATE INDEX studies_sid ON sd.studies(sd_sid);"#
@@ -142,7 +143,6 @@ fn get_idents_sql<'a>() -> &'a str {
     , id_type_id             INT             NULL
     , id_type                VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL                                     
     );
     CREATE INDEX study_identifiers_sid ON sd.study_identifiers(sd_sid);"#
 }
@@ -150,61 +150,18 @@ fn get_idents_sql<'a>() -> &'a str {
 fn get_orgs_sql<'a>() -> &'a str {
     
     r#"SET client_min_messages TO WARNING; 
-    DROP TABLE IF EXISTS sd.study_organisations;
-    CREATE TABLE sd.study_organisations(
+    DROP TABLE IF EXISTS sd.study_orgs;
+    CREATE TABLE sd.study_orgs(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
     , contrib_type_id        INT             NULL
-    , organisation_name      VARCHAR         NULL
-    , organisation_ror_id    VARCHAR         NULL
-    , organisation_cref_id   VARCHAR         NULL
+    , name                   VARCHAR         NULL
+    , ror_id                 VARCHAR         NULL
+    , cross_ref_id           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL
     );
     CREATE INDEX study_organisations_sid ON sd.study_organisations(sd_sid);"#
 }
-
-/*
-
-
-
-#[derive(serde::Serialize)]
-pub struct StudySponsor
-{
-    pub organisation: Option<String>,
-    pub website: Option<String>,
-    pub sponsor_type: Option<String>,
-    pub ror_id: Option<String>,  
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub country: Option<String>,
-    pub email: Option<String>,
-    pub privacy: Option<String>,
-    pub commercial_status: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-pub struct StudyFunder
-{
-    pub name: Option<String>,
-    pub fund_ref: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-pub struct StudyContact
-{
-    pub title: Option<String>,
-    pub forename: Option<String>,
-    pub surname: Option<String>,
-    pub orcid: Option<String>,
-    pub contact_types: Option<Vec<String>>,
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub country: Option<String>,
-    pub email: Option<String>,
-    pub privacy: Option<String>,
-}
-*/
 
 fn get_people_sql<'a>() -> &'a str {
 
@@ -214,13 +171,13 @@ fn get_people_sql<'a>() -> &'a str {
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
     , contrib_type_id        INT             NULL
-    , person_given_name      VARCHAR         NULL
-    , person_family_name     VARCHAR         NULL
-    , person_full_name       VARCHAR         NULL
+    , given_name             VARCHAR         NULL
+    , family_name            VARCHAR         NULL
+    , full_name              VARCHAR         NULL
     , orcid_id               VARCHAR         NULL
-    , person_affiliation     VARCHAR         NULL
+    , affiliation            VARCHAR         NULL
+    , email_domain           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL
     );
     CREATE INDEX study_people_sid ON sd.study_people(sd_sid);"#
 }
@@ -252,7 +209,6 @@ fn get_locations_sql<'a>() -> &'a str {
     , disamb_name            VARCHAR         NULL
     , country_name           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL          
     );
     CREATE INDEX study_locations_sid ON sd.study_locations(sd_sid);"#
 }
@@ -266,7 +222,6 @@ fn get_countries_sql<'a>() -> &'a str {
     , sd_sid                 VARCHAR         NOT NULL
     , country_name           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL  default now()       -- already coded when added                                   
     );
     CREATE INDEX study_countries_sid ON sd.study_countries(sd_sid);"#
 }
@@ -283,7 +238,6 @@ fn get_topics_sql<'a>() -> &'a str {
     , original_ct_type_id    INT             NULL
     , original_ct_code       VARCHAR         NULL 
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL
     );
     CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);"#
 }
@@ -301,7 +255,6 @@ fn get_conditions_sql<'a>() -> &'a str {
     , original_ct_type_id    INT             NULL
     , original_ct_code       VARCHAR         NULL                 
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL
     );
     CREATE INDEX study_conditions_sid ON sd.study_conditions(sd_sid);"#
 }
@@ -392,7 +345,6 @@ fn get_data_objects_sql<'a>() -> &'a str {
     , eosc_category          INT             NULL
     , datetime_of_data_fetch TIMESTAMPTZ     NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL   
     );    
     CREATE INDEX data_objects_oid ON sd.data_objects(sd_oid);
     CREATE INDEX data_objects_sid ON sd.data_objects(sd_sid);"#
@@ -454,7 +406,6 @@ fn get_obj_instances_sql<'a>() -> &'a str {
     , resource_size_units    VARCHAR         NULL
     , resource_comments      VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
-    , coded_on               TIMESTAMPTZ     NULL   
     );
     CREATE INDEX object_instances_oid ON sd.object_instances(sd_oid);"#
 

@@ -1,15 +1,13 @@
 pub mod monitoring;
 mod processor;
-mod datavecs;
-mod import_helper;
-mod db_sd_tables;
-mod db_ad_tables;
+use crate::helpers::create_sd_tables;
+//use crate::helpers::create_ad_tables;
 use std::fs;
 use std::path::PathBuf;
 
 //use crate::data_models::db_models;
-use crate::{data_models::json_models::*, import::processor::process_study_data};
-use datavecs::*;
+use crate::data_models::json_models::*;
+use crate::data_models::data_vecs::*;
 //use processor::*;
 use crate::AppError;
 use sqlx::{Pool, Postgres};
@@ -29,7 +27,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
     // First recreate the staging database tables
 
-    db_sd_tables::build_sd_tables(src_pool).await?;
+    create_sd_tables::build_sd_tables(src_pool).await?;
     
     // get the total number of records to be processed (depends on import type)
 
@@ -94,16 +92,15 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             let p= PathBuf::from(&path.local_path);
             let json_data = fs::read_to_string(&p)?;
             let s: Study = serde_json::from_str(&json_data)?;
-            let sd_sid = &s.sd_sid;
-            let dbs = process_study_data(&s);
-
+           
+            let dbs = processor::process_study_data(&s);
+            let sd_sid = &dbs.sd_sid;
             studies_dv.add(sd_sid,&dbs.summary);
             study_dates_dv.add(sd_sid, &dbs.dates);
             study_partics_dv.add(sd_sid, &dbs.participants);
 
             if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
             if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
-
 
             // pass s to the procesor and receive a 'database friendly' version, 
             // with the data arranged to match the tables in the DB.

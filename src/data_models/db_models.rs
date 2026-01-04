@@ -1,7 +1,6 @@
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 
 
-#[allow(dead_code)]
 pub struct DBStudy {
 
     pub sd_sid: String,
@@ -48,10 +47,9 @@ pub struct DBDataObject {
 
 }
 
-#[allow(dead_code)]
 pub struct DBSummary {
-    pub display_title: Option<String>,
-    pub brief_description: Option<String>,
+    pub display_title: String,
+    pub brief_description: String,
 
     pub type_id: i32,
 	pub status_id: i32,
@@ -59,13 +57,13 @@ pub struct DBSummary {
     pub status_override: Option<String>,
     pub start_status_override: Option<String>,
 
-    pub iec_flag: Option<i32>,
-    pub ipd_sharing: Option<bool>,
+    pub iec_flag: i32,
+    pub ipd_sharing: bool,
 	pub ipd_sharing_plan: Option<String>,
-	pub dt_of_data: NaiveDateTime,
+    pub date_last_revised: Option<NaiveDate>,
+	pub dt_of_data_fetch: NaiveDateTime,
 }
 
-#[allow(dead_code)]
 pub struct DBStudyDates {
     pub reg_year: Option<i32>,  
 	pub reg_month: Option<i32>,
@@ -81,7 +79,6 @@ pub struct DBStudyDates {
     pub res_date_type: Option<String>,    
 }
 
-#[allow(dead_code)]
 pub struct DBStudyPartics {
 
     pub enrolment_target: Option<String>, 
@@ -102,7 +99,6 @@ pub struct DBStudyPartics {
 }
 
 
-#[allow(dead_code)]
 pub struct DBTitle {
     pub title_type_id: i32,
     pub title_text: String,
@@ -116,23 +112,24 @@ pub struct DBIdentifier {
     pub id_type: String,
 }
 
+
 #[allow(dead_code)]
 pub struct DBOrganisation {
     pub contrib_type_id: i32,
-    pub organisation_name: String,
-    pub organisation_ror_id: Option<String>,
-    pub organisation_cref_id: Option<String>,
+    pub org_name: String,
+    pub org_ror_id: Option<String>,
+    pub org_cref_id: Option<String>,
 }
 
 #[allow(dead_code)]
-pub struct DBPeople {
+pub struct DBPerson {
     pub contrib_type_id: i32,
-    pub person_given_name: Option<String>,
-    pub person_family_name: Option<String>,
-    pub person_full_name: Option<String>,
+    pub given_name: Option<String>,
+    pub family_name: Option<String>,
+    pub full_name: Option<String>,
     pub orcid_id: Option<String>,
-    pub person_affiliation: Option<String>,
-    pub person_email_domain: Option<String>,
+    pub affiliation: Option<String>,
+    pub email_domain: Option<String>,
 }
 
 #[allow(dead_code)]

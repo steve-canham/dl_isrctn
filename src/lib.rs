@@ -5,6 +5,7 @@ pub mod base_types;
 mod download;
 mod import;
 mod data_models;
+mod helpers;
 
 use download::monitoring::{get_next_download_id, update_dl_event_record};
 use import::monitoring::{get_next_import_id, update_imp_event_record};

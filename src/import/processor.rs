@@ -1,7 +1,9 @@
 use crate::data_models::json_models::Study;
 use crate::data_models::db_models::*;
-use chrono::{NaiveDateTime, Local}; 
-use super::import_helper::*;
+use crate::helpers::import_helpers::*;
+use crate::helpers::string_extensions::*;
+use chrono::{NaiveDate, NaiveDateTime, Local}; 
+
 //use crate::AppError;
 //use log::info;
 
@@ -23,21 +25,25 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // These titles should stay as single option<String> fields.
     // or be processed as below within the download process.
 
-    let mut pub_title: Option<&str> = None;
-    let mut sci_title: Option<&str> = None;
-    let mut acronym: Option<&str> = None;
+    let mut pub_title: Option<String> = None;
+    let mut sci_title: Option<String> = None;
+    let mut acronym: Option<String> = None;
 
     for t in &s.titles {
-        if t.title_type_id == 15 { pub_title = Some(&t.title_value); }
-        if t.title_type_id == 16 { sci_title = Some(&t.title_value); }
-        if t.title_type_id == 14 { acronym = Some(&t.title_value); }
+        if t.title_type_id == 15 { pub_title = Some(t.title_value); }
+        if t.title_type_id == 16 { sci_title = Some(t.title_value); }
+        if t.title_type_id == 14 { acronym = Some(t.title_value); }
     }
 
     let mut db_ts: Vec<DBTitle> = Vec::new();
-    let mut display_title = None;
+    let mut display_title = "No title provided".to_string();
+
+    // should do full string clean
 
     if let Some(t) = pub_title{
-        display_title = t.to_string().replace_apostrophes(); // = public title, default
+        processed_pub_title = pub_title.clean_string();
+        //match t.replace_apostrophes() {}
+        display_title = t.replace_apostrophes(); // = public title, default
         db_ts.push(DBTitle {
                 title_type_id: 15,
                 title_text: t.to_string(),
@@ -48,13 +54,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     if let Some(t) = sci_title{
         let scientific_title = t.to_string().replace_apostrophes(); 
-        if pub_title.is_none() {
-           display_title = scientific_title.clone();
+        if display_title_opt.is_none() {
+           display_title_opt = scientific_title.clone();
         }
         db_ts.push(DBTitle {
                 title_type_id: 16,
                 title_text: t.to_string(),
-                is_default: display_title == scientific_title,
+                is_default: display_title_opt == scientific_title,
                 comment: Some("From ISRCTN".to_string()),
         });
     }
@@ -62,19 +68,92 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     if let Some(t) = acronym{
         let acronym = t.to_string().replace_apostrophes(); 
-        if pub_title.is_none() {
-           display_title = acronym.clone();
+        if display_title_opt.is_none() {
+           display_title_opt = acronym.clone();
         }
         db_ts.push(DBTitle {
                 title_type_id: 14,
                 title_text: t.to_string(),
-                is_default: display_title == acronym,
+                is_default: display_title_opt == acronym,
                 comment: Some("From ISRCTN".to_string()),
         });
     }
     
     // Summary 
     
+    // brief description
+    // By default taken from the 'plain english summmary', as truncated during the
+    // data download process. But if this is missing, or states it was not provided
+    // at the time the record was created, a description is constructed from the 
+    // study hypotheses and primary outcome fields.
+
+    let description = match s.summary.plain_english_summary.clone() {
+        Some (s) => {
+                if s.to_lowercase().starts_with("not provided") {
+                    None
+                }
+                else {
+                    Some(s)
+                }
+        }
+        None => None,
+    };
+    
+    // No valid decsriotion in plain english summary...
+
+    if description == None {
+        let mut hypothesis = s.summary.study_hypothesis.clone();
+        let mut poutcome = s.summary.primary_outcome.clone();
+
+        // add string_clean ******************************************************************************************8
+        // string hypothesis = r.studyHypothesis.StringClean() ?? "";
+        // string poutcome = r.primaryOutcome.StringClean() ?? "";
+
+        if let Some(h) = hypothesis {
+           if !h.to_lowercase().starts_with("not provided") {
+               if !h.to_lowercase().starts_with("hypothes") && !h.to_lowercase().starts_with("study hyp")
+               {
+                    hypothesis =  Some(format!("Study hypothesis: {}", h));
+               }
+           }
+           else {
+               hypothesis = None;
+           }
+        }
+
+        if let Some(p)  = poutcome {
+            if !p.to_lowercase().starts_with("not provided") {
+                if !p.to_lowercase().starts_with("primary") && !p.to_lowercase().starts_with("outcome")
+                {
+                    poutcome = Some(format!("Primary outcome: {}", p));
+                }
+            }
+            else {
+               poutcome = None;
+           }
+        }
+        
+        // Combine the two, if they both exist, or just use one
+
+        description = match hypothesis {
+            Some( h) => {
+                match poutcome {
+                        Some (p) => Some(format!("{}\n{}", h, p)),
+                        None => Some(h), 
+                } 
+            },
+            None => poutcome,
+        };
+         
+    }
+
+    // Finally extract the text or use a default value
+
+    let description_text = match description {
+        Some(d) => d,
+        None => "No description text provided".to_string,
+    };
+
     // study status
 
     // Study status from overall study status or more commonly from dates.
@@ -90,7 +169,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             status_string = "Terminated";
         }
         else {
-           status_string = st; 
+           status_string = st;  // Usually 'Suspended'
         }
     }
     else {
@@ -100,10 +179,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             if se_date <= today {
                 status_string = "Completed";
             }
-            else {
-
-                // Study is still ongoing - recruitment dates required for exact status.
-
+            else {   // Study is still ongoing - recruitment dates required for exact status.
+               
                 if let Some(rs_date) = date_from_iso_string(s.recruitment.recruitment_start.clone()) {
                     if rs_date > today
                     {
@@ -117,33 +194,68 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
                 // But check if recruiting has now finished.
 
-                if status_string == "Recruiting" && let Some(re_date) = date_from_iso_string(s.recruitment.recruitment_end.clone()) {
-                    
-                    if re_date <= today
-                    {
-                        status_string = "Active, not recruiting";
+                if status_string == "Recruiting" {
+                    if let Some(re_date) = date_from_iso_string(s.recruitment.recruitment_end.clone()) {
+                        if re_date <= today
+                        {
+                            status_string = "Active, not recruiting";
+                        }
+                    }
+                    else {
+                            status_string = "Ongoing, recruitment status unclear";
                     }
                 }
             }
         }
     }
 
+    // Need to check later for results being published, in which cases ensure status is completed
     
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
     
-    let iec_flag = Some(0);   // for now
+    let iec_flag = 0;   // for now
 
-    // needs to change in the download regime to not crop it ????
+    let date_last_revised = match &s.registration.last_updated {
+        Some(ds) => match NaiveDate::parse_from_str(&ds.clone(), "%Y-%m-%d"){
+            Ok(d) =>Some(d),
+            Err(_) => None,
+        },
+        None => None
+    };
+    let dt_of_data_fetch = NaiveDateTime::parse_from_str(&s.downloaded, "%Y-%m-%dT%H:%M:%S").unwrap();
+    
+    /*
+        s.brief_description = r.plainEnglishSummary;
+        if (string.IsNullOrEmpty(s.brief_description) 
+            || s.brief_description.ToLower().StartsWith("not provided"))
+        {
+            string hypothesis = r.studyHypothesis.StringClean() ?? "";
+            string poutcome = r.primaryOutcome.StringClean() ?? "";
+            if (hypothesis != "" && !hypothesis.ToLower().StartsWith("not provided"))
+            {
+                if (!hypothesis.ToLower().StartsWith("hypothes") && !hypothesis.ToLower().StartsWith("study hyp"))
+                {
+                    hypothesis = "Study hypothesis: " + hypothesis;
+                }
+                s.brief_description = hypothesis;
+            }
+            if (poutcome != "" && !poutcome.ToLower().StartsWith("not provided"))
+            {
+                if (!poutcome.ToLower().StartsWith("primary") && !poutcome.ToLower().StartsWith("outcome"))
+                {
+                    poutcome = "Primary outcome: " + poutcome;
+                }
+                s.brief_description += s.brief_description == "" ? poutcome : "\n" + poutcome;
+            }
+        }
+     */
 
-    let dt_of_data = NaiveDateTime::parse_from_str(&s.downloaded, "%Y-%m-%dT%H:%M:%S").unwrap();
+    
 
-    //let data_datetime = DateTime::parse_from_rfc3339(&s.downloaded).unwrap();
-
-    //let dt_of_data = data_datetime.with_timezone(&Utc);    // convert the string into DateTime<Utc>
 
     let summary = DBSummary {
         display_title: display_title,
-        brief_description: s.summary.plain_english_summary.clone(),
+        brief_description: description_text,
         type_id: get_study_type(&s.design.primary_study_design),
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
@@ -151,7 +263,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         iec_flag: iec_flag,
         ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 
-        dt_of_data: dt_of_data, 
+        date_last_revised: date_last_revised,
+        dt_of_data_fetch: dt_of_data_fetch, 
     };
 
     // dates
