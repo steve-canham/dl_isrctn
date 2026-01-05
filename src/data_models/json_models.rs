@@ -247,7 +247,7 @@ pub struct Results
 #[derive(Serialize, Deserialize)]
 pub struct IPD
 {
-    pub ipd_sharing_plan: Option<bool>,    
+    pub ipd_sharing_plan: bool,    
     pub ipd_sharing_statement: Option<String>,
 
 }

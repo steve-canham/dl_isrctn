@@ -14,7 +14,6 @@ use chrono::{NaiveDate, NaiveDateTime, Local};
 // dates and participants respectively), and vector fields for each of the 
 // 1:n data types, that will be stored as separate tables.
 
-#[allow(dead_code)]
 pub fn process_study_data(s: &Study) -> DBStudy {
     
     let sd_sid =  s.sd_sid.clone();
@@ -28,55 +27,70 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let mut pub_title: Option<String> = None;
     let mut sci_title: Option<String> = None;
     let mut acronym: Option<String> = None;
-
-    for t in &s.titles {
-        if t.title_type_id == 15 { pub_title = Some(t.title_value); }
-        if t.title_type_id == 16 { sci_title = Some(t.title_value); }
-        if t.title_type_id == 14 { acronym = Some(t.title_value); }
-    }
+    let mut pub_title_string = "".to_string();
+    let mut sci_title_string = "".to_string();
 
     let mut db_ts: Vec<DBTitle> = Vec::new();
-    let mut display_title = "No title provided".to_string();
+    let mut display_title = "".to_string();
 
-    // should do full string clean
+
+    for t in &s.titles {
+        if t.title_type_id == 15 { pub_title = Some(t.title_value.clone()).clean(); }
+        if t.title_type_id == 16 { sci_title = Some(t.title_value.clone()).clean(); }
+        if t.title_type_id == 14 { acronym = Some(t.title_value.clone()).clean(); }
+    }
 
     if let Some(t) = pub_title{
-        processed_pub_title = pub_title.clean_string();
-        //match t.replace_apostrophes() {}
-        display_title = t.replace_apostrophes(); // = public title, default
+        
+        pub_title_string = t.clone();  
+        display_title = t.clone();        
+
         db_ts.push(DBTitle {
                 title_type_id: 15,
-                title_text: t.to_string(),
+                title_text: t,
                 is_default: true,
                 comment: Some("From ISRCTN".to_string()),
              });
     }
 
+    // Need to check not the same as the public title
+
     if let Some(t) = sci_title{
-        let scientific_title = t.to_string().replace_apostrophes(); 
-        if display_title_opt.is_none() {
-           display_title_opt = scientific_title.clone();
+       
+        sci_title_string = t.clone();
+        if sci_title_string != pub_title_string {
+
+            if display_title == "".to_string() {
+                display_title = sci_title_string.clone(); 
+            }
+
+            db_ts.push(DBTitle {
+                    title_type_id: 16,
+                    title_text: t,
+                    is_default: display_title == sci_title_string,
+                    comment: Some("From ISRCTN".to_string()),
+            });
         }
-        db_ts.push(DBTitle {
-                title_type_id: 16,
-                title_text: t.to_string(),
-                is_default: display_title_opt == scientific_title,
-                comment: Some("From ISRCTN".to_string()),
-        });
     }
 
+    // Need to check not the same as other titles
 
     if let Some(t) = acronym{
-        let acronym = t.to_string().replace_apostrophes(); 
-        if display_title_opt.is_none() {
-           display_title_opt = acronym.clone();
+        let acronym_string = t.clone();
+
+        if acronym_string != pub_title_string && acronym_string != sci_title_string {
+
+            if display_title == "".to_string() {
+            display_title = t.clone();
+            
+            }
+            db_ts.push(DBTitle {
+                    title_type_id: 14,
+                    title_text: t,
+                    is_default: display_title == acronym_string,
+                    comment: Some("From ISRCTN".to_string()),
+            });
         }
-        db_ts.push(DBTitle {
-                title_type_id: 14,
-                title_text: t.to_string(),
-                is_default: display_title_opt == acronym,
-                comment: Some("From ISRCTN".to_string()),
-        });
     }
     
     // Summary 
@@ -87,7 +101,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // at the time the record was created, a description is constructed from the 
     // study hypotheses and primary outcome fields.
 
-    let description = match s.summary.plain_english_summary.clone() {
+    let mut description = match s.summary.plain_english_summary.clone() {
         Some (s) => {
                 if s.to_lowercase().starts_with("not provided") {
                     None
@@ -102,18 +116,17 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // No valid decsriotion in plain english summary...
 
     if description == None {
-        let mut hypothesis = s.summary.study_hypothesis.clone();
-        let mut poutcome = s.summary.primary_outcome.clone();
-
-        // add string_clean ******************************************************************************************8
-        // string hypothesis = r.studyHypothesis.StringClean() ?? "";
-        // string poutcome = r.primaryOutcome.StringClean() ?? "";
+        let mut hypothesis = s.summary.study_hypothesis.clone().multiline_clean();
+        let mut poutcome = s.summary.primary_outcome.clone().multiline_clean();
 
         if let Some(h) = hypothesis {
            if !h.to_lowercase().starts_with("not provided") {
                if !h.to_lowercase().starts_with("hypothes") && !h.to_lowercase().starts_with("study hyp")
                {
-                    hypothesis =  Some(format!("Study hypothesis: {}", h));
+                    hypothesis = Some(format!("Study hypothesis: {}", h));
+               }
+               else {
+                   hypothesis = Some(h);
                }
            }
            else {
@@ -126,6 +139,9 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 if !p.to_lowercase().starts_with("primary") && !p.to_lowercase().starts_with("outcome")
                 {
                     poutcome = Some(format!("Primary outcome: {}", p));
+                }
+                else {
+                    poutcome = Some(p);
                 }
             }
             else {
@@ -151,7 +167,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     let description_text = match description {
         Some(d) => d,
-        None => "No description text provided".to_string,
+        None => "No description text provided".to_string(),
     };
 
     // study status
@@ -223,36 +239,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         None => None
     };
     let dt_of_data_fetch = NaiveDateTime::parse_from_str(&s.downloaded, "%Y-%m-%dT%H:%M:%S").unwrap();
-    
-    /*
-        s.brief_description = r.plainEnglishSummary;
-        if (string.IsNullOrEmpty(s.brief_description) 
-            || s.brief_description.ToLower().StartsWith("not provided"))
-        {
-            string hypothesis = r.studyHypothesis.StringClean() ?? "";
-            string poutcome = r.primaryOutcome.StringClean() ?? "";
-            if (hypothesis != "" && !hypothesis.ToLower().StartsWith("not provided"))
-            {
-                if (!hypothesis.ToLower().StartsWith("hypothes") && !hypothesis.ToLower().StartsWith("study hyp"))
-                {
-                    hypothesis = "Study hypothesis: " + hypothesis;
-                }
-                s.brief_description = hypothesis;
-            }
-            if (poutcome != "" && !poutcome.ToLower().StartsWith("not provided"))
-            {
-                if (!poutcome.ToLower().StartsWith("primary") && !poutcome.ToLower().StartsWith("outcome"))
-                {
-                    poutcome = "Primary outcome: " + poutcome;
-                }
-                s.brief_description += s.brief_description == "" ? poutcome : "\n" + poutcome;
-            }
-        }
-     */
-
-    
-
-
+         
     let summary = DBSummary {
         display_title: display_title,
         brief_description: description_text,

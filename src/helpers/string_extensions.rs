@@ -5,15 +5,20 @@ use regex::Regex;
 #[allow(dead_code)]
 pub trait OptionStringExtensions {
     fn as_text_opt(&self) -> Option<String>;
-    fn as_filtered_text_opt(&self) -> Option<String>;
+    fn as_tidied_text_opt(&self) -> Option<String>;
+    fn as_filtered_ident_opt(&self) -> Option<String>;
+
     fn as_date_opt(&self) -> Option<String>;
     fn as_datetime_opt(&self) -> Option<String>;
-    fn as_float_opt(&self) -> Option<f32>;
+    fn as_i32_opt(&self) -> Option<i32>;
+    fn as_f32_opt(&self) -> Option<f32>;
     fn as_bool_opt(&self) -> Option<bool>;
 
-    fn tidy(&self) -> Option<String>;
+    fn clean(&self) -> Option<String>;
+    fn multiline_clean(&self) -> Option<String>;
+
     fn replace_unicodes(&self) -> Option<String>;
-    fn replace_tags_and_unicodes(&self) -> Option<String>;
+    // fn replace_tags_and_unicodes(&self) -> Option<String>;
     fn compress_spaces(&self) -> Option<String>;
     fn replace_apostrophes(&self) -> Option<String>;
     fn replace_tags(&self) -> Option<String>;
@@ -22,7 +27,7 @@ pub trait OptionStringExtensions {
     fn regularise_nb_spaces(&self) -> Option<String>;
 }
 
-// Extensions for Option<String>, largely specific to 
+// Extensions for Option<String>, some specific to 
 // the ISRCTN data derived from deserialisation of its XML.
 
 // The XML deserialises to Option<String> because most elements
@@ -40,7 +45,7 @@ impl OptionStringExtensions for Option<String> {
     fn as_text_opt(&self) -> Option<String> {
          match self {
             Some(s) => { 
-                    let st = s.trim();
+                    let st = s.trim();  // trims all whitespace
                     if st == "" 
                     {
                         None
@@ -52,14 +57,21 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
-    fn tidy(&self) -> Option<String> {
+    fn as_tidied_text_opt(&self) -> Option<String> {
 
         match self {
             Some(s) => {
-                let quoteless = s.trim_matches('"');
+                
+                // Trim all whitespace and then any enclosing quotes
+
+                let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
+                
+                // Check for common 'null value' values
+
                 if lower == "null" || lower == "n/a"
                 || lower == "na" || lower == "none"
+                || lower == ""
                 {
                     None
                 }
@@ -77,30 +89,14 @@ impl OptionStringExtensions for Option<String> {
         None => None
         }
 
-        /*
-        
-    public static string? TrimPlus(this string? input_string)
-    {
-        // removes beginning or trailing carriage returns, tabs and spaces
-        if (string.IsNullOrEmpty(input_string))
-        {
-            return null;
-        }
-        else
-        {
-            return input_string.Trim('\r', '\n', '\t', ' ');
-        }
-    }
-         */
     }
 
-    // Filtering here is to translate 'n/a', 'null' or 'nil'
-    // type entries with None. the options used are ISRCTN specific -
-    // other choices might be necessary in other systems.
+    fn as_filtered_ident_opt(&self) -> Option<String> {
 
-    fn as_filtered_text_opt(&self) -> Option<String> {
+        // Filtering here is to translate 'n/a', 'null' or 'nil'
+        // type entries with None. the options used are ISRCTN specific -
+        // other choices might be necessary in other systems.
         
-        static RE_ONE_AND_ZEROS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[01\. -]+$").unwrap());
         match self {
             Some(s) => { 
                 let st = s.trim();
@@ -115,6 +111,7 @@ impl OptionStringExtensions for Option<String> {
                         None
                     }
                     else {
+                        static RE_ONE_AND_ZEROS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[01\. -]+$").unwrap());
                         if RE_ONE_AND_ZEROS.is_match(st) {  // ids just with 1s and 0s rarely meaningful or useful
                             None
                         }
@@ -128,13 +125,14 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
+    fn as_date_opt(&self) -> Option<String> {
+
     // dates are kept as strings but truncated to the 
     // short ISO YYYY-MM-DD format. It is assumed that the
-    // fields using this extension are written as long ISO dates.
-    // It may be that a Regexp check shopuld be added to ensure 
-    // that this is the case.
+    // fields using this extension are written as short ISO dates.
+    // The regex checks that this is the case.
+    // N.B. Only checks foremat is correvt - may be invalid as a date
 
-    fn as_date_opt(&self) -> Option<String> {
         match self {
             Some(s) => { 
                     let st = s.trim();
@@ -143,10 +141,9 @@ impl OptionStringExtensions for Option<String> {
                         None
                     } 
                     else {
-                        let st2 = st.to_string();
-                        if st2.len() > 10 {
-                            let date_string = &st2[0..10];
-                            Some(date_string.to_string())
+                        static ISO_DATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}").unwrap());
+                        if ISO_DATE.is_match(st) {
+                            Some(st[0..10].to_string())
                         }
                         else {
                             None
@@ -157,13 +154,14 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
+    fn as_datetime_opt(&self) -> Option<String> {
+
     // datetimes are kept as strings but truncated to the 
     // ISO YYY-MM-DDThh:mm::ss format. It is assumed that the
     // fields using this extension are written as long ISO dates.
-    // It may be that a Regexp check shopuld be added to ensure 
-    // that this is the case.
+    // The regex checks that this is the case.
+    // N.B. Only checks foremat is correvt - may be invalid as a datetime
 
-    fn as_datetime_opt(&self) -> Option<String> {
         match self {
             Some(s) => { 
                     let st = s.trim();
@@ -172,10 +170,9 @@ impl OptionStringExtensions for Option<String> {
                         None
                     } 
                     else {
-                        let st2 = st.to_string();
-                        if st2.len() > 19 {
-                            let date_string = &st2[0..19];
-                            Some(date_string.to_string())
+                        static ISO_DATETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}").unwrap());
+                        if ISO_DATETIME.is_match(st) {
+                            Some(st[0..19].to_string())
                         }
                         else {
                             None
@@ -186,7 +183,28 @@ impl OptionStringExtensions for Option<String> {
         }
     }
     
-    fn as_float_opt(&self) -> Option<f32> {
+    fn as_i32_opt(&self) -> Option<i32> {
+        match self {
+            Some(s) => { 
+                let st = s.trim();
+                if st == "" 
+                {
+                    None
+                } 
+                else 
+                {
+                    match st.parse::<i32>() 
+                    {
+                        Ok(n) => Some(n),
+                        Err(_e) => None
+                    }
+                }
+            },
+            None => None,
+        }
+    }
+
+    fn as_f32_opt(&self) -> Option<f32> {
         match self {
             Some(s) => { 
                 let st = s.trim();
@@ -232,6 +250,25 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
+
+    fn clean(&self) -> Option<String> {
+       
+        let mut s_opt = self.as_tidied_text_opt();
+        s_opt = s_opt.replace_unicodes();
+        s_opt = s_opt.replace_tags();
+        s_opt.replace_apostrophes()
+    }    
+
+    fn multiline_clean(&self) -> Option<String> {
+
+        let mut s_opt = self.as_tidied_text_opt();
+        s_opt = s_opt.replace_unicodes();
+        s_opt = s_opt.replace_tags();
+        s_opt = s_opt.replace_apostrophes();
+        s_opt.compress_spaces()
+     
+    }
+
     fn replace_unicodes(&self) -> Option<String> {
 
         match self {
@@ -260,7 +297,7 @@ impl OptionStringExtensions for Option<String> {
                         output = output.replace("&gt;", ">").replace("&lt;", "<");
                         output = output.replace("&amp;", "&");
 
-                        Some(output)
+                        Some(output.trim().to_string())
                     }
                 }
             },
@@ -268,7 +305,7 @@ impl OptionStringExtensions for Option<String> {
     }
 
 }
-
+/* 
     fn replace_tags_and_unicodes(&self) -> Option<String> {
          match self {
             Some(s) => {
@@ -313,25 +350,25 @@ impl OptionStringExtensions for Option<String> {
             None => None,
         }
     }
-
+*/
     fn regularise_hyphens(&self) -> Option<String> {
 
         // assumed this call is immediately after a 'tidy' call, either
         // on a string or string option, so only basic null check required
-        match self {
+        match self.clone() {
             Some(s) => {
-                if s.trim() == "" {
+                let mut st = s.trim().to_string();
+                if st == "".to_string() {
                     None
                 }
                 else {
+                    st = st.replace("\u{2010}", "-"); 
+                    st = st.replace("\u{2011}", "-"); 
+                    st = st.replace("\u{2012}", "-"); 
+                    st = st.replace("\u{2013}", "-"); 
+                    st = st.replace("\u{2212}", "-"); 
 
-                    let mut output_string = s.replace("\u{2010}", "-"); 
-                    output_string = output_string.replace("\u{2011}", "-"); 
-                    output_string = output_string.replace("\u{2012}", "-"); 
-                    output_string = output_string.replace("\u{2013}", "-"); 
-                    output_string = output_string.replace("\u{2212}", "-"); 
-
-                    Some(output_string)
+                    Some(st)
                 }
             },
             None => None,
@@ -342,19 +379,20 @@ impl OptionStringExtensions for Option<String> {
 
         // assumed this call is immediately after a 'tidy' call, either
         // on a string or string option, so only basic null check required
-        match self {
+        match self.clone(){
             Some(s) => {
-                if s.trim() == "" {
+                let mut st = s.trim().to_string();
+                if st == "".to_string() {
                     None
                 }
                 else {
-                    let mut output_string = s.replace("\u{00A0}", " ");
-                    output_string = output_string.replace("\u{2000}", " ").replace("\u{2001}", " ");
-                    output_string = output_string.replace("\u{2002}", " ").replace("\u{2003}", " ");
-                    output_string = output_string.replace("\u{2007}", " ").replace("\u{2008}", " ");
-                    output_string = output_string.replace("\u{2009}", " ").replace("\u{200A}", " ");
+                    st = st.replace("\u{00A0}", " ");
+                    st = st.replace("\u{2000}", " ").replace("\u{2001}", " ");
+                    st = st.replace("\u{2002}", " ").replace("\u{2003}", " ");
+                    st = st.replace("\u{2007}", " ").replace("\u{2008}", " ");
+                    st = st.replace("\u{2009}", " ").replace("\u{200A}", " ");
 
-                    Some(output_string)
+                    Some(st)
                 }
 
             },
@@ -398,9 +436,15 @@ impl OptionStringExtensions for Option<String> {
     fn replace_apostrophes(&self) -> Option<String> {
     
          match self {
-            Some(s) => {let quoteless = s.trim_matches('"');
+            Some(s) => {
+                
+                // Trim all whitespace and then any enclosing quotes
+                let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
-                if lower == "null" || lower == "n/a"
+                
+                // Check for common 'null value' values
+
+                if lower == "" || lower == "null" || lower == "n/a"
                 || lower == "na" || lower == "none"
                 {
                     None
@@ -435,14 +479,13 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
-
     fn replace_tags(&self) -> Option<String> {
     
        let tidied_self = self.replace_unicodes();
        match tidied_self {
             Some(mut s) => {
-                // needs to include opening and closing tags to be processed.
-                // except in a few cases commas may be in a string as "&#44;". 
+
+                // needs to include both opening and closing tags to be processed.
                
                 if !(s.contains('<') && s.contains('>')) {
                     Some(s)
@@ -458,164 +501,123 @@ impl OptionStringExtensions for Option<String> {
                     }
                     else {    
 
-                        // Need to go through the characters and remove the 'islands' of tagged 
-                        // text, but - - consider
+                        // Need to go through the characters and remove the 'islands' of tags
+                        // and their included text, but - - consider
                         // a) genuine < and > signs; b) sub and superscripted text, and 
-                        // c) the need to make bullet tags into bullets - solved below
-     
-                        s = s.replace("<li", "\n\u{2022} <li");  // to solve c)
+                        // c) the need to make bullet tags into text based bullets 
 
-                        // for b) consider these seperately
+                        s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
+                        s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
 
-                        while s.contains ("<sub>") {
-                            // Try to substitute characters
-                            // If not possible just remove tags
+                        // When the tags above are removed the \n and bullets will now be left
 
-                        } 
-                        
-                        while s.contains ("<sup>") {
-                            // Try to substitute characters
-                            // If not possible just remove tags
-                        } 
+                        // replace and <sub>, </sub>, <sup>, </sup> tags with single chars
 
-                        s = s.replace("<p>", "\n").replace("</p>", "")
-                             .replace("<li>", "").replace("</li>", "")
-                             .replace("<ul>", "").replace("</ul>", "")
-                             .replace("<ol>", "").replace("</ol>", "");
-                        
-                        s = s.replace("<div>", "").replace("</div>", "")
-                             .replace("<span>", "").replace("</span>", "");
+                        s = s.replace("<sub>", "\u{21E9}"); // fat arrow down
+                        s = s.replace("</sub>", "\u{21D1}"); // open fat arrow up
+                        s = s.replace("<sup>", "\u{21E7}");  // fat arrow up
+                        s = s.replace("</sup>", "\u{21D3}"); // open fat arrow down
 
-                        s = s.replace("<b>", "").replace("</b>", "")
-                             .replace("<i>", "").replace("</i>", "")
-                             .replace("<u>", "").replace("</u>", "")
-                             .replace("<em>", "").replace("</em>", "")
-                             .replace("<strong>", "").replace("</strong>", "");
+                        //  use regex to find and 'protect' standalone < signs
 
-                        if !(s.contains('<') && s.contains('>')) {
-                                Some(s)
-                        }
-                        else {
-                            let mut new_s = String::new();
-                            let mut temp_tag_name = String::new();
-                            let mut inside = false;
-                            let mut really_inside = false;
-                            let mut in_sub = false;
-                            let mut in_sup = false;
+                        static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
+                        s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
+                                                                       
+                        // Now go through characters and create new string (new_s)
 
-                            // Step 1: loop over string chars.
-                            for c in s.chars() {
-                                // Step 2: detect markup start and end, and skip over markup chars.
-                                if c == '<' {
-                                    if in_sub || in_sup {
-                                        really_inside = true;
-                                    }
-                                    inside = true;
-                                    continue;
-                                }
-                                if really_inside && c == '>' {
-                                    inside = false;
-                                    really_inside = false;
-                                    
-                                    continue;
-                                }
+                        let mut inside = false;
+                        let mut in_sub = false;
+                        let mut in_sup = false;
+                        let mut new_s = "".to_string();
 
-                                if in_sub {
-                                    // try to add small subscript version of char
-                                }
+                        // loop over string chars.
 
-                                if in_sup {
-                                    // try to add small superscript version of char
-                                }
+                        for c in s.chars() {
 
-                                if inside {
+                            // Detect tag starts and ends, and skip over tag edge chars.
 
-                                    // what comes after the <?
-                                    if !really_inside {
-                                        temp_tag_name.push(c);
+                            match c {
+                                '<' => {inside = true;  continue;},
+                                '>' => {if inside {inside = false;  continue;}}
+                                '\u{21E9}'  => {in_sub = true; continue;},
+                                '\u{21E7}'  => {in_sup = true; continue;},
+                                '\u{21D1}'  => {in_sub = false; continue;},
+                                '\u{21D3}'  => {in_sup = false; continue;},
+                                _ => {},
+                            }
 
-                                        if temp_tag_name == "<p " || temp_tag_name == "<a "
-                                        || temp_tag_name == "<div " || temp_tag_name == "<span " 
-                                        || temp_tag_name =="<ol " || temp_tag_name == "<ul " 
-                                        || temp_tag_name =="<sub>" || temp_tag_name == "<sup>" 
-                                        {
-                                            really_inside = true;
-                                        }
-
-                                        if temp_tag_name == "<sub>" {
-                                            in_sub = true;
-                                        }
-
-                                        if temp_tag_name == "<sup>" {
-                                            in_sup = true;
-                                        }
-                                    }
-
-                                }
-
-                                if !inside {
-                                    // Step 3: push other  characters to the result string.
-                                    new_s.push(c);
-                                }
+                            if in_sub {
+                                let subc = match c {
+                                    '0' => '\u{2080}',
+                                    '1' => '\u{2081}',
+                                    '2' => '\u{2082}',
+                                    '3' => '\u{2083}',
+                                    '4' => '\u{2084}',
+                                    '5' => '\u{2085}',
+                                    '6' => '\u{2086}',
+                                    '7' => '\u{2087}',
+                                    '8' => '\u{2088}',
+                                    '9' => '\u{2089}',
+                                    '+' => '\u{208A}',
+                                    '-' => '\u{208B}',
+                                    '=' => '\u{208C}',
+                                    '(' => '\u{208D}',
+                                    ')' => '\u{208E}',
+                                    'a' => '\u{2090}',
+                                    'e' => '\u{2091}',
+                                    'o' => '\u{2092}',
+                                    'x' => '\u{2093}',
+                                    'h' => '\u{2095}',
+                                    'k' => '\u{2096}',
+                                    'l' => '\u{2097}',
+                                    'm' => '\u{2098}',
+                                    'n' => '\u{2099}',
+                                    'p' => '\u{209A}',
+                                    's' => '\u{209B}',
+                                    't' => '\u{209C}',
+                                    _ => c
+                                };
+                                new_s.push(subc);
 
                             }
-                
-                            Some(new_s)
-
+                            else if in_sup {
+                                let supc = match c {
+                                    '0' => '\u{2070}',
+                                    '1' => '\u{00B9}',
+                                    '2' => '\u{00B2}',
+                                    '3' => '\u{00B3}',
+                                    '4' => '\u{2074}',
+                                    '5' => '\u{2075}',
+                                    '6' => '\u{2076}',
+                                    '7' => '\u{2077}',
+                                    '8' => '\u{2078}',
+                                    '9' => '\u{2079}',
+                                    'i' => '\u{2071}',
+                                    '+' => '\u{207A}',
+                                    '-' => '\u{207B}',
+                                    '=' => '\u{207C}',
+                                    '(' => '\u{207D}',
+                                    ')' => '\u{207E}',
+                                    'n' => '\u{207F}',
+                                    _ => c
+                                };
+                                new_s.push(supc);
+                            }
+                            else if inside {
+                                // do nothing
+                            }
+                            else {
+                                // 'normal' outside
+                                new_s.push(c);
+                            }
                         }
-                            
-                       
 
-
-                                // Remaining are likely to be tags with attributes, 
-                                // or tags signifying super or sub scripts
-/*
-                                while s.contains ("<p ") {
-                                    // replace whole tag by \n
-                                } 
-
-                                while s.contains ("<li ") {
-                                    // replace whole tag by \n, bullet, space
-                                } 
-
-                                while s.contains ("<ol ") {
-                                    // remove whole tag 
-                                } 
-
-                                while s.contains ("<ul ") {
-                                    // remove whole tag 
-                                } 
-
-                                while s.contains ("<div ") {
-                                    // remove whole tag 
-                                } 
-
-                                while s.contains ("<span ") {
-                                    // remove whole tag 
-                                } 
-
-                                while s.contains ("<a ") {
-                                    // remove whole tag 
-                                } 
-
-                                while s.contains ("<sub>") {
-                                    // Try to substitute characters
-                                    // If not possible just remove tags
-
-                                } 
-                                
-                                while s.contains ("<sup>") {
-                                    // Try to substitute characters
-                                    // If not possible just remove tags
-                                } 
-                                
-                                Some(s)
-                                */
-
-                      
-
+                        new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
                         
+                        Some(new_s)
+
                     }
+                                
                 }
             },
             None => None,
@@ -627,256 +629,268 @@ impl OptionStringExtensions for Option<String> {
 }
 
 
-/*
-            
-        while (output_string.Contains("<p"))
-        {
-            // replace any p start tags with a carriage return
-
-            int start_pos = output_string.IndexOf("<p", StringComparison.Ordinal);
-            int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-            output_string = output_string[..start_pos] + "\n" + output_string[(end_pos + 1)..];
-        }
-
-        // Check for any list structures
-
-        if (output_string.Contains("<li"))
-        {
-            while (output_string.Contains("<li"))
-            {
-                // replace any li start tags with a carriage return and bullet
-
-                int start_pos = output_string.IndexOf("<li", StringComparison.Ordinal);
-                int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-                output_string = output_string[..start_pos] + "\n\u2022 " + output_string[(end_pos + 1)..];
-            }
-
-            // remove any list start and end tags
-
-            while (output_string.Contains("<ul"))
-            {
-                int start_pos = output_string.IndexOf("<ul", StringComparison.Ordinal);
-                int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-                output_string = output_string[..start_pos] + output_string[(end_pos + 1)..];
-            }
-
-            while (output_string.Contains("<ol"))
-            {
-                int start_pos = output_string.IndexOf("<ol", StringComparison.Ordinal);
-                int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-                output_string = output_string[..start_pos] + output_string[(end_pos + 1)..];
-            }
-
-            output_string = output_string.Replace("</li>", "").Replace("</ul>", "").Replace("</ol>", "");
-        }
-
-        while (output_string.Contains("<div"))
-        {
-            // remove any div start tags
-            int start_pos = output_string.IndexOf("<div", StringComparison.Ordinal);
-            int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-            output_string = output_string[..start_pos] + output_string[(end_pos + 1)..];
-        }
-
-        while (output_string.Contains("<span"))
-        {
-            // remove any span start tags
-            int start_pos = output_string.IndexOf("<span", StringComparison.Ordinal);
-            int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-            output_string = output_string[..start_pos] + output_string[(end_pos + 1)..];
-        }
-
-        // check need to continue
-
-        if (!(output_string.Contains('<') && output_string.Contains('>')))
-        {
-            return output_string;
-        }
-
-        while (output_string.Contains("<a"))
-        {
-            // remove any link start tags - appears to be very rare
-            int start_pos = output_string.IndexOf("<a", StringComparison.Ordinal);
-            int end_pos = output_string.IndexOf(">", start_pos, StringComparison.Ordinal);
-            output_string = output_string[..start_pos] + output_string[(end_pos + 1)..];
-        }
-
-        output_string = output_string.Replace("</a>", "");
-
-        // try and replace sub and super scripts
-
-        while (output_string.Contains("<sub>"))
-        {
-            int start_pos = output_string.IndexOf("<sub>", StringComparison.Ordinal);
-            int end_string = output_string.IndexOf("</sub>", start_pos, StringComparison.Ordinal);
-            if (end_string != -1) // would indicate a non matched sub entry
-            {
-                int end_pos = end_string + 5;
-                string string_to_change = output_string[(start_pos + 5)..end_string];
-                string new_string = "";
-                for (int i = 0; i < string_to_change.Length; i++)
-                {
-                    new_string += string_to_change[i].ChangeToSubUnicode();
-                }
-
-                if (end_pos > output_string.Length - 1)
-                {
-                    output_string = output_string[..start_pos] + new_string;
-                }
-                else
-                {
-                    output_string = output_string[..start_pos] + new_string + output_string[(end_pos + 1)..];
-                }
-            }
-            else
-            {
-                // drop any that are left (to get out of the loop)
-                output_string = output_string.Replace("</sub>", "");
-                output_string = output_string.Replace("<sub>", "");
-            }
-        }
-
-        while (output_string.Contains("<sup>"))
-        {
-            int start_pos = output_string.IndexOf("<sup>", StringComparison.Ordinal);
-            int end_string = output_string.IndexOf("</sup>", start_pos, StringComparison.Ordinal);
-            if (end_string != -1) // would indicate a non matched sup entry
-            {
-                int end_pos = end_string + 5;
-                string string_to_change = output_string[(start_pos + 5)..end_string];
-                string new_string = "";
-                for (int i = 0; i < string_to_change.Length; i++)
-                {
-                    new_string += string_to_change[i].ChangeToSupUnicode();
-                }
-
-                if (end_pos > output_string.Length - 1)
-                {
-                    output_string = output_string[..start_pos] + new_string;
-                }
-                else
-                {
-                    output_string = output_string[..start_pos] + new_string + output_string[(end_pos + 1)..];
-                }
-            }
-            else
-            {
-                // drop any that are left (to ensure getting out of the loop)
-                output_string = output_string.Replace("</sup>", "");
-                output_string = output_string.Replace("<sup>", "");
-            }
-        }
-
-        return output_string;
-    }
 
 
-    public static string? RegulariseStringEndings(this string? input_string)
-    {
-        if (string.IsNullOrEmpty(input_string))
-        {
-            return null;
-        }
-
-        string output_string = input_string.Replace("\r\n", "|@@|");
-        output_string = output_string.Replace("\r", "\n");
-        return output_string.Replace("|@@|", "\r\n");
- }
-
-
-    public static string? StringClean(this string? input_string)
-    {
-        if (string.IsNullOrEmpty(input_string))
-        {
-            return null;
-        }
-
-        string? output_string = input_string.TrimPlus();
-        output_string = output_string.ReplaceTags();
-        output_string = output_string.ReplaceApos();
-        return output_string.RegulariseStringEndings();
-    }
-
-
-    private static char ChangeToSupUnicode(this char a)
-    {
-        return a switch
-        {
-            '0' => '\u2070',
-            '1' => '\u0B09',
-            '2' => '\u0B02',
-            '3' => '\u0B03',
-            '4' => '\u2074',
-            '5' => '\u2075',
-            '6' => '\u2076',
-            '7' => '\u2077',
-            '8' => '\u2078',
-            '9' => '\u2079',
-            'i' => '\u2071',
-            '+' => '\u207A',
-            '-' => '\u207B',
-            '=' => '\u207C',
-            '(' => '\u207D',
-            ')' => '\u207E',
-            'n' => '\u207F',
-            _ => a
-        };
-    }
-
-    private static char ChangeToSubUnicode(this char a)
-    {
-        return a switch
-        {
-            '0' => '\u2080',
-            '1' => '\u2081',
-            '2' => '\u2082',
-            '3' => '\u2083',
-            '4' => '\u2084',
-            '5' => '\u2085',
-            '6' => '\u2086',
-            '7' => '\u2087',
-            '8' => '\u2088',
-            '9' => '\u2089',
-            '+' => '\u208A',
-            '-' => '\u208B',
-            '=' => '\u208C',
-            '(' => '\u208D',
-            ')' => '\u208E',
-            'a' => '\u2090',
-            'e' => '\u2091',
-            'o' => '\u2092',
-            'x' => '\u2093',
-            'h' => '\u2095',
-            'k' => '\u2096',
-            'l' => '\u2097',
-            'm' => '\u2098',
-            'n' => '\u2099',
-            'p' => '\u209A',
-            's' => '\u209B',
-            't' => '\u209C',
-            _ => a
-        };
-
-    }
-
-*/
-
-
-/* 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use log::info;
+
+    /*
+    fn clean(&self) -> Option<String>;
+    fn multiline_clean(&self) -> Option<String>;
+    fn compress_spaces(&self) -> Option<String>;
+     */
 
     #[test]
-    fn check_can_identify_iras_number() {
-        let (type_id, type_string, id) = classify_identifier("IRAS 123456".to_string());
+    fn check_as_text_opt() {
 
-        assert_eq!(type_id, 303);
-        assert_eq!(type_string, "IRAS ID".to_string());
-        assert_eq!(id, "123456".to_string());
+        let t_opt = Some("".to_string());
+        assert_eq!(t_opt.as_text_opt(), None);
+
+        let t_opt = Some("   \n   ".to_string());
+        assert_eq!(t_opt.as_text_opt(), None);
+
+        let t_opt = Some("\t \t foo \r\n     ".to_string());
+        assert_eq!(t_opt.as_text_opt(), Some("foo".to_string()));
     } 
     
+    #[test]
+    fn check_as_tidied_text_opt() {
+
+        let t_opt = Some("N/A".to_string());
+        assert_eq!(t_opt.as_tidied_text_opt(), None);
+
+        let t_opt = Some("none ".to_string());
+        assert_eq!(t_opt.as_tidied_text_opt(), None);
+
+        let t_opt = Some("\"foo  \"  ".to_string());
+        assert_eq!(t_opt.as_tidied_text_opt(), Some("foo".to_string()));
+
+        let t_opt = Some("   foo  ; \n".to_string());
+        assert_eq!(t_opt.as_tidied_text_opt(), Some("foo".to_string()));
+    } 
+
+    #[test]
+    fn check_as_filtered_text_opt() {
+
+        let t_opt = Some("N/A".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+
+        let t_opt = Some("none ".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+
+        let t_opt = Some(" nil provided".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+
+        let t_opt = Some(" 1 ".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+
+        let t_opt = Some("1.0 ".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+
+        let t_opt = Some("1111-000".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), None);
+       
+        let t_opt = Some("foo  \n".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), Some("foo".to_string()));
+
+        let t_opt = Some("   foo  ; \n".to_string());
+        assert_eq!(t_opt.as_filtered_ident_opt(), Some("foo  ;".to_string()));
+    }
+
+    #[test]
+    fn check_as_date_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_date_opt(), None);
+
+        let t_opt = Some("20-04-23".to_string());
+        assert_eq!(t_opt.as_date_opt(), None);
+
+        let t_opt = Some("2020-04-23".to_string());
+        assert_eq!(t_opt.as_date_opt(), Some("2020-04-23".to_string()));
+
+        let t_opt = Some("2020-04-66".to_string());
+        assert_eq!(t_opt.as_date_opt(), Some("2020-04-66".to_string()));
+
+        let t_opt = Some("2020-04-23T12:34:45".to_string());
+        assert_eq!(t_opt.as_date_opt(), Some("2020-04-23".to_string()));
+    } 
+
+    #[test]
+    fn check_as_datetime_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), None);
+
+        let t_opt = Some("20-04-23".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), None);
+
+        let t_opt = Some("2020-04-23".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), None);
+
+        let t_opt = Some("2020-04-23T12:34:45".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T12:34:45".to_string()));
+
+        let t_opt = Some("2020-04-23T12:34:45.12345".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T12:34:45".to_string()));
+
+        let t_opt = Some("2020-04-23T33:99:99.12345".to_string());
+        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T33:99:99".to_string()));
+    } 
+
+     #[test]
+    fn check_as_i32_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_i32_opt(), None);
+
+        let t_opt = Some("    \n".to_string());
+        assert_eq!(t_opt.as_i32_opt(), None);
+
+        let t_opt = Some("13.2".to_string());
+        assert_eq!(t_opt.as_i32_opt(), None);
+
+        let t_opt = Some("13".to_string());
+        assert_eq!(t_opt.as_i32_opt(), Some(13));
+
+        let t_opt = Some("-145.23".to_string());
+        assert_eq!(t_opt.as_i32_opt(), None);
+
+        let t_opt = Some("0".to_string());
+        assert_eq!(t_opt.as_i32_opt(), Some(0));
+
+        let t_opt = Some("-12".to_string());
+        assert_eq!(t_opt.as_i32_opt(), Some(-12));
+    } 
+
+    #[test]
+    fn check_as_f32_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_f32_opt(), None);
+
+        let t_opt = Some("    \n".to_string());
+        assert_eq!(t_opt.as_f32_opt(), None);
+
+        let t_opt = Some("13.2".to_string());
+        assert_eq!(t_opt.as_f32_opt(), Some(13.2));
+
+        let t_opt = Some("13".to_string());
+        assert_eq!(t_opt.as_f32_opt(), Some(13.0));
+
+        let t_opt = Some("-145.23".to_string());
+        assert_eq!(t_opt.as_f32_opt(), Some(-145.23));
+
+        let t_opt = Some("0".to_string());
+        assert_eq!(t_opt.as_f32_opt(), Some(0.0));
+
+        let t_opt = Some("-12".to_string());
+        assert_eq!(t_opt.as_f32_opt(), Some(-12.0));
+    } 
+
+    #[test]
+    fn check_as_bool_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_bool_opt(), None);
+
+        let t_opt = Some("    ".to_string());
+        assert_eq!(t_opt.as_bool_opt(), None);
+
+        let t_opt: Option<String> = Some("yes".to_string());
+        assert_eq!(t_opt.as_bool_opt(), Some(true));
+
+        let t_opt = Some("tRue".to_string());
+        assert_eq!(t_opt.as_bool_opt(), Some(true));
+
+        let t_opt: Option<String> = Some("NO".to_string());
+        assert_eq!(t_opt.as_bool_opt(), Some(false));
+
+        let t_opt = Some("False".to_string());
+        assert_eq!(t_opt.as_bool_opt(), Some(false));
+    } 
+
+    #[test]
+    fn check_regularise_hyphens() {
+
+        let t_opt = Some("".to_string());
+        assert_eq!(t_opt.regularise_hyphens(), None);
+
+        let t_opt = Some("  \u{2010}  ".to_string());
+        assert_eq!(t_opt.regularise_hyphens(), Some("-".to_string()));
+
+        let t_opt = Some("foo\u{2012}bar".to_string());
+        assert_eq!(t_opt.regularise_hyphens(), Some("foo-bar".to_string()));
+    } 
+    
+    #[test]
+    fn check_regularise_nb_spaces() {
+
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.regularise_nb_spaces(), None);
+
+        let t_opt = Some("foo\u{00A0}\u{2000}\u{2009}   ".to_string());
+        assert_eq!(t_opt.regularise_nb_spaces(), Some("foo".to_string()));
+
+        let t_opt = Some("foo\u{2009}bar".to_string());
+        assert_eq!(t_opt.regularise_nb_spaces(), Some("foo bar".to_string()));
+    } 
+    
+    #[test]
+    fn check_replace_unicodes() {
+
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.replace_unicodes(), None);
+
+        let t_opt = Some("&#32;foo&#44;&#32;&amp;&#32;bar".to_string());
+        assert_eq!(t_opt.replace_unicodes(), Some("foo, & bar".to_string()));
+
+        let t_opt = Some("foo &gt; fie and foe #lt; fum".to_string());
+        assert_eq!(t_opt.replace_unicodes(), Some("foo > fie and foe < fum".to_string()));
+    } 
+
+
+    #[test]
+    fn check_replace_apostrophes() {
+
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.replace_apostrophes(), None);
+
+        let t_opt = Some("Fred's bar".to_string());
+        assert_eq!(t_opt.replace_apostrophes(), Some("Fred’s bar".to_string()));
+
+        let t_opt = Some("'it's peculiar', he said, but we can't really do the 'right thing'".to_string());
+        assert_eq!(t_opt.replace_apostrophes(), Some("‘it’s peculiar’, he said, but we can’t really do the ‘right thing’".to_string()));
+
+        let t_opt = Some("They call it 'el grande' ('the big one')".to_string());
+        assert_eq!(t_opt.replace_apostrophes(), Some("They call it ‘el grande’ (‘the big one’)".to_string()));
+    } 
+
+    #[test]
+    fn check_replace_tags() {
+
+        let t_opt = Some("   ".to_string());
+        assert_eq!(t_opt.replace_tags(), None);
+
+        let t_opt = Some("<p> this is a broken <br /> sentence, <i>emphatically so</i></p>".to_string());
+        assert_eq!(t_opt.replace_tags(), Some("\n this is a broken \n sentence, emphatically so".to_string()));
+
+        let t_opt = Some("<ul>a list<li>item 1</li><li>item 2</li><li>item 3 has a thing < 0.4 in it</li></ul>, to be more interesting".to_string());
+        assert_eq!(t_opt.replace_tags(), Some("a list\n\u{2022} item 1\n\u{2022} item 2\n\u{2022} item 3 has a thing < 0.4 in it, to be more interesting".to_string()));
+
+        let t_opt = Some("this is <emphatic>both</emphatic> > 32 and < 29, which is impossible, <br/><br/> surely that will be clear to <span class=\"foo\">ALL</span>".to_string());
+        info!("{}", t_opt.replace_tags().unwrap());
+        assert_eq!(t_opt.replace_tags(), Some("this is both > 32 and < 29, which is impossible, \n\n surely that will be clear to ALL".to_string()));
+
+        let t_opt = Some("this is <b class=\"foo\">about</b> 29kgm<sup>-3</sup>s<sup>-1</sup>, and it applies to K<sub>0</sub> and K<sub>max</sub>".to_string());
+        info!("{}", t_opt.replace_tags().unwrap());
+        assert_eq!(t_opt.replace_tags(), Some("this is about 29kgm\u{207B}\u{00B3}s\u{207B}\u{00B9}, and it applies to K\u{2080} and K\u{2098}\u{2090}\u{2093}".to_string()));
+    } 
+
+
+
 
 }
 
-    */

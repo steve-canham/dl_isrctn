@@ -26,7 +26,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
          date_id_assigned: study.isrctn.date_assigned.as_date_opt(),
          last_updated: study.last_updated.as_datetime_opt(),
          version: study.version.as_text_opt(),
-         doi: study.external_refs.doi.as_filtered_text_opt()
+         doi: study.external_refs.doi.as_filtered_ident_opt()
     };
 
     // Set up titles.
@@ -77,7 +77,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     if let Some(idents) = sec_ids {
         for ident in &idents {
 
-            let id_value = &ident.value.as_filtered_text_opt();
+            let id_value = &ident.value.as_filtered_ident_opt();
             if let Some(id) = id_value {
 
                 let id_type = ident.number_type.as_text_opt();
@@ -225,7 +225,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         summ = summ.replace("Who can participate?", "\nWho can participate?\n");
         summ = summ.replace("What does the study involve?", "\nWhat does the study involve?\n");
 
-        plain_summ = Some(summ).compress_spaces();
+        plain_summ = Some(summ).multiline_clean();
     }
     
     let summary = Summary {
@@ -450,7 +450,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     if let Some(al) = lal {
         l_age_limit = al.value.as_text_opt();
         l_age_limit_units = al.unit.as_text_opt();
-        l_age_limit_num = al.num_unit.as_float_opt();
+        l_age_limit_num = al.num_unit.as_f32_opt();
     }
     
 
@@ -461,7 +461,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     if let Some(al) = ual {
         u_age_limit = al.value.as_text_opt();
         u_age_limit_units= al.unit.as_text_opt();
-        u_age_limit_num = al.num_unit.as_float_opt(); 
+        u_age_limit_num = al.num_unit.as_f32_opt(); 
     }
      
     let participants = Participants {
@@ -650,9 +650,15 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     }
     let attached_files = count_option(s_attached_files);
 
+    let mut has_sharing_plan = false;
+    if let Some(b) = study.miscellaneous.ipd_sharing_plan {
+        if b.to_ascii_lowercase() == "yes" {
+            has_sharing_plan = true;
+        }
 
+    }
     let ipd = IPD {
-            ipd_sharing_plan: study.miscellaneous.ipd_sharing_plan.as_bool_opt(),
+            ipd_sharing_plan: has_sharing_plan,
             ipd_sharing_statement: r.ipd_sharing_statement.as_text_opt(),
     };
 
