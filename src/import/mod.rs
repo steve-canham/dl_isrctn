@@ -62,6 +62,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_partics_dv = StudyParticsVecs::new(batch_size);
         let mut study_titles_dv = TitleVecs::new(3*batch_size);
         let mut study_idents_dv = IdentifierVecs::new(3*batch_size);
+        let mut study_orgs_dv = OrgVecs::new(3*batch_size);
 
         // get the list of json files
 
@@ -101,6 +102,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
             if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
             if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
+            if let Some(orgs) = dbs.orgs { study_orgs_dv.add(sd_sid, &orgs); }
 
             // pass s to the procesor and receive a 'database friendly' version, 
             // with the data arranged to match the tables in the DB.
@@ -122,6 +124,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_partics_dv.store_data(src_pool).await?;
         study_titles_dv.store_data(src_pool).await?;
         study_idents_dv.store_data(src_pool).await?;
+        study_orgs_dv.store_data(src_pool).await?;
 
         if n > 2000 {
             break;

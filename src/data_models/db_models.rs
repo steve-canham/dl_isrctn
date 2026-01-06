@@ -11,7 +11,8 @@ pub struct DBStudy {
 
     pub titles: Option<Vec<DBTitle>>, 
     pub identifiers: Option<Vec<DBIdentifier>>,
-
+    pub orgs: Option<Vec<DBOrganisation>>, 
+    
     /*
     pub orgs: Option<Vec<DBOrganisation>>, 
     pub people: Option<Vec<DBPeople>>, 
@@ -100,9 +101,11 @@ pub struct DBStudyPartics {
 
 
 pub struct DBTitle {
-    pub title_type_id: i32,
     pub title_text: String,
     pub is_default: bool,
+    pub is_public: bool,
+    pub is_scientific: bool,
+    pub is_acronym: bool,
     pub comment: Option<String>,
 }
 
@@ -112,18 +115,16 @@ pub struct DBIdentifier {
     pub id_type: String,
 }
 
-
-#[allow(dead_code)]
 pub struct DBOrganisation {
-    pub contrib_type_id: i32,
-    pub org_name: String,
+    pub contrib_type: String,
+    pub org_name: Option<String>,
     pub org_ror_id: Option<String>,
     pub org_cref_id: Option<String>,
 }
 
 #[allow(dead_code)]
 pub struct DBPerson {
-    pub contrib_type_id: i32,
+    pub contrib_type: String,
     pub given_name: Option<String>,
     pub family_name: Option<String>,
     pub full_name: Option<String>,

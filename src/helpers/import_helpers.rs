@@ -24,7 +24,7 @@ pub fn split_date_string (ds: Option<String>) -> (Option<i32>, Option<i32>, Opti
 
                 if let Some (dt) = NaiveDate::from_ymd_opt(y, m, d) {
                     let today = Local::now().date_naive();
-                    let d_type = if dt > today {"a".to_string()} else {"e".to_string()};
+                    let d_type = if dt < today {"a".to_string()} else {"e".to_string()};
             
                     (Some(y), Some(m as i32), Some(d_type))
                 }

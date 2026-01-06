@@ -74,18 +74,18 @@ fn get_study_dates_sql<'a>() -> &'a str {
 	CREATE TABLE sd.study_dates(
 	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
 	, sd_sid                 VARCHAR         NOT NULL
-	, reg_year           	 INT             NULL
+	, reg_year           	   INT             NULL
 	, reg_month        	     INT             NULL
-    , reg_date_type          CHAR(1)         NULL
+  , reg_date_type          CHAR(1)         NULL
 	, start_year      	     INT             NULL
 	, start_month      	     INT             NULL
-    , start_date_type        CHAR(1)         NULL
-	, comp_year      		 INT             NULL
+  , start_date_type        CHAR(1)         NULL
+	, comp_year      		     INT             NULL
 	, comp_month      	     INT             NULL
 	, comp_date_type         CHAR(1)         NULL
-	, res_year      		 INT             NULL
-	, res_month      		 INT             NULL
-    , res_date_type          CHAR(1)         NULL
+	, res_year      		     INT             NULL
+	, res_month      		     INT             NULL
+  , res_date_type          CHAR(1)         NULL
 	, added_on               TIMESTAMPTZ     NOT NULL default now()
 	);
 	CREATE INDEX study_dates_sid ON sd.study_dates(sd_sid);"#
@@ -98,9 +98,9 @@ fn get_study_partics_sql<'a>() -> &'a str {
 	CREATE TABLE sd.study_partics(
 	  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
 	, sd_sid                 VARCHAR         NOT NULL
-    , enrolment_target       VARCHAR         NULL
-    , enrolment_final        VARCHAR         NULL
-    , enrolment_total        VARCHAR         NULL
+  , enrolment_target       VARCHAR         NULL
+  , enrolment_final        VARCHAR         NULL
+  , enrolment_total        VARCHAR         NULL
 	, enrolment              VARCHAR         NULL
 	, enrolment_type         CHAR(1)         NULL
 	, gender_flag            CHAR(1)         NULL
@@ -123,9 +123,11 @@ fn get_titles_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_titles(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , title_type_id          INT
     , title_text             VARCHAR
     , is_default             BOOL
+    , is_public              BOOL
+    , is_scientific          BOOL
+    , is_acronym             BOOL
     , comments               VARCHAR
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
@@ -154,13 +156,13 @@ fn get_orgs_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_orgs(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , contrib_type_id        INT             NULL
+    , contrib_type           VARCHAR         NULL
     , name                   VARCHAR         NULL
     , ror_id                 VARCHAR         NULL
     , cross_ref_id           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
-    CREATE INDEX study_organisations_sid ON sd.study_organisations(sd_sid);"#
+    CREATE INDEX study_orgs_sid ON sd.study_orgs(sd_sid);"#
 }
 
 fn get_people_sql<'a>() -> &'a str {
@@ -170,7 +172,7 @@ fn get_people_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_people(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , contrib_type_id        INT             NULL
+    , contrib_type           VARCHAR         NULL
     , given_name             VARCHAR         NULL
     , family_name            VARCHAR         NULL
     , full_name              VARCHAR         NULL

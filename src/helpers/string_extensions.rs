@@ -14,17 +14,16 @@ pub trait OptionStringExtensions {
     fn as_f32_opt(&self) -> Option<f32>;
     fn as_bool_opt(&self) -> Option<bool>;
 
-    fn clean(&self) -> Option<String>;
-    fn multiline_clean(&self) -> Option<String>;
-
-    fn replace_unicodes(&self) -> Option<String>;
-    // fn replace_tags_and_unicodes(&self) -> Option<String>;
-    fn compress_spaces(&self) -> Option<String>;
-    fn replace_apostrophes(&self) -> Option<String>;
-    fn replace_tags(&self) -> Option<String>;
-
     fn regularise_hyphens(&self) -> Option<String>;
     fn regularise_nb_spaces(&self) -> Option<String>;
+
+    fn replace_escaped(&self) -> Option<String>;
+    fn replace_apostrophes(&self) -> Option<String>;
+    fn replace_tags(&self) -> Option<String>;
+    fn replace_gaps(&self) -> Option<String>;
+
+    fn clean(&self) -> Option<String>;
+    fn clean_multiline(&self) -> Option<String>;
 }
 
 // Extensions for Option<String>, some specific to 
@@ -66,18 +65,18 @@ impl OptionStringExtensions for Option<String> {
 
                 let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
+                let low_ref = lower.as_str();
                 
                 // Check for common 'null value' values
 
-                if lower == "null" || lower == "n/a"
-                || lower == "na" || lower == "none"
-                || lower == ""
+                if low_ref == "null" || low_ref == "n/a"
+                || low_ref == "na" || low_ref == "none"
+                || low_ref == ""
                 {
                     None
                 }
                 else {
-                    let complex_trim = |c| c == ' ' || c == ';';
-                    let trimmed = quoteless.trim_matches(complex_trim);
+                    let trimmed = quoteless.trim_matches(&[' ', '-']);
                     if trimmed == "" {
                         None
                     }
@@ -86,15 +85,16 @@ impl OptionStringExtensions for Option<String> {
                     }
                 }
             },
-        None => None
+            None => None
         }
 
     }
 
     fn as_filtered_ident_opt(&self) -> Option<String> {
 
+        // Applies chiefly to filtering secondary identifiers.
         // Filtering here is to translate 'n/a', 'null' or 'nil'
-        // type entries with None. the options used are ISRCTN specific -
+        // type entries as None. the options used are ISRCTN specific -
         // other choices might be necessary in other systems.
         
         match self {
@@ -251,110 +251,14 @@ impl OptionStringExtensions for Option<String> {
     }
 
 
-    fn clean(&self) -> Option<String> {
-       
-        let mut s_opt = self.as_tidied_text_opt();
-        s_opt = s_opt.replace_unicodes();
-        s_opt = s_opt.replace_tags();
-        s_opt.replace_apostrophes()
-    }    
-
-    fn multiline_clean(&self) -> Option<String> {
-
-        let mut s_opt = self.as_tidied_text_opt();
-        s_opt = s_opt.replace_unicodes();
-        s_opt = s_opt.replace_tags();
-        s_opt = s_opt.replace_apostrophes();
-        s_opt.compress_spaces()
-     
-    }
-
-    fn replace_unicodes(&self) -> Option<String> {
-
-        match self {
-            Some(s) => {
-                let quoteless = s.trim_matches('"');
-                let lower = quoteless.to_lowercase();
-                if lower == "null" || lower == "n/a"
-                || lower == "na" || lower == "none"
-                {
-                    None
-                }
-                else {
-                    let complex_trim = |c| c == ' ' || c == ';';
-                    let trimmed = quoteless.trim_matches(complex_trim);
-                    if trimmed == "" {
-                        None
-                    }
-                    else {
-                        let mut output = trimmed.to_owned();
-                        output = output.replace("&#32;", " ").replace("&#37;", "%");
-                        output = output.replace("&#39;", "’").replace("&rsquo;", "’");
-                        output = output.replace("&#44;", ",");
-
-                        output = output.replace("&quot;", "'");
-                        output = output.replace("#gt;", ">").replace("#lt;", "<");       
-                        output = output.replace("&gt;", ">").replace("&lt;", "<");
-                        output = output.replace("&amp;", "&");
-
-                        Some(output.trim().to_string())
-                    }
-                }
-            },
-        None => None,
-    }
-
-}
-/* 
-    fn replace_tags_and_unicodes(&self) -> Option<String> {
-         match self {
-            Some(s) => {
-                let quoteless = s.trim_matches('"');
-                let lower = quoteless.to_lowercase();
-                if lower == "null" || lower == "n/a"
-                || lower == "na" || lower == "none"
-                {
-                    None
-                }
-                else {
-                    let complex_trim = |c| c == ' ' || c == ';';
-                    let trimmed = quoteless.trim_matches(complex_trim);
-                    if trimmed == "" {
-                        None
-                    }
-                    else {
-                        let mut output = trimmed.to_owned();
-
-                        output = output.replace("&#32;", " ").replace("&#37;", "%");
-                        output = output.replace("&#39;", "’").replace("&rsquo;", "’");
-                        output = output.replace("&#44;", ",");
-
-                        output = output.replace("&quot;", "'");
-                        output = output.replace("#gt;", ">").replace("#lt;", "<");       
-                        output = output.replace("&gt;", ">").replace("&lt;", "<");
-                        output = output.replace("&amp;", "&");
-
-
-                        output = output.replace("<p>", "\n");
-                        output = output.replace("<br>", "\n");
-                        output = output.replace("<br/>", "\n");
-                        output = output.replace("<br />", "\n");
-                        output = output.replace("\n\n", "\n").replace("\n \n", "\n");
-                        output = output.replace(",,", ",");
-                        output = output.replace("</p>", "");
-
-                        Some(output)
-                    }
-                }
-            },
-            None => None,
-        }
-    }
-*/
     fn regularise_hyphens(&self) -> Option<String> {
 
-        // assumed this call is immediately after a 'tidy' call, either
-        // on a string or string option, so only basic null check required
+        // assumed this call is immediately after a 'tidy' call, 
+        // on a string option, so only basic null check required.
+        // Mostly applicable to identifiers where consistency 
+        // hyphens is needed for comparison purposes.
+
+
         match self.clone() {
             Some(s) => {
                 let mut st = s.trim().to_string();
@@ -377,8 +281,9 @@ impl OptionStringExtensions for Option<String> {
 
     fn regularise_nb_spaces(&self) -> Option<String> {
 
-        // assumed this call is immediately after a 'tidy' call, either
-        // on a string or string option, so only basic null check required
+        // Assumed this call is immediately after a 'tidy' call
+        // on a string option, so only basic null check required.
+
         match self.clone(){
             Some(s) => {
                 let mut st = s.trim().to_string();
@@ -400,79 +305,125 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
-    fn compress_spaces(&self) -> Option<String> {
-    
-       match self {
+
+    fn replace_escaped(&self) -> Option<String> {
+        
+        match self {
             Some(s) => {
-            let trimmed = s.trim();
-            if trimmed == "NULL" ||  trimmed == "null" ||  trimmed == "\"NULL\"" ||  trimmed == "\"null\""
-                    ||  trimmed == ""
+                
+                // Top portion is the same as 'as_tidied_text_opt'
+                // Trim all whitespace and then any enclosing quotes
+
+                let quoteless = s.trim().trim_matches('"');
+                let lower = quoteless.to_lowercase();
+                let low_ref = lower.as_str();
+                
+                // Check for common 'null value' values as well  as empty string
+
+                if low_ref == "" || low_ref == "null" || low_ref == "n/a"
+                || low_ref == "na" || low_ref == "none"
                 {
                     None
                 }
                 else {
-                    
-                    let mut output_string = trimmed.replace("\r\n", "\n");    // regularise endings
-                    output_string = output_string.replace("\r", "\n");
-
-                    while output_string.contains("  ")
-                    {
-                        output_string = output_string.replace("  ", " ");
+                    let t = quoteless.trim_matches(&[' ', '-']);
+                    if t == "" {
+                        None
                     }
-                    output_string = output_string.replace("\n:\n", ":\n");
-                    output_string = output_string.replace("\n ", "\n");
-                    while output_string.contains("\n\n")
-                    {
-                        output_string = output_string.replace("\n\n", "\n");
-                    }
+                    else {
 
-                    Some(output_string.trim().to_string())
+                        // The escaped characters specific part
+
+                        if t.contains(';') {
+
+                            let mut tr = t.to_string().replace("&#44;", ",");
+                            tr = tr.replace("&#39;", "’");
+                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+
+                            tr = tr.replace("&quot;", "'").replace("&amp;", "&");
+                            tr = tr.replace("&rsquo;", "’");
+                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
+                            tr = tr.replace("&gt;", ">").replace("&lt;", "<");
+
+                            Some(tr.trim_matches(';').trim().to_string())
+                        }
+                        else {
+                            Some(t.to_string())
+                        }
+                    }
                 }
             },
-            None => None,
-       }
+            None => None
+        }
+        
     }
 
     fn replace_apostrophes(&self) -> Option<String> {
     
-         match self {
+          match self {
             Some(s) => {
                 
+                // Top portion is the same as 'as_tidied_text_opt'
                 // Trim all whitespace and then any enclosing quotes
+
                 let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
+                let low_ref = lower.as_str();
                 
-                // Check for common 'null value' values
+                // Check for common 'null value' values as well  as empty string
 
-                if lower == "" || lower == "null" || lower == "n/a"
-                || lower == "na" || lower == "none"
+                if low_ref == "" || low_ref == "null" || low_ref == "n/a"
+                || low_ref == "na" || low_ref == "none"
                 {
                     None
                 }
                 else {
+                    let t = quoteless.trim_matches(&[' ', '-']);
+                    if t == "" {
+                        None
+                    }
+                    else {
 
-                    let mut a_name = quoteless.replace("&#44;", ","); // unusual but it can occur
-                    a_name = a_name.replace("&#39;", "'"); // unusual but it can occur
+                        // This part replicates 'replace_escaped'
 
-                    if a_name.contains('\'') {
+                        let mut tr = t.to_string();
 
-                        // Do a blanket replacement of apostrophes to RSQs.
-                        // Then deal with situations where a LSQ applies
+                        if t.contains(';') {
 
-                        a_name = a_name.replace("'", "’");
+                            tr = tr.replace("&#44;", ",");
+                            tr = tr.replace("&#39;", "’");
+                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+
+                            tr = tr.replace("&quot;", "'").replace("&amp;", "&");
+                            tr = tr.replace("&rsquo;", "’");
+                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
+                            tr = tr.replace("&gt;", ">").replace("&lt;", "<");
+
+                            tr = tr.trim_matches(';').trim().to_string();
+                        }
                         
-                        if a_name.starts_with('’') {
-                            let mut chars = a_name.chars();
-                            chars.next();
-                            a_name = format!("‘{}", chars.as_str());
+                        // Now (!) do the replace apostrophes part
+
+                        if tr.contains('\'') {
+
+                            // Do a blanket replacement of apostrophes to RSQs.
+                            // Then deal with situations where a LSQ applies
+
+                            tr = tr.replace("'", "’");
+                            
+                            if tr.starts_with('’') {
+                                let mut chars = tr.chars();
+                                chars.next();
+                                tr = format!("‘{}", chars.as_str());
+                            }
+
+                            tr = tr.replace(" ’", " ‘");
+                            tr = tr.replace("(’", "(‘");
                         }
 
-                        a_name = a_name.replace(" ’", " ‘");
-                        a_name = a_name.replace("(’", "(‘");
-                    }
-
-                    Some(a_name)
+                        Some(tr)
                 
+                    }
                 }
             },
             None => None,
@@ -481,166 +432,235 @@ impl OptionStringExtensions for Option<String> {
 
     fn replace_tags(&self) -> Option<String> {
     
-       let tidied_self = self.replace_unicodes();
-       match tidied_self {
-            Some(mut s) => {
+        // Assumed will normally be called in the context of 'clean' or 'clean_multiline'
+        // and therefore string will already have been tidied, apostrophes sorted etc.
+        // The null check is therefore rudimentary.
 
-                // needs to include both opening and closing tags to be processed.
+        match self {
+            Some(sf) => {
                
-                if !(s.contains('<') && s.contains('>')) {
-                    Some(s)
-                }
-                else {  // Consider the commonest case and then check if that has removed tags
+               let mut s= sf.trim().to_string();
 
-                    s = s.replace("<br>", "\n").replace("<br/>", "\n")
-                        .replace("<br />", "\n").replace("<br/ >", "\n")
-                        .replace("< br / >", "\n");
+               if s == "".to_string()
+               {
+                    None
+               }
+               else {
+
+                // String must include both opening and closing tags to be processed.
 
                     if !(s.contains('<') && s.contains('>')) {
                         Some(s)
                     }
-                    else {    
+                    else {  // Consider the commonest case and then check if that has removed tags
 
-                        // Need to go through the characters and remove the 'islands' of tags
-                        // and their included text, but - - consider
-                        // a) genuine < and > signs; b) sub and superscripted text, and 
-                        // c) the need to make bullet tags into text based bullets 
+                        s = s.replace("<br>", "\n").replace("<br/>", "\n")
+                            .replace("<br />", "\n").replace("<br/ >", "\n")
+                            .replace("< br / >", "\n");
 
-                        s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
-                        s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
-
-                        // When the tags above are removed the \n and bullets will now be left
-
-                        // replace and <sub>, </sub>, <sup>, </sup> tags with single chars
-
-                        s = s.replace("<sub>", "\u{21E9}"); // fat arrow down
-                        s = s.replace("</sub>", "\u{21D1}"); // open fat arrow up
-                        s = s.replace("<sup>", "\u{21E7}");  // fat arrow up
-                        s = s.replace("</sup>", "\u{21D3}"); // open fat arrow down
-
-                        //  use regex to find and 'protect' standalone < signs
-
-                        static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
-                        s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
-                                                                       
-                        // Now go through characters and create new string (new_s)
-
-                        let mut inside = false;
-                        let mut in_sub = false;
-                        let mut in_sup = false;
-                        let mut new_s = "".to_string();
-
-                        // loop over string chars.
-
-                        for c in s.chars() {
-
-                            // Detect tag starts and ends, and skip over tag edge chars.
-
-                            match c {
-                                '<' => {inside = true;  continue;},
-                                '>' => {if inside {inside = false;  continue;}}
-                                '\u{21E9}'  => {in_sub = true; continue;},
-                                '\u{21E7}'  => {in_sup = true; continue;},
-                                '\u{21D1}'  => {in_sub = false; continue;},
-                                '\u{21D3}'  => {in_sup = false; continue;},
-                                _ => {},
-                            }
-
-                            if in_sub {
-                                let subc = match c {
-                                    '0' => '\u{2080}',
-                                    '1' => '\u{2081}',
-                                    '2' => '\u{2082}',
-                                    '3' => '\u{2083}',
-                                    '4' => '\u{2084}',
-                                    '5' => '\u{2085}',
-                                    '6' => '\u{2086}',
-                                    '7' => '\u{2087}',
-                                    '8' => '\u{2088}',
-                                    '9' => '\u{2089}',
-                                    '+' => '\u{208A}',
-                                    '-' => '\u{208B}',
-                                    '=' => '\u{208C}',
-                                    '(' => '\u{208D}',
-                                    ')' => '\u{208E}',
-                                    'a' => '\u{2090}',
-                                    'e' => '\u{2091}',
-                                    'o' => '\u{2092}',
-                                    'x' => '\u{2093}',
-                                    'h' => '\u{2095}',
-                                    'k' => '\u{2096}',
-                                    'l' => '\u{2097}',
-                                    'm' => '\u{2098}',
-                                    'n' => '\u{2099}',
-                                    'p' => '\u{209A}',
-                                    's' => '\u{209B}',
-                                    't' => '\u{209C}',
-                                    _ => c
-                                };
-                                new_s.push(subc);
-
-                            }
-                            else if in_sup {
-                                let supc = match c {
-                                    '0' => '\u{2070}',
-                                    '1' => '\u{00B9}',
-                                    '2' => '\u{00B2}',
-                                    '3' => '\u{00B3}',
-                                    '4' => '\u{2074}',
-                                    '5' => '\u{2075}',
-                                    '6' => '\u{2076}',
-                                    '7' => '\u{2077}',
-                                    '8' => '\u{2078}',
-                                    '9' => '\u{2079}',
-                                    'i' => '\u{2071}',
-                                    '+' => '\u{207A}',
-                                    '-' => '\u{207B}',
-                                    '=' => '\u{207C}',
-                                    '(' => '\u{207D}',
-                                    ')' => '\u{207E}',
-                                    'n' => '\u{207F}',
-                                    _ => c
-                                };
-                                new_s.push(supc);
-                            }
-                            else if inside {
-                                // do nothing
-                            }
-                            else {
-                                // 'normal' outside
-                                new_s.push(c);
-                            }
+                        if !(s.contains('<') && s.contains('>')) {
+                            Some(s)
                         }
+                        else {    
 
-                        new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
-                        
-                        Some(new_s)
+                            // Need to go through the characters and remove the 'islands' of tags
+                            // and their included text, but - - consider
+                            // a) genuine < and > signs; b) sub and superscripted text, and 
+                            // c) the need to make bullet tags into text based bullets 
 
-                    }
-                                
+                            s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
+                            s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
+
+                            // When the tags above are removed the \n and bullets will now be left
+
+                            // replace any <sub>, </sub>, <sup>, </sup> tags with single chars
+
+                            s = s.replace("<sub>", "\u{21E9}"); // fat arrow down
+                            s = s.replace("</sub>", "\u{21D1}"); // open fat arrow up
+                            s = s.replace("<sup>", "\u{21E7}");  // fat arrow up
+                            s = s.replace("</sup>", "\u{21D3}"); // open fat arrow down
+
+                            //  use regex to find and 'protect' standalone < signs
+
+                            static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
+                            s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
+                                                                        
+                            // Now go through characters and create new string (new_s)
+
+                            let mut inside = false;
+                            let mut in_sub = false;
+                            let mut in_sup = false;
+                            let mut new_s = "".to_string();
+
+                            // loop over string chars.
+
+                            for c in s.chars() {
+
+                                // Detect tag starts and ends, and skip over tag edge chars.
+
+                                match c {
+                                    '<' => {inside = true;  continue;},
+                                    '>' => {if inside {inside = false;  continue;}}
+                                    '\u{21E9}'  => {in_sub = true; continue;},
+                                    '\u{21E7}'  => {in_sup = true; continue;},
+                                    '\u{21D1}'  => {in_sub = false; continue;},
+                                    '\u{21D3}'  => {in_sup = false; continue;},
+                                    _ => {},
+                                }
+
+                                if in_sub {
+                                    let subc = match c {
+                                        '0' => '\u{2080}',
+                                        '1' => '\u{2081}',
+                                        '2' => '\u{2082}',
+                                        '3' => '\u{2083}',
+                                        '4' => '\u{2084}',
+                                        '5' => '\u{2085}',
+                                        '6' => '\u{2086}',
+                                        '7' => '\u{2087}',
+                                        '8' => '\u{2088}',
+                                        '9' => '\u{2089}',
+                                        '+' => '\u{208A}',
+                                        '-' => '\u{208B}',
+                                        '=' => '\u{208C}',
+                                        '(' => '\u{208D}',
+                                        ')' => '\u{208E}',
+                                        'a' => '\u{2090}',
+                                        'e' => '\u{2091}',
+                                        'o' => '\u{2092}',
+                                        'x' => '\u{2093}',
+                                        'h' => '\u{2095}',
+                                        'k' => '\u{2096}',
+                                        'l' => '\u{2097}',
+                                        'm' => '\u{2098}',
+                                        'n' => '\u{2099}',
+                                        'p' => '\u{209A}',
+                                        's' => '\u{209B}',
+                                        't' => '\u{209C}',
+                                        _ => c
+                                    };
+                                    new_s.push(subc);
+
+                                }
+                                else if in_sup {
+                                    let supc = match c {
+                                        '0' => '\u{2070}',
+                                        '1' => '\u{00B9}',
+                                        '2' => '\u{00B2}',
+                                        '3' => '\u{00B3}',
+                                        '4' => '\u{2074}',
+                                        '5' => '\u{2075}',
+                                        '6' => '\u{2076}',
+                                        '7' => '\u{2077}',
+                                        '8' => '\u{2078}',
+                                        '9' => '\u{2079}',
+                                        'i' => '\u{2071}',
+                                        '+' => '\u{207A}',
+                                        '-' => '\u{207B}',
+                                        '=' => '\u{207C}',
+                                        '(' => '\u{207D}',
+                                        ')' => '\u{207E}',
+                                        'n' => '\u{207F}',
+                                        _ => c
+                                    };
+                                    new_s.push(supc);
+                                }
+                                else if inside {
+                                    // do nothing
+                                }
+                                else {
+                                    // 'normal' outside
+                                    new_s.push(c);
+                                }
+                            }
+
+                            new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
+                            
+                            Some(new_s)
+
+                        }
+                    }        
                 }
             },
             None => None,
        }
     }
 
+    fn replace_gaps(&self) -> Option<String> {
+    
+        // Assummed normally called after a clean process, as the final stage for trimming multiline
+        // strings. Null check is therefore basic. Regularises line endings and removes double spaces
+        // and double carriage returns.
 
+        match self {
+            Some(sf) => {
+
+                let mut s = sf.trim().to_string();
+
+                if s == "".to_string() {
+                    None
+                }
+                else {
+
+                    // Regularise endings
+
+                    s = s.replace("\r\n", "\n").replace("\r", "\n");    
+
+                    // Regularise carriage returns
+
+                    while s.contains("\n:\n")
+                    {
+                        s = s.replace("\n:\n", ":\n");
+                    }
+                    while s.contains("\n\n")
+                    {
+                        s = s.replace("\n\n", "\n");
+                    }
+                    s = s.replace("\n ", "\n");
+
+                    // Remove extended spaces
+
+                    while s.contains("  ")
+                    {
+                        s = s.replace("  ", " ");
+                    }
+
+                    Some(s)
+                }
+            },
+            None => None,
+       }
+    }
+  
+  
+    fn clean(&self) -> Option<String> {
+       
+       // replace_apostrophes includes 'as_tidied_text_opt' and 
+       // replace unicodes as a second step. There is therefore
+       // no need to call these routines before hand. 
+
+       // replace tags normally assumed to be used in this context
+       // rather than called independently. If it is then
+       // dome initial cleaning may be required.
+
+       self.replace_apostrophes().replace_tags()
+    }    
+
+    fn clean_multiline(&self) -> Option<String> {
+
+        // Extends the single line clean by chaining
+        // the replace gaps function, which compresses
+        // multiple spaces and multiple carriage returns.
+
+        self.clean().replace_gaps()
+    }
 
 }
-
-
 
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use log::info;
-
-    /*
-    fn clean(&self) -> Option<String>;
-    fn multiline_clean(&self) -> Option<String>;
-    fn compress_spaces(&self) -> Option<String>;
-     */
 
     #[test]
     fn check_as_text_opt() {
@@ -667,7 +687,7 @@ mod tests {
         let t_opt = Some("\"foo  \"  ".to_string());
         assert_eq!(t_opt.as_tidied_text_opt(), Some("foo".to_string()));
 
-        let t_opt = Some("   foo  ; \n".to_string());
+        let t_opt = Some("   -foo  - \n".to_string());
         assert_eq!(t_opt.as_tidied_text_opt(), Some("foo".to_string()));
     } 
 
@@ -839,18 +859,17 @@ mod tests {
     } 
     
     #[test]
-    fn check_replace_unicodes() {
+    fn check_replace_escaped() {
 
         let t_opt = Some("  ".to_string());
-        assert_eq!(t_opt.replace_unicodes(), None);
+        assert_eq!(t_opt.replace_escaped(), None);
 
         let t_opt = Some("&#32;foo&#44;&#32;&amp;&#32;bar".to_string());
-        assert_eq!(t_opt.replace_unicodes(), Some("foo, & bar".to_string()));
+        assert_eq!(t_opt.replace_escaped(), Some("foo, & bar".to_string()));
 
         let t_opt = Some("foo &gt; fie and foe #lt; fum".to_string());
-        assert_eq!(t_opt.replace_unicodes(), Some("foo > fie and foe < fum".to_string()));
+        assert_eq!(t_opt.replace_escaped(), Some("foo > fie and foe < fum".to_string()));
     } 
-
 
     #[test]
     fn check_replace_apostrophes() {
@@ -881,16 +900,27 @@ mod tests {
         assert_eq!(t_opt.replace_tags(), Some("a list\n\u{2022} item 1\n\u{2022} item 2\n\u{2022} item 3 has a thing < 0.4 in it, to be more interesting".to_string()));
 
         let t_opt = Some("this is <emphatic>both</emphatic> > 32 and < 29, which is impossible, <br/><br/> surely that will be clear to <span class=\"foo\">ALL</span>".to_string());
-        info!("{}", t_opt.replace_tags().unwrap());
         assert_eq!(t_opt.replace_tags(), Some("this is both > 32 and < 29, which is impossible, \n\n surely that will be clear to ALL".to_string()));
 
+        let t_opt = Some("it may be < 9, <.8, or even <0.02, <p>which one should be clearer <span class=\"foo\">after</span> the experiment".to_string());
+        assert_eq!(t_opt.replace_tags(), Some("it may be < 9, <.8, or even <0.02, \nwhich one should be clearer after the experiment".to_string()));
+
         let t_opt = Some("this is <b class=\"foo\">about</b> 29kgm<sup>-3</sup>s<sup>-1</sup>, and it applies to K<sub>0</sub> and K<sub>max</sub>".to_string());
-        info!("{}", t_opt.replace_tags().unwrap());
         assert_eq!(t_opt.replace_tags(), Some("this is about 29kgm\u{207B}\u{00B3}s\u{207B}\u{00B9}, and it applies to K\u{2080} and K\u{2098}\u{2090}\u{2093}".to_string()));
     } 
 
+    #[test]
+    fn check_replace_gaps() {
 
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.replace_gaps(), None);
 
+        let t_opt = Some("long    gaps and    other \n\n\n\n:\n  stuff   \r\n".to_string());
+        assert_eq!(t_opt.replace_gaps(), Some("long gaps and other :\n stuff".to_string()));
 
+        let t_opt = Some("one funny line \r\n second    line \r\n  third    bit \n\n:\n:  \r".to_string());
+        assert_eq!(t_opt.replace_gaps(), Some("one funny line \nsecond line \n third bit :\n:".to_string()));
+    } 
+  
 }
 

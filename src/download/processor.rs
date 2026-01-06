@@ -37,6 +37,9 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     let mut pt: String = "".to_string();
     let mut st: String = "".to_string();
 
+    // change to include import code
+    // also include plauible title check (though perhaps not needed for ISRCTN)
+
     if let Some(title) = d.title.as_text_opt() {
         pt = title.clone();
         titles.push(Title::new(15, "Public_title".to_string(), title));
@@ -225,7 +228,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         summ = summ.replace("Who can participate?", "\nWho can participate?\n");
         summ = summ.replace("What does the study involve?", "\nWhat does the study involve?\n");
 
-        plain_summ = Some(summ).multiline_clean();
+        plain_summ = Some(summ).clean_multiline();
     }
     
     let summary = Summary {

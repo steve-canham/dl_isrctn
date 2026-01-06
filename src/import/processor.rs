@@ -2,6 +2,7 @@ use crate::data_models::json_models::Study;
 use crate::data_models::db_models::*;
 use crate::helpers::import_helpers::*;
 use crate::helpers::string_extensions::*;
+use crate::helpers::name_extensions::*;
 use chrono::{NaiveDate, NaiveDateTime, Local}; 
 
 //use crate::AppError;
@@ -24,74 +25,166 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // These titles should stay as single option<String> fields.
     // or be processed as below within the download process.
 
-    let mut pub_title: Option<String> = None;
-    let mut sci_title: Option<String> = None;
-    let mut acronym: Option<String> = None;
+    let mut pub_title_db: Option<DBTitle> = None;
+    let mut sci_title_db: Option<DBTitle> = None;
+    let mut acronym_db: Option<DBTitle> = None;
+
     let mut pub_title_string = "".to_string();
     let mut sci_title_string = "".to_string();
+    let mut acronym_string = "".to_string();
 
     let mut db_ts: Vec<DBTitle> = Vec::new();
-    let mut display_title = "".to_string();
+    let display_title: String;
 
+    // Set up the possible DBTitle instances and
+    // the associated strings
 
     for t in &s.titles {
-        if t.title_type_id == 15 { pub_title = Some(t.title_value.clone()).clean(); }
-        if t.title_type_id == 16 { sci_title = Some(t.title_value.clone()).clean(); }
-        if t.title_type_id == 14 { acronym = Some(t.title_value.clone()).clean(); }
+
+        if t.title_type_id == 15 { 
+            let pub_title = Some(t.title_value.clone()).clean();  
+            if let Some(p) = pub_title {
+                pub_title_string = p.clone().to_lowercase();
+
+                pub_title_db = Some(DBTitle {
+                    title_text: p,
+                    is_default: true,
+                    is_public: true,
+                    is_scientific: false,
+                    is_acronym: false,
+                    comment: Some("From ISRCTN".to_string()),
+                });
+            }
+        }
+
+        if t.title_type_id == 16 { 
+            let sci_title = Some(t.title_value.clone()).clean(); 
+            if let Some(s) = sci_title {
+                sci_title_string = s.clone().to_lowercase();
+
+                sci_title_db = Some(DBTitle {
+                    title_text: s,
+                    is_default: false,
+                    is_public: false,
+                    is_scientific: true,
+                    is_acronym: false,
+                    comment: Some("From ISRCTN".to_string()),
+                });
+            }
+        }
+
+        if t.title_type_id == 14 { 
+            let acronym = Some(t.title_value.clone()).clean(); 
+            if let Some(a) = acronym {
+                acronym_string = a.clone().to_lowercase();
+
+                acronym_db = Some(DBTitle {
+                    title_text: a,
+                    is_default: false,
+                    is_public: false,
+                    is_scientific: false,
+                    is_acronym: true,
+                    comment: Some("From ISRCTN".to_string()),
+                });
+            }
+        }
+
     }
 
-    if let Some(t) = pub_title{
+    // Check for presence and duplication, and allocate 
+    // default status and display string
+
+    if let Some (mut pdb) = pub_title_db {
+
+        // is_default and _is public already set
+        // display text is the default;
+
+        display_title = pdb.title_text.clone();
+
+        // is the scientific title the same, if so
+        // adjust the DBTitle objects
+
+        if pub_title_string == sci_title_string  {
+            pdb.is_scientific = true;
+            sci_title_db = None;
+        }
+
+        // is the acronym title the same, if so
+        // adjust the DBTitle objects
+
+        if pub_title_string  == acronym_string  {
+            pdb.is_acronym = true;
+            acronym_db = None;
+        }
+
+        // is the acronym title the same as the scientific title, if so
+        // adjust the DBTitle objects
+
+        if sci_title_db.is_some() 
+                && (sci_title_string == acronym_string) {
+            let mut sdb = sci_title_db.unwrap();
+            sdb.is_acronym = true;       // mark sci_title as 'is acronym'
+            sci_title_db = Some(sdb);    // recreate the DBTitle object
+            acronym_db = None;
+        }
+
+        // push whatever DBTitle objects are left to the models's vector 
+
+        db_ts.push(pdb);
+        if sci_title_db.is_some() {db_ts.push (sci_title_db.unwrap());}
+        if acronym_db.is_some() {db_ts.push (acronym_db.unwrap());}
+
+
+    } 
+    else {
         
-        pub_title_string = t.clone();  
-        display_title = t.clone();        
+        // No public title  - a bit odd but...
+        // First check if a scientific title exists
 
-        db_ts.push(DBTitle {
-                title_type_id: 15,
-                title_text: t,
-                is_default: true,
-                comment: Some("From ISRCTN".to_string()),
-             });
-    }
+        if let Some (mut sdb) = sci_title_db {
 
-    // Need to check not the same as the public title
+            // Make the scientific title the default and set 
+            // the display text.
 
-    if let Some(t) = sci_title{
-       
-        sci_title_string = t.clone();
-        if sci_title_string != pub_title_string {
+            sdb.is_default = true;
+            display_title = sdb.title_text.clone();
 
-            if display_title == "".to_string() {
-                display_title = sci_title_string.clone(); 
+            // is the acronym title the same as the scientific title, if so
+            // adjust the DBTitle objects
+
+            if sci_title_string == acronym_string {
+
+                sdb.is_acronym =  true;
+                acronym_db = None;
+
             }
 
-            db_ts.push(DBTitle {
-                    title_type_id: 16,
-                    title_text: t,
-                    is_default: display_title == sci_title_string,
-                    comment: Some("From ISRCTN".to_string()),
-            });
+            db_ts.push(sdb);
+            if acronym_db.is_some() {db_ts.push (acronym_db.unwrap());}
         }
-    }
-
-    // Need to check not the same as other titles
-
-    if let Some(t) = acronym{
-        let acronym_string = t.clone();
-
-        if acronym_string != pub_title_string && acronym_string != sci_title_string {
-
-            if display_title == "".to_string() {
-            display_title = t.clone();
+        else {
             
+            // Now check if at least an acronym exists 
+
+            if let Some (mut adb) = acronym_db {
+
+                // Very odd but just in case, set 
+                // is default and display title accordingly
+                
+                adb.is_default = true;
+                display_title = adb.title_text.clone();
+                db_ts.push(adb);
             }
-            db_ts.push(DBTitle {
-                    title_type_id: 14,
-                    title_text: t,
-                    is_default: display_title == acronym_string,
-                    comment: Some("From ISRCTN".to_string()),
-            });
+            else {
+
+                // If not no title data was supplied at all (!)
+                display_title = "No title data provided".to_string();
+            }
         }
     }
+
+    
+
     
     // Summary 
     
@@ -116,8 +209,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // No valid decsriotion in plain english summary...
 
     if description == None {
-        let mut hypothesis = s.summary.study_hypothesis.clone().multiline_clean();
-        let mut poutcome = s.summary.primary_outcome.clone().multiline_clean();
+        let mut hypothesis = s.summary.study_hypothesis.clone().clean_multiline();
+        let mut poutcome = s.summary.primary_outcome.clone().clean_multiline();
 
         if let Some(h) = hypothesis {
            if !h.to_lowercase().starts_with("not provided") {
@@ -232,9 +325,16 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let iec_flag = 0;   // for now
 
     let date_last_revised = match &s.registration.last_updated {
-        Some(ds) => match NaiveDate::parse_from_str(&ds.clone(), "%Y-%m-%d"){
-            Ok(d) =>Some(d),
-            Err(_) => None,
+        Some(ds) => {
+            if ds.len() > 10 {
+                match NaiveDate::parse_from_str(&ds[..10], "%Y-%m-%d") {
+                    Ok(d) =>Some(d),
+                    Err(_) => None,
+                }
+            }
+            else {
+                None
+            }
         },
         None => None
     };
@@ -315,6 +415,17 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // Identifiers
 
     let mut db_ids: Vec<DBIdentifier> = Vec::new();
+
+    // Include the ISRCTN id as the first identifier
+
+    db_ids.push(DBIdentifier { 
+        id_value: sd_sid.clone(), 
+        id_type_id: 126,
+        id_type: "ISRCTN ID".to_string(),
+    });
+
+    // Then the secondary ids already identified in the data download
+
     if let Some(ids) = &s.identifiers {
         for id in ids {
             db_ids.push(DBIdentifier { 
@@ -325,6 +436,189 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
+
+    // Organisations
+
+    let mut db_orgs: Vec<DBOrganisation> = Vec::new();
+    let mut db_funds: Vec<DBOrganisation> = Vec::new();
+
+    // sponsors
+        
+    if let Some(sponsors) = &s.sponsors {
+        for s in sponsors {
+            if s.organisation.appears_plausible_org_name() {
+                db_orgs.push(DBOrganisation { 
+                    contrib_type: "sponsor".to_string(), 
+                    org_name: s.organisation.clone(), 
+                    org_ror_id: s.ror_id.clone(), 
+                    org_cref_id: None 
+                });
+            }
+        }
+    }
+
+    // funders
+
+    if let Some(funders) = &s.funders {
+        for f in funders {
+            if f.name.appears_plausible_org_name() {
+
+                // See if that name has been used before as a sponsor.
+
+                for dbo in &mut db_orgs {
+                    if dbo.contrib_type == "sponsor".to_string() && dbo.org_name == f.name {
+                        // Change contribution type and  try to combinbe information
+                        dbo.contrib_type = "sponsor & funder".to_string();
+                        dbo.org_cref_id = f.fund_ref.clone();
+                        break;
+                    }
+                    else {
+
+                        // Add as a separate funder.
+
+                        db_funds.push(DBOrganisation { 
+                        contrib_type: "funder".to_string(), 
+                        org_name: f.name.clone(),
+                        org_ror_id: None,
+                        org_cref_id: f.fund_ref.clone(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    db_orgs.append(&mut db_funds);
+    // contacts
+
+    //if let Some(contacts) = &s.contacts {
+        //for c in contacts {
+
+        //}
+   // }
+
+/*
+
+
+        // Study sponsor(s) and funders.
+
+        var sponsors = r.sponsors;
+        string? sponsor_name = null;    // For later use
+        if (sponsors?.Any() is true)
+        {
+            foreach (var stSponsor in sponsors)
+            {
+                string? org = stSponsor.organisation;
+                if (org.AppearsGenuineOrgName())
+                {
+                    string? orgname = org.TidyOrgName(sid);
+                    organisations.Add(new StudyOrganisation(sid, 54, "Trial Sponsor", null, orgname));
+                }
+            }
+            if (organisations.Any())
+            {
+                sponsor_name = organisations[0].organisation_name;
+            }
+        }
+
+        var funders = r.funders;
+        if (funders?.Any() is true)
+        {
+            foreach (var funder in funders)
+            {
+                string? funder_name = funder.name;
+                if (!string.IsNullOrEmpty(funder_name) && funder_name.AppearsGenuineOrgName())
+                {
+                    // check a funder is not simply the sponsor...(or repeated).
+
+                    bool add_funder = true;
+                    funder_name = funder_name.TidyOrgName(sid);
+                    if (organisations.Count > 0)
+                    {
+                        foreach (var c in organisations)
+                        {
+                            if (funder_name == c.organisation_name)
+                            {
+                                add_funder = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (add_funder)
+                    {
+                        organisations.Add(new StudyOrganisation(sid, 58, "Study Funder", null, funder_name));
+                    }
+                }
+            }
+        }
+
+
+
+#[derive(Serialize, Deserialize)]
+pub struct StudyContact
+{
+    pub title: Option<String>,
+    pub forename: Option<String>,
+    pub surname: Option<String>,
+    pub orcid: Option<String>,
+    pub contact_types: Option<Vec<String>>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub email: Option<String>,
+    pub privacy: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StudySponsor
+{
+    pub organisation: Option<String>,
+    pub website: Option<String>,
+    pub sponsor_type: Option<String>,
+    pub ror_id: Option<String>,  
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub country: Option<String>,
+    pub email: Option<String>,
+    pub privacy: Option<String>,
+    pub commercial_status: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StudyFunder
+{
+    pub name: Option<String>,
+    pub fund_ref: Option<String>,
+}
+#[allow(dead_code)]
+pub struct DBOrganisation {
+    pub contrib_type_id: i32,
+    pub org_name: String,
+    pub org_ror_id: Option<String>,
+    pub org_cref_id: Option<String>,
+}
+
+#[allow(dead_code)]
+pub struct DBPerson {
+    pub contrib_type_id: i32,
+    pub given_name: Option<String>,
+    pub family_name: Option<String>,
+    pub full_name: Option<String>,
+    pub orcid_id: Option<String>,
+    pub affiliation: Option<String>,
+    pub email_domain: Option<String>,
+}
+
+*/
+
+    // People
+
+
+
+
+
+
     DBStudy {
 
         sd_sid: sd_sid,
@@ -333,6 +627,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         participants: participants,
         titles: option_from_count(db_ts),
         identifiers: option_from_count(db_ids),
+        orgs: option_from_count(db_orgs),
 
     }
 
