@@ -11,19 +11,21 @@ pub struct DBStudy {
 
     pub titles: Option<Vec<DBTitle>>, 
     pub identifiers: Option<Vec<DBIdentifier>>,
-    pub orgs: Option<Vec<DBOrganisation>>, 
-    
-    /*
-    pub orgs: Option<Vec<DBOrganisation>>, 
-    pub people: Option<Vec<DBPeople>>, 
 
-    pub ie_crit: Option<Vec<DBIECriterion>>, 
+    pub orgs: Option<Vec<DBOrganisation>>, 
+    pub people: Option<Vec<DBPerson>>, 
 
     pub locations: Option<Vec<DBLocation>>, 
     pub countries: Option<Vec<DBCountry>>, 
 
-    pub topics: Option<Vec<DBTopic>>, 
     pub conditions: Option<Vec<DBCondition>>, 
+
+    /*
+
+    pub ie_crit: Option<Vec<DBIECriterion>>, 
+
+    pub topics: Option<Vec<DBTopic>>, 
+
     pub features: Option<Vec<DBFeature>>, 
 
     pub relationships: Option<Vec<DBRelationship>>, 
@@ -118,8 +120,10 @@ pub struct DBIdentifier {
 pub struct DBOrganisation {
     pub contrib_type: String,
     pub org_name: Option<String>,
+    pub country: Option<String>,
     pub org_ror_id: Option<String>,
     pub org_cref_id: Option<String>,
+    pub sponsor_type: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -127,7 +131,6 @@ pub struct DBPerson {
     pub contrib_type: String,
     pub given_name: Option<String>,
     pub family_name: Option<String>,
-    pub full_name: Option<String>,
     pub orcid_id: Option<String>,
     pub affiliation: Option<String>,
     pub email_domain: Option<String>,
@@ -142,7 +145,7 @@ pub struct DBIECriterion {
 
 #[allow(dead_code)]
 pub struct DBLocation {
-    pub facility: String,
+    pub facility: Option<String>,
     pub address: Option<String>,
     pub city_name: Option<String>,
     pub disamb_name: Option<String>,
@@ -164,7 +167,7 @@ pub struct DBTopic {
 
 #[allow(dead_code)]
 pub struct DBCondition {
-    pub original_value: String,
+    pub original_value: Option<String>,
     pub original_class1: Option<String>,
     pub original_class2: Option<String>,
     pub ct_type_id: Option<i32>,

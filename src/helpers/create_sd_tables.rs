@@ -158,8 +158,10 @@ fn get_orgs_sql<'a>() -> &'a str {
     , sd_sid                 VARCHAR         NOT NULL
     , contrib_type           VARCHAR         NULL
     , name                   VARCHAR         NULL
+    , country                VARCHAR         NULL
     , ror_id                 VARCHAR         NULL
     , cross_ref_id           VARCHAR         NULL
+    , sponsor_type           VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
     CREATE INDEX study_orgs_sid ON sd.study_orgs(sd_sid);"#
@@ -175,7 +177,6 @@ fn get_people_sql<'a>() -> &'a str {
     , contrib_type           VARCHAR         NULL
     , given_name             VARCHAR         NULL
     , family_name            VARCHAR         NULL
-    , full_name              VARCHAR         NULL
     , orcid_id               VARCHAR         NULL
     , affiliation            VARCHAR         NULL
     , email_domain           VARCHAR         NULL
@@ -207,6 +208,7 @@ fn get_locations_sql<'a>() -> &'a str {
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
     , facility               VARCHAR         NULL
+    , address                VARCHAR         NULL
     , city_name              VARCHAR         NULL
     , disamb_name            VARCHAR         NULL
     , country_name           VARCHAR         NULL

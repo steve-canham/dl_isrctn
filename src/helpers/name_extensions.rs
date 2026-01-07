@@ -2,16 +2,19 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 
+
 #[allow(dead_code)]
 pub trait OptionNameExtensions {
 
     fn tidy_orcid(&self) -> Option<String>;
+    fn extract_domain(&self) -> Option<String>;
 
     fn appears_plausible_org_name(&self) -> bool;
     fn appears_plausible_person_name(&self) -> bool;
     fn appears_plausible_title(&self) -> bool;
 
-
+    fn tidy_org_name(&self, sd_sid: &String) -> Option<String>;
+    fn tidy_person_name(&self) -> Option<String>;
 }
 
 impl OptionNameExtensions for Option<String> {
@@ -45,6 +48,26 @@ impl OptionNameExtensions for Option<String> {
                 }
                 else {
                     None
+                }
+            },
+            None => None
+        }
+    }
+
+
+    fn extract_domain(&self) -> Option<String> {
+
+        // Returns the portion of an email address behinmd the '@'
+
+        match self {
+            Some(sf) => { 
+
+                match sf.find('@')
+                {
+                    Some(p) => {
+                        Some((&sf[(p + 1)..]).to_string())
+                    },
+                    None => None,
                 }
             },
             None => None
@@ -95,6 +118,7 @@ impl OptionNameExtensions for Option<String> {
         }
     }
      
+     
     fn appears_plausible_person_name(&self) -> bool {
 
         match self {
@@ -115,6 +139,7 @@ impl OptionNameExtensions for Option<String> {
             None => false,
         }
     }
+
 
     fn appears_plausible_title(&self) -> bool {
 
@@ -142,9 +167,184 @@ impl OptionNameExtensions for Option<String> {
                 else {
                     true
                 }
-
             },
             None => false,
+        }
+    }
+
+
+    fn tidy_org_name(&self, sd_sid: &String) -> Option<String> {
+        
+        // string should already have been cleaned 
+        // therefore basic trim, apostrophes, escaped characters dealt with
+
+        match self {
+            Some(sf) => { 
+
+                let mut s = sf.to_string();
+
+                if s.contains(".")
+                {
+                    // Protect these exceptions to the remove full stop rule
+
+                    s = s.replace(".com", "|com");
+                    s = s.replace(".gov", "|gov");
+                    s = s.replace(".org", "|org");
+
+                    s = s.replace(".", "");
+
+                    s = s.replace("|com", ".com");
+                    s = s.replace("|gov", ".gov");
+                    s = s.replace("|org", ".org");
+                }
+
+                s = s.trim_matches(&[',', '-', '*', ';', ' ']).to_string();
+
+                // Deal with some names that can be ambiguous (without country data)
+                
+                let lower_s = s.trim().to_lowercase();
+                let low_s = lower_s.as_str();
+
+                if low_s.contains("newcastle") {
+                    if low_s.contains("university") && !low_s.contains("hospital") {
+                        if low_s.contains("nsw") || low_s.contains("australia") {
+                            s = "University of Newcastle (Australia)".to_string();
+                        }
+                        else if low_s.contains("uk") || low_s.contains("tyne")
+                        {
+                            s = "University of Newcastle (UK)".to_string();
+                        }
+                        else if sd_sid.starts_with("ACTRN")
+                        {
+                            s = "University of Newcastle (Australia)".to_string();
+                        }
+                        else
+                        {
+                            s = "University of Newcastle (UK)".to_string();
+                        }
+                    }
+                }
+                if low_s.contains("china medical") {
+                    if low_s.contains("taiwan") || low_s.contains("taichung")
+                    {
+                        s = "China Medical University, Taiwan".to_string();
+                    }
+                    else if low_s.contains("shenyang") || low_s.contains("prc")
+                    {
+                        s = "China Medical University".to_string();
+                    }
+                    else if sd_sid.starts_with("Chi")
+                    {
+                        s = "China Medical University".to_string();
+                    }
+                }
+                if low_s.contains("cancer center") {
+                    if sd_sid.starts_with("KCT")
+                    {
+                        s = "National Cancer Center, Korea".to_string();
+                    }
+                    else if sd_sid.starts_with("JPRN")
+                    {
+                        s = "National Cancer Center, Japan".to_string();
+                    }
+                }
+                   
+                Some(s)
+            },
+            None => None
+        }
+       
+    }
+
+
+    fn tidy_person_name(&self) -> Option<String> {
+
+        // string should already have been cleaned 
+        // therefore basic trim, apostrophes, escaped characters dealt with
+
+        match self {
+            Some(sf) => { 
+
+                let mut s = sf.to_string();
+
+                // Remove any periods, then 
+                // remove possible professional prefixes
+
+                s = s.replace(".", "");
+
+                let lower_s = s.trim().to_lowercase();
+                let low_s = lower_s.as_str();
+
+                if low_s.starts_with("professor ")
+                {
+                    s = s[10..].to_string();
+                }
+                else if low_s.starts_with("associate professor ")
+                {
+                    s = s[20..].to_string();
+                }
+                else if low_s.starts_with("prof ")
+                {
+                    s = s[5..].to_string();
+                }
+                else if low_s.starts_with("dr med ")
+                {
+                    s = s[7..].to_string()
+                }
+                else if low_s.starts_with("dr ") || low_s.starts_with("mr ")
+                          || low_s.starts_with("ms ")
+                {
+                    s = s[3..].to_string();
+                }
+                else if low_s.starts_with("dr") && low_s.len() > 2
+                    && s[2..3].to_string() == low_s[2..3].to_string().to_uppercase()
+                {
+                    s = s[2..].to_string();
+                }
+
+                let st = s.trim();
+                let lower_st = st.to_lowercase();
+                let low_st = lower_st.as_str();
+
+                if low_st == "" || low_st == "dr" || low_st == "mr" || low_st ==  "ms" {
+                    None
+                }
+
+                else {
+
+                    // remove some excess trailing material, including
+                    // initially behind any comma
+
+                    let st = match st.find(',') {
+                        Some(p) => &st[..p],
+                        None => st,
+                    };
+
+                    let lower_st = st.to_lowercase();
+                    let low_st = lower_st.as_str();
+                    let mut sts = st.to_string();
+
+                    if low_st.ends_with(" phd") || low_st.ends_with(" msc")
+                    {
+                        sts.truncate(sts.len() - 4);
+                    }
+
+                    else if low_st.ends_with(" md") || low_st.ends_with(" ms")
+                    {
+                        sts.truncate(sts.len() - 3);
+                    }
+
+                    else if low_st.ends_with(" ms(ophthal)")
+                    {
+                        sts.truncate(sts.len() - 12);
+                    }
+
+                    Some(sts)
+
+                }
+            },
+            None => None,
+
         }
     }
 
@@ -153,172 +353,6 @@ impl OptionNameExtensions for Option<String> {
 
 
 /* 
-
-    
-    public static string? TidyOrgName(this string? in_name, string sid)
-    {
-        if (string.IsNullOrEmpty(in_name))
-        {
-            return null;
-        }
-
-        string? name = in_name;
-
-        if (name.Contains("."))
-        {
-            // protect these exceptions to the remove full stop rule
-            name = name.Replace(".com", "|com");
-            name = name.Replace(".gov", "|gov");
-            name = name.Replace(".org", "|org");
-
-            name = name.Replace(".", "");
-
-            name = name.Replace("|com", ".com");
-            name = name.Replace("|gov", ".gov");
-            name = name.Replace("|org", ".org");
-        }
-
-        // Replace any apostrophes
-
-        name = name.ReplaceApos();
-
-        // Trim any odd' characters
-
-        name = name!.Trim(',', '-', '*', ';', ' ');
-
-        // try and deal with possible ambiguities (organisations with genuinely the same name)
-
-        string nLower = name.ToLower();
-        if (nLower.Contains("newcastle") && nLower.Contains("university")
-                                         && !nLower.Contains("hospital"))
-        {
-            if (nLower.Contains("nsw") || nLower.Contains("australia"))
-            {
-                name = "University of Newcastle (Australia)";
-            }
-            else if (nLower.Contains("uk") || nLower.Contains("tyne"))
-            {
-                name = "University of Newcastle (UK)";
-            }
-            else if (sid.StartsWith("ACTRN"))
-            {
-                name = "University of Newcastle (Australia)";
-            }
-            else
-            {
-                name = "University of Newcastle (UK)";
-            }
-        }
-
-        if (nLower.Contains("china medical") && nLower.Contains("university"))
-        {
-            if (nLower.Contains("taiwan") || nLower.Contains("taichung"))
-            {
-                name = "China Medical University, Taiwan";
-            }
-            else if (nLower.Contains("Shenyang") || nLower.Contains("prc"))
-            {
-                name = "China Medical University";
-            }
-            else if (sid.StartsWith("Chi"))
-            {
-                name = "China Medical University";
-            }
-        }
-
-        if (nLower.Contains("national") && nLower.Contains("cancer center"))
-        {
-            if (sid.StartsWith("KCT"))
-            {
-                name = "National Cancer Center, Korea";
-            }
-            else if (sid.StartsWith("JPRN"))
-            {
-                name = "National Cancer Center, Japan";
-            }
-        }
-
-        return name;
-    }
-
-
-    public static string? TidyPersonName(this string? in_name)
-    {
-        // Replace apostrophes and remove periods.
-        
-        string? name1 = in_name.ReplaceApos();
-        string? pName = name1?.Replace(".", "");
-        
-        if (string.IsNullOrEmpty(pName))
-        {
-            return null;
-        }
-
-        // Check for professional titles
-
-        string low_name = pName.ToLower();
-
-        if (low_name.StartsWith("professor "))
-        {
-            pName = pName[10..];
-        }
-        else if (low_name.StartsWith("associate professor "))
-        {
-            pName = pName[20..];
-        }
-        else if (low_name.StartsWith("prof "))
-        {
-            pName = pName[5..];
-        }
-        else if (low_name.StartsWith("dr med "))
-        {
-            pName = pName[7..];
-        }
-        else if (low_name.StartsWith("dr ") || low_name.StartsWith("mr ")
-                                            || low_name.StartsWith("ms "))
-        {
-            pName = pName[3..];
-        }
-        else if (low_name.StartsWith("dr") && low_name.Length > 2
-                                           && pName[2].ToString() == low_name[2].ToString().ToUpper())
-        {
-            pName = pName[2..];
-        }
-        else if (low_name is "dr" or "mr" or "ms")
-        {
-            pName = "";
-        }
-       
-        if (pName == "")
-        {
-            return pName;
-        }
-        
-        // remove some trailing qualifications
-
-        int comma_pos = pName.IndexOf(',', StringComparison.Ordinal);
-        if (comma_pos > -1)
-        {
-            pName = pName[..comma_pos];
-        }
-
-        string low_name2 = pName.ToLower();
-        if (low_name2.EndsWith(" phd") || low_name2.EndsWith(" msc"))
-        {
-            pName = pName[..^3];
-        }
-        else if (low_name2.EndsWith(" ms"))
-        {
-            pName = pName[..^2];
-        }
-        else if (low_name2.EndsWith(" ms(ophthal)"))
-        {
-            pName = pName[..^12];
-        }
-
-        return pName.Trim(' ', '-');
-    }
-
 
     public static string? ExtractOrganisation(this string affiliation, string sid)
     {
@@ -492,6 +526,7 @@ impl OptionNameExtensions for Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::helpers::string_extensions::*;
 
     #[test]
     fn check_name_ext_tidy_orcid() {
@@ -522,6 +557,26 @@ mod tests {
 
         let t_opt = Some("-1234-6666-9876".to_string());
         assert_eq!(t_opt.tidy_orcid(), Some("0000-1234-6666-9876".to_string()));
+    } 
+
+
+    #[test]
+    fn check_name_ext_extract_domain() {
+
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.extract_domain(), None);
+
+        let t_opt = Some("random string".to_string());
+        assert_eq!(t_opt.extract_domain(), None);
+
+        let t_opt = Some("random@string".to_string());
+        assert_eq!(t_opt.extract_domain(), Some("string".to_string()));
+
+        let t_opt = Some("funny_email@domain.com".to_string());
+        assert_eq!(t_opt.extract_domain(), Some("domain.com".to_string()));
+
+        let t_opt = Some(r"funny_unicod\u{2022\u{21E7}email@domain.com".to_string());
+        assert_eq!(t_opt.extract_domain(), Some("domain.com".to_string()));
     } 
 
 
@@ -560,7 +615,6 @@ mod tests {
 
     } 
 
-
     #[test]
     fn check_name_ext_appears_plausible_person_name() {
 
@@ -582,7 +636,6 @@ mod tests {
         let t_opt = Some("pfizer inc.".to_string());
         assert_eq!(t_opt.appears_plausible_person_name(), false);
     } 
-
 
     #[test]
     fn check_name_ext_appears_plausible_title() {
@@ -609,9 +662,71 @@ mod tests {
         assert_eq!(t_opt.appears_plausible_title(), true);
     } 
 
+    #[test]
+    fn check_name_ext_tidy_org_name() {
 
+        let t_opt = Some("  ".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"NCT12345678".to_string()), None);
 
+        let t_opt = Some("N.A. 'Valdez'".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"NCT12345678".to_string()), Some("NA ‘Valdez’".to_string()));
+
+        let t_opt = Some("Not done.com  ;".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"NCT12345678".to_string()), Some("Not done.com".to_string()));
+
+        let t_opt = Some("Newcastle University, Newcastle-upon-Tyne".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"NCT12345678".to_string()), Some("University of Newcastle (UK)".to_string()));
+
+        let t_opt = Some("**china medical uni, ".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"Chi12345678".to_string()), Some("China Medical University".to_string()));
+
+        let t_opt = Some("-china medical uni, Taiwan".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"NCT12345678".to_string()), Some("China Medical University, Taiwan".to_string()));
+
+        let t_opt = Some("Nat. Cancer center".to_string());
+        assert_eq!(t_opt.clean().tidy_org_name(&"KCT12345678".to_string()), Some("National Cancer Center, Korea".to_string()));
+    } 
+
+    #[test]
+fn check_name_ext_tidy_person_name() {
+
+        let t_opt = Some(" \t \t ".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), None);
+
+        let t_opt = Some("N.A.".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("NA".to_string()));
+
+        let t_opt = Some("J.S. Smith, MD, BPhil".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("JS Smith".to_string()));
+
+        let t_opt = Some("Dr. Jones".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Jones".to_string()));
+
+        let t_opt = Some("Mr".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), None);
+
+        let t_opt = Some("DrFaustus".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Faustus".to_string()));
+
+        let t_opt = Some("Professor Andrew J. Taylor".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Andrew J Taylor".to_string()));
+
+        let t_opt = Some("Jane Andrews Phd".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Jane Andrews".to_string()));
+
+        let t_opt = Some("Fred Bloggs MS(Ophthal)".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Fred Bloggs".to_string()));
+
+        let t_opt = Some("Freda Bloggs MD".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Freda Bloggs".to_string()));
+
+        let t_opt = Some("Frederika Bloggs MD, DPhil".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Frederika Bloggs".to_string()));
+
+        let t_opt = Some("Frederick Bloggs M.D.".to_string());
+        assert_eq!(t_opt.clean().tidy_person_name(), Some("Frederick Bloggs".to_string()));
+
+    } 
 
 }
     
-

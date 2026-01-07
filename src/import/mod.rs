@@ -63,6 +63,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_titles_dv = TitleVecs::new(3*batch_size);
         let mut study_idents_dv = IdentifierVecs::new(3*batch_size);
         let mut study_orgs_dv = OrgVecs::new(3*batch_size);
+        let mut study_people_dv = PeopleVecs::new(3*batch_size);
+        let mut study_locs_dv = LocationVecs::new(3*batch_size);
+        let mut study_cnts_dv = CountryVecs::new(3*batch_size);
+        let mut study_conds_dv = ConditionVecs::new(2*batch_size);
 
         // get the list of json files
 
@@ -103,6 +107,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
             if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
             if let Some(orgs) = dbs.orgs { study_orgs_dv.add(sd_sid, &orgs); }
+            if let Some(peop) = dbs.people { study_people_dv.add(sd_sid, &peop); }
+            if let Some(locs) = dbs.locations { study_locs_dv.add(sd_sid, &locs); }
+            if let Some(cies) = dbs.countries { study_cnts_dv.add(sd_sid, &cies); }
+            if let Some(conds) = dbs.conditions { study_conds_dv.add(sd_sid, &conds); }
 
             // pass s to the procesor and receive a 'database friendly' version, 
             // with the data arranged to match the tables in the DB.
@@ -117,7 +125,11 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
         study_titles_dv.shrink_to_fit();
         study_idents_dv.shrink_to_fit();
-
+        study_orgs_dv.shrink_to_fit();
+        study_people_dv.shrink_to_fit();
+        study_locs_dv.shrink_to_fit();
+        study_cnts_dv.shrink_to_fit();
+        study_conds_dv.shrink_to_fit();
 
         studies_dv.store_data(src_pool).await?;
         study_dates_dv.store_data(src_pool).await?;
@@ -125,6 +137,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_titles_dv.store_data(src_pool).await?;
         study_idents_dv.store_data(src_pool).await?;
         study_orgs_dv.store_data(src_pool).await?;
+        study_people_dv.store_data(src_pool).await?;
+        study_locs_dv.store_data(src_pool).await?;
+        study_cnts_dv.store_data(src_pool).await?;
+        study_conds_dv.store_data(src_pool).await?;
 
         if n > 2000 {
             break;

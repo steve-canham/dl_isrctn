@@ -6,7 +6,7 @@ use crate::helpers::name_extensions::*;
 use chrono::{NaiveDate, NaiveDateTime, Local}; 
 
 //use crate::AppError;
-//use log::info;
+use log::info;
 
  
 // The processor needs to creat a full DB version of each study's data,
@@ -183,9 +183,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
-    
-
-    
+        
     // Summary 
     
     // brief description
@@ -443,179 +441,138 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let mut db_funds: Vec<DBOrganisation> = Vec::new();
 
     // sponsors
+
+    // ? TidyOrgName(sid);
         
     if let Some(sponsors) = &s.sponsors {
         for s in sponsors {
             if s.organisation.appears_plausible_org_name() {
+                let sname = s.organisation.clean().tidy_org_name(&sd_sid);
                 db_orgs.push(DBOrganisation { 
                     contrib_type: "sponsor".to_string(), 
-                    org_name: s.organisation.clone(), 
+                    org_name: sname, 
+                    country: s.country.clone(),
                     org_ror_id: s.ror_id.clone(), 
-                    org_cref_id: None 
+                    org_cref_id: None, 
+                    sponsor_type: s.sponsor_type.clone(),
                 });
             }
         }
     }
 
     // funders
-
+ 
     if let Some(funders) = &s.funders {
         for f in funders {
             if f.name.appears_plausible_org_name() {
+                let fname = f.name.clean().tidy_org_name(&sd_sid);
 
                 // See if that name has been used before as a sponsor.
 
+                let mut duplicated = false;
                 for dbo in &mut db_orgs {
-                    if dbo.contrib_type == "sponsor".to_string() && dbo.org_name == f.name {
-                        // Change contribution type and  try to combinbe information
-                        dbo.contrib_type = "sponsor & funder".to_string();
-                        dbo.org_cref_id = f.fund_ref.clone();
-                        break;
-                    }
-                    else {
 
-                        // Add as a separate funder.
+                    if dbo.contrib_type == "sponsor".to_string() {
+                        if dbo.org_name == fname {  // Change contribution type and try to combine information
 
-                        db_funds.push(DBOrganisation { 
-                        contrib_type: "funder".to_string(), 
-                        org_name: f.name.clone(),
-                        org_ror_id: None,
-                        org_cref_id: f.fund_ref.clone(),
-                        });
+                            dbo.contrib_type = "sponsor & funder".to_string();
+                            dbo.org_cref_id = f.fund_ref.clone();
+                            duplicated = true;
+                            break;
+                        }
                     }
                 }
+
+                if !duplicated   // Add as a separate funder.
+                {
+                    db_funds.push(DBOrganisation { 
+                    contrib_type: "funder".to_string(), 
+                    org_name: fname,
+                    country: None,
+                    org_ror_id: None,
+                    org_cref_id: f.fund_ref.clone(),
+                    sponsor_type: None, 
+                    });
+                }
+            }
+            else {
+                info!("odd org name{:?}, for {}", f.name.clone(), &sd_sid)
             }
         }
     }
 
     db_orgs.append(&mut db_funds);
+
+    
     // contacts
 
-    //if let Some(contacts) = &s.contacts {
-        //for c in contacts {
+    let mut db_peop: Vec<DBPerson> = Vec::new();
 
-        //}
-   // }
-
-/*
-
-
-        // Study sponsor(s) and funders.
-
-        var sponsors = r.sponsors;
-        string? sponsor_name = null;    // For later use
-        if (sponsors?.Any() is true)
-        {
-            foreach (var stSponsor in sponsors)
-            {
-                string? org = stSponsor.organisation;
-                if (org.AppearsGenuineOrgName())
-                {
-                    string? orgname = org.TidyOrgName(sid);
-                    organisations.Add(new StudyOrganisation(sid, 54, "Trial Sponsor", null, orgname));
+    if let Some(contacts) = &s.contacts {
+        for c in contacts {
+            if c.surname.appears_plausible_person_name() {
+                if let Some(v) = &c.contact_types {
+                    db_peop.push(DBPerson {
+                        contrib_type: v.join(","),
+                        given_name: c.forename.clone(),
+                        family_name: c.surname.clone(),
+                        orcid_id: c.orcid.tidy_orcid(),
+                        affiliation: c.address.clone(),
+                        email_domain: c.email.extract_domain(),
+                    });
                 }
             }
-            if (organisations.Any())
-            {
-                sponsor_name = organisations[0].organisation_name;
+            else {
+                info!("odd person name{:?}, for {}", c.surname.clone(), &sd_sid)
             }
         }
+    }
 
-        var funders = r.funders;
-        if (funders?.Any() is true)
-        {
-            foreach (var funder in funders)
-            {
-                string? funder_name = funder.name;
-                if (!string.IsNullOrEmpty(funder_name) && funder_name.AppearsGenuineOrgName())
-                {
-                    // check a funder is not simply the sponsor...(or repeated).
 
-                    bool add_funder = true;
-                    funder_name = funder_name.TidyOrgName(sid);
-                    if (organisations.Count > 0)
-                    {
-                        foreach (var c in organisations)
-                        {
-                            if (funder_name == c.organisation_name)
-                            {
-                                add_funder = false;
-                                break;
-                            }
-                        }
-                    }
+    // locations
 
-                    if (add_funder)
-                    {
-                        organisations.Add(new StudyOrganisation(sid, 58, "Study Funder", null, funder_name));
-                    }
-                }
-            }
+    let mut db_locs: Vec<DBLocation> = Vec::new();
+
+    if let Some(locs) = &s.centres {
+        for loc in locs {
+            db_locs.push(DBLocation { 
+                facility: loc.name.clone(), 
+                address: loc.address.clone(), 
+                city_name: loc.city.clone(), 
+                disamb_name: loc.state.clone(), 
+                country_name: loc.country.clone(),
+            });
         }
+    }
+
+    // countries
+
+    let mut db_countries: Vec<DBCountry> = Vec::new();
+
+    if let Some(cies) = &s.countries {
+        for c in cies {
+            db_countries.push ( DBCountry {
+                country_name: c.clone(),
+            });
+        }
+    }
 
 
+    // Conditions
 
-#[derive(Serialize, Deserialize)]
-pub struct StudyContact
-{
-    pub title: Option<String>,
-    pub forename: Option<String>,
-    pub surname: Option<String>,
-    pub orcid: Option<String>,
-    pub contact_types: Option<Vec<String>>,
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub country: Option<String>,
-    pub email: Option<String>,
-    pub privacy: Option<String>,
-}
+    let mut db_conds: Vec<DBCondition>= Vec::new();
 
-#[derive(Serialize, Deserialize)]
-pub struct StudySponsor
-{
-    pub organisation: Option<String>,
-    pub website: Option<String>,
-    pub sponsor_type: Option<String>,
-    pub ror_id: Option<String>,  
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub country: Option<String>,
-    pub email: Option<String>,
-    pub privacy: Option<String>,
-    pub commercial_status: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct StudyFunder
-{
-    pub name: Option<String>,
-    pub fund_ref: Option<String>,
-}
-#[allow(dead_code)]
-pub struct DBOrganisation {
-    pub contrib_type_id: i32,
-    pub org_name: String,
-    pub org_ror_id: Option<String>,
-    pub org_cref_id: Option<String>,
-}
-
-#[allow(dead_code)]
-pub struct DBPerson {
-    pub contrib_type_id: i32,
-    pub given_name: Option<String>,
-    pub family_name: Option<String>,
-    pub full_name: Option<String>,
-    pub orcid_id: Option<String>,
-    pub affiliation: Option<String>,
-    pub email_domain: Option<String>,
-}
-
-*/
-
-    // People
-
-
-
+    if let Some(conds) = &s.conditions {
+        for c in conds {
+            db_conds.push ( DBCondition {
+                original_value: c.description.clone(),
+                original_class1: c.disease_class1.clone(),
+                original_class2: c.disease_class2.clone(),
+                ct_code: None,
+                ct_type_id: None,
+            });
+        }
+    }
 
 
 
@@ -628,6 +585,10 @@ pub struct DBPerson {
         titles: option_from_count(db_ts),
         identifiers: option_from_count(db_ids),
         orgs: option_from_count(db_orgs),
+        people: option_from_count(db_peop),
+        locations: option_from_count(db_locs),
+        countries: option_from_count(db_countries),
+        conditions: option_from_count(db_conds),
 
     }
 
