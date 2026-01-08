@@ -118,7 +118,7 @@ impl OptionNameExtensions for Option<String> {
         }
     }
      
-     
+
     fn appears_plausible_person_name(&self) -> bool {
 
         match self {
@@ -522,6 +522,8 @@ impl OptionNameExtensions for Option<String> {
 
 
 */
+
+
 
 #[cfg(test)]
 mod tests {

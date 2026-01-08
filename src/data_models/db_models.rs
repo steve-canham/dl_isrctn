@@ -20,11 +20,11 @@ pub struct DBStudy {
 
     pub conditions: Option<Vec<DBCondition>>, 
     pub features: Option<Vec<DBFeature>>, 
+    pub topics: Option<Vec<DBTopic>>, 
     
     /*
 
     pub ie_crit: Option<Vec<DBIECriterion>>, 
-    pub topics: Option<Vec<DBTopic>>, 
 
     pub relationships: Option<Vec<DBRelationship>>, 
     pub references: Option<Vec<DBReference>>, 
@@ -99,7 +99,6 @@ pub struct DBStudyPartics {
 	pub age_group_flag: Option<i32>, 
 }
 
-
 pub struct DBTitle {
     pub title_text: String,
     pub is_default: bool,
@@ -124,7 +123,6 @@ pub struct DBOrganisation {
     pub sponsor_type: Option<String>,
 }
 
-#[allow(dead_code)]
 pub struct DBPerson {
     pub contrib_type: String,
     pub given_name: Option<String>,
@@ -141,7 +139,6 @@ pub struct DBIECriterion {
     pub criterion: i32,
 }
 
-#[allow(dead_code)]
 pub struct DBLocation {
     pub facility: Option<String>,
     pub address: Option<String>,
@@ -150,25 +147,22 @@ pub struct DBLocation {
     pub country_name: Option<String>,
 }
 
-#[allow(dead_code)]
 pub struct DBCountry {
     pub country_name: String,
 }
 
-#[allow(dead_code)]
 pub struct DBTopic {
+    pub source:  String,
     pub topic_type:  String,
     pub value: String,
 }
 
-#[allow(dead_code)]
-    pub struct DBCondition {
+pub struct DBCondition {
     pub class1: Option<String>,
     pub class2: Option<String>,
     pub specific: Option<String>,
 }
 
-#[allow(dead_code)]
 pub struct DBFeature {
     pub source: String,
     pub feature_type: String,

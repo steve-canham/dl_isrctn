@@ -237,6 +237,7 @@ fn get_topics_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_topics(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
+    , source                 VARCHAR         NULL    
     , topic_type             VARCHAR         NULL
     , value                  VARCHAR         NULL       
     , added_on               TIMESTAMPTZ     NOT NULL default now()

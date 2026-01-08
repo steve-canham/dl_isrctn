@@ -132,3 +132,71 @@ pub fn get_age_units (au: &Option<String>) -> Option<i32> {
     }
 }
 
+
+pub fn  get_cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
+
+    static RE_NUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
+    let res: Vec<&str> = RE_NUM_SPLITTER.split(input)
+                        .map(|p| p.trim())
+                        .collect();
+    match res.len() {
+        0 => None,
+        _ => Some(res,)
+    }
+}
+
+
+pub fn  get_numbered_strings(input: &String) -> Option<Vec<&str>> {
+
+    static RE_NUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d{1,2}\. ").unwrap());
+    let res: Vec<&str> = RE_NUM_SPLITTER.split(input)
+                        .map(|p| p.trim())
+                        .collect();
+    match res.len() {
+        0 => None,
+        _ => Some(res,)
+    }
+}
+
+
+pub fn  split_strings_with_min_word_length(input: &String, separator: char, min_width: usize) -> Vec<String> {
+
+    let res: Vec<&str> = input.split(separator)
+                         .map(|p| p.trim())
+                         .collect();
+
+    if res.len() > 1 {
+        
+        let mut modified_res: Vec<String> = Vec::new();
+        for i in 0..res.len() {
+            let mut new_string = res[i].to_string();
+            if res[i].len() < min_width
+            {
+                if i == 0
+                {
+                    new_string = format!("{}  {}", res[0], res[1]);
+                }
+                else
+                {
+                    new_string = format!("{}  {}", res[i-1], res[i]);  
+                }
+            }
+            modified_res.push(new_string.trim().to_string());
+        }
+
+        let mut final_res: Vec<String> = Vec::new();
+        for i in 0..modified_res.len() {
+            if modified_res[i].len() >= min_width
+            {
+                final_res.push(modified_res[i].clone());
+            }
+        }
+        final_res   
+
+    }
+    else {
+        vec![input.to_string()]   // no split, just return input
+    }
+
+}
+

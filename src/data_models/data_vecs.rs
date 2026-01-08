@@ -550,7 +550,6 @@ impl LocationVecs{
     }
 }
 
-
 pub struct CountryVecs {
     pub sd_sids: Vec<String>,
     pub country_names: Vec<String>,
@@ -591,8 +590,6 @@ impl CountryVecs{
     }
 }
 
-
-#[allow(dead_code)]
 pub struct ConditionVecs {
     pub sd_sids: Vec<String>,
     pub class1s: Vec<Option<String>>,
@@ -600,8 +597,6 @@ pub struct ConditionVecs {
     pub specifics: Vec<Option<String>>,
 }
 
-
-#[allow(dead_code)]
 impl ConditionVecs {
 
     pub fn new(vsize: usize) -> Self {
@@ -645,8 +640,6 @@ impl ConditionVecs {
     }
 }
 
-
-#[allow(dead_code)]
 pub struct FeatureVecs {
     pub sd_sids: Vec<String>,
     pub sources: Vec<String>,
@@ -654,7 +647,6 @@ pub struct FeatureVecs {
     pub feature_values: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl FeatureVecs{
     pub fn new(vsize: usize) -> Self {
         FeatureVecs { 
@@ -697,19 +689,18 @@ impl FeatureVecs{
     }
 }
 
-
-#[allow(dead_code)]
 pub struct TopicVecs {
     pub sd_sids: Vec<String>,
+    pub sources: Vec<String>,  
     pub topic_types: Vec<String>,
     pub values: Vec<String>,
 }
 
-#[allow(dead_code)]
 impl TopicVecs{
     pub fn new(vsize: usize) -> Self {
         TopicVecs { 
             sd_sids: Vec::with_capacity(vsize),
+            sources: Vec::with_capacity(vsize),
             topic_types: Vec::with_capacity(vsize),
             values: Vec::with_capacity(vsize),
         }
@@ -719,6 +710,7 @@ impl TopicVecs{
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
+            self.sources.push(r.source.clone());
             self.topic_types.push(r.topic_type.clone());
             self.values.push(r.value.clone());
         }
@@ -726,17 +718,19 @@ impl TopicVecs{
 
     pub fn shrink_to_fit(&mut self) -> () {
         self.sd_sids.shrink_to_fit();
+        self.sources.shrink_to_fit();
         self.topic_types.shrink_to_fit();
         self.values.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_countries (sd_sid, topic_type, value) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])"#;
+        let sql = r#"INSERT INTO sd.study_topics (sd_sid, source, topic_type, value) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
+        .bind(&self.sources)
         .bind(&self.topic_types)
         .bind(&self.values)
         .execute(pool)

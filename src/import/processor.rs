@@ -732,15 +732,106 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             if tt != "Not Specified" {
                 db_feats.push(DBFeature {
                     source: tt.clone(),
-                    feature_type: "Primary purpose".to_string(),
+                    feature_type: "Primary focus".to_string(),
                     feature_value: tt.clone(),
                 });
             }
         }
     }
 
+    // Topics
 
+    let mut db_tops: Vec<DBTopic>= Vec::new();
 
+    if let Some(ints) = &s.interventions {
+        for int in ints {
+            
+            let mut int_type = "";
+            let mut topic_type ="Chemical / agent".to_string();  // effectively the default
+            if let Some(it) = &int.int_type
+            {
+                int_type = it;
+                if int_type == "Device" {
+                    topic_type  = "Device".to_string();
+                }
+            }
+            
+            // problem remains of commas in brackets
+            // square brackets should be parentheses
+            // text in brackets should beb appended to the text before
+            
+            if let Some(dn) = &int.drug_names.clean() {
+                if !dn.to_lowercase().starts_with("the sponsor has confirmed")
+                && !dn.to_lowercase().starts_with("the health research authority")
+                && !dn.to_lowercase().starts_with("not provided")
+                {
+                    let mut drug_names = dn.to_string();
+                    let source = drug_names.clone();
+                    drug_names = drug_names.replace("\u{00AE}", ""); //  lose (r) Registration mark
+                    drug_names = drug_names.replace("\u{2122}", ""); //  lose (tm) Trademark mark
+
+                    if drug_names.contains("1.") && drug_names.contains("\n2.")
+                    {
+                        if let Some(dns) = get_cr_numbered_strings(&drug_names) {
+                            for dn in dns {
+                                db_tops.push(DBTopic {
+                                source: source.clone(),
+                                topic_type: topic_type.clone(),
+                                value: dn.to_string(),
+                                });
+                            }
+
+                            // may need to delete prefixing "1." here, but in all cases?
+                        }
+                    }
+                    else if drug_names.contains("1.") && drug_names.contains("2.")
+                    {
+                        if let Some(dns) = get_numbered_strings(&drug_names) {
+                            for dn in dns {
+                                db_tops.push(DBTopic {
+                                source: source.clone(),
+                                topic_type: topic_type.clone(),
+                                value: dn.to_string(),
+                                });
+                            }
+                        }
+                    }
+                    else if drug_names.contains("1.") && !drug_names.contains("2.") {
+                        db_tops.push(DBTopic {
+                            source: source,
+                            topic_type: topic_type,
+                            value: drug_names[2..].trim().to_string(),
+                        });
+                    }
+                    else if drug_names.contains(',') {
+                        
+                        // if there are commas split on the commas (does not work for devices).
+
+                        if int_type== "Drug" || int_type == "Supplement" {
+                            let sns = split_strings_with_min_word_length(&drug_names, ',', 4);
+                            for sn in sns {
+                                db_tops.push(DBTopic {
+                                source: source.clone(),
+                                topic_type: topic_type.clone(),
+                                value: sn,
+                                });
+                            }
+                        }
+                    }
+                    else
+                    {
+                        db_tops.push(DBTopic {
+                            source: source,
+                            topic_type: topic_type,
+                            value: drug_names,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    
     DBStudy {
 
         sd_sid: sd_sid,
@@ -755,8 +846,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         countries: option_from_count(db_countries),
         conditions: option_from_count(db_conds),
         features: option_from_count(db_feats),
-
-
+        topics: option_from_count(db_tops),
     }
 
 }
