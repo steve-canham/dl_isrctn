@@ -19,14 +19,12 @@ pub struct DBStudy {
     pub countries: Option<Vec<DBCountry>>, 
 
     pub conditions: Option<Vec<DBCondition>>, 
-
+    pub features: Option<Vec<DBFeature>>, 
+    
     /*
 
     pub ie_crit: Option<Vec<DBIECriterion>>, 
-
     pub topics: Option<Vec<DBTopic>>, 
-
-    pub features: Option<Vec<DBFeature>>, 
 
     pub relationships: Option<Vec<DBRelationship>>, 
     pub references: Option<Vec<DBReference>>, 
@@ -159,26 +157,22 @@ pub struct DBCountry {
 
 #[allow(dead_code)]
 pub struct DBTopic {
-    pub original_value: String,
-    pub topic_type_id:  i32,
-    pub ct_type_id: Option<i32>,
-    pub ct_code: Option<String>,
+    pub topic_type:  String,
+    pub value: String,
 }
 
 #[allow(dead_code)]
-pub struct DBCondition {
-    pub original_value: Option<String>,
-    pub original_class1: Option<String>,
-    pub original_class2: Option<String>,
-    pub ct_type_id: Option<i32>,
-    pub ct_code: Option<String>,
+    pub struct DBCondition {
+    pub class1: Option<String>,
+    pub class2: Option<String>,
+    pub specific: Option<String>,
 }
 
 #[allow(dead_code)]
 pub struct DBFeature {
-    pub original_value: String,
-    pub feature_type_id: i32,
-    pub feature_value_id: i32,
+    pub source: String,
+    pub feature_type: String,
+    pub feature_value: String,
 }
 
 #[allow(dead_code)]

@@ -595,11 +595,9 @@ impl CountryVecs{
 #[allow(dead_code)]
 pub struct ConditionVecs {
     pub sd_sids: Vec<String>,
-    pub original_values: Vec<Option<String>>,
-    pub original_class1s: Vec<Option<String>>,
-    pub original_class2s: Vec<Option<String>>,
-    pub ct_type_ids: Vec<Option<i32>>,
-    pub ct_codes: Vec<Option<String>>,
+    pub class1s: Vec<Option<String>>,
+    pub class2s: Vec<Option<String>>,
+    pub specifics: Vec<Option<String>>,
 }
 
 
@@ -609,11 +607,9 @@ impl ConditionVecs {
     pub fn new(vsize: usize) -> Self {
         ConditionVecs { 
             sd_sids: Vec::with_capacity(vsize),
-            original_values: Vec::with_capacity(vsize),
-            original_class1s: Vec::with_capacity(vsize),
-            original_class2s: Vec::with_capacity(vsize),
-            ct_type_ids: Vec::with_capacity(vsize),
-            ct_codes: Vec::with_capacity(vsize),
+            class1s: Vec::with_capacity(vsize),
+            class2s: Vec::with_capacity(vsize),
+            specifics: Vec::with_capacity(vsize),
         }
     }
 
@@ -621,33 +617,29 @@ impl ConditionVecs {
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.original_values.push(r.original_value.clone());
-            self.original_class1s.push(r.original_class1.clone());
-            self.original_class2s.push(r.original_class2.clone());
-            self.ct_type_ids.push(r.ct_type_id);
-            self.ct_codes.push(r.ct_code.clone());
+            self.class1s.push(r.class1.clone());
+            self.class2s.push(r.class2.clone());
+            self.specifics.push(r.specific.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
         self.sd_sids.shrink_to_fit();
-        self.original_values.shrink_to_fit();
-        self.original_class1s.shrink_to_fit();
-        self.original_class2s.shrink_to_fit();
-        self.ct_type_ids.shrink_to_fit();
-        self.ct_codes.shrink_to_fit();
+        self.class1s.shrink_to_fit();
+        self.class2s.shrink_to_fit();
+        self.specifics.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_conditions (sd_sid, original_value, original_class1, original_class2) 
+        let sql = r#"INSERT INTO sd.study_conditions (sd_sid, class1, class2, specific) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
-        .bind(&self.original_values)
-        .bind(&self.original_class1s)
-        .bind(&self.original_class2s)
+        .bind(&self.class1s)
+        .bind(&self.class2s)
+        .bind(&self.specifics)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
@@ -657,7 +649,9 @@ impl ConditionVecs {
 #[allow(dead_code)]
 pub struct FeatureVecs {
     pub sd_sids: Vec<String>,
-    pub country_names: Vec<String>,
+    pub sources: Vec<String>,
+    pub feature_types: Vec<String>,
+    pub feature_values: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -665,31 +659,39 @@ impl FeatureVecs{
     pub fn new(vsize: usize) -> Self {
         FeatureVecs { 
             sd_sids: Vec::with_capacity(vsize),
-            country_names: Vec::with_capacity(vsize),
+            sources: Vec::with_capacity(vsize),
+            feature_types: Vec::with_capacity(vsize),
+            feature_values: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCountry>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBFeature>) 
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.country_names.push(r.country_name.clone());
+            self.sources.push(r.source.clone());
+            self.feature_types.push(r.feature_type.clone());
+            self.feature_values.push(r.feature_value.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
         self.sd_sids.shrink_to_fit();
-        self.country_names.shrink_to_fit();
+        self.sources.shrink_to_fit();
+        self.feature_types.shrink_to_fit();
+        self.feature_values.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_countries (sd_sid, country_name) 
-            SELECT * FROM UNNEST($1::text[], $2::text[])"#;
+        let sql = r#"INSERT INTO sd.study_features(sd_sid, source, feature_type, feature_value) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
-        .bind(&self.country_names)
+        .bind(&self.sources)
+        .bind(&self.feature_types)
+        .bind(&self.feature_values)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
@@ -699,7 +701,8 @@ impl FeatureVecs{
 #[allow(dead_code)]
 pub struct TopicVecs {
     pub sd_sids: Vec<String>,
-    pub country_names: Vec<String>,
+    pub topic_types: Vec<String>,
+    pub values: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -707,31 +710,35 @@ impl TopicVecs{
     pub fn new(vsize: usize) -> Self {
         TopicVecs { 
             sd_sids: Vec::with_capacity(vsize),
-            country_names: Vec::with_capacity(vsize),
+            topic_types: Vec::with_capacity(vsize),
+            values: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCountry>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTopic>) 
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.country_names.push(r.country_name.clone());
+            self.topic_types.push(r.topic_type.clone());
+            self.values.push(r.value.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
         self.sd_sids.shrink_to_fit();
-        self.country_names.shrink_to_fit();
+        self.topic_types.shrink_to_fit();
+        self.values.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_countries (sd_sid, country_name) 
-            SELECT * FROM UNNEST($1::text[], $2::text[])"#;
+        let sql = r#"INSERT INTO sd.study_countries (sd_sid, topic_type, value) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
-        .bind(&self.country_names)
+        .bind(&self.topic_types)
+        .bind(&self.values)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }

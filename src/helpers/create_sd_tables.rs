@@ -237,10 +237,8 @@ fn get_topics_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_topics(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , topic_type_id          INT             NULL
-    , original_value         VARCHAR         NULL       
-    , original_ct_type_id    INT             NULL
-    , original_ct_code       VARCHAR         NULL 
+    , topic_type             VARCHAR         NULL
+    , value                  VARCHAR         NULL       
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
     CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);"#
@@ -253,11 +251,9 @@ fn get_conditions_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_conditions(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , original_value         VARCHAR         NULL
-    , original_class1        VARCHAR         NULL
-    , original_class2        VARCHAR         NULL
-    , original_ct_type_id    INT             NULL
-    , original_ct_code       VARCHAR         NULL                 
+    , class1                 VARCHAR         NULL
+    , class2                 VARCHAR         NULL
+    , specific               VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
     CREATE INDEX study_conditions_sid ON sd.study_conditions(sd_sid);"#
@@ -271,9 +267,9 @@ fn get_features_sql<'a>() -> &'a str {
     CREATE TABLE sd.study_features(
       id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
     , sd_sid                 VARCHAR         NOT NULL
-    , original_value         VARCHAR         NULL
-    , feature_type_id        INT             NULL
-    , feature_value_id       INT             NULL
+    , source                 VARCHAR         NULL
+    , feature_type           VARCHAR         NULL
+    , feature_value          VARCHAR         NULL
     , added_on               TIMESTAMPTZ     NOT NULL default now()
     );
     CREATE INDEX study_features_sid ON sd.study_features(sd_sid);"#

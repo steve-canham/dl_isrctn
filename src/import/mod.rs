@@ -67,6 +67,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_locs_dv = LocationVecs::new(3*batch_size);
         let mut study_cnts_dv = CountryVecs::new(3*batch_size);
         let mut study_conds_dv = ConditionVecs::new(2*batch_size);
+        let mut study_feats_dv = FeatureVecs::new(4*batch_size);
 
         // get the list of json files
 
@@ -111,7 +112,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(locs) = dbs.locations { study_locs_dv.add(sd_sid, &locs); }
             if let Some(cies) = dbs.countries { study_cnts_dv.add(sd_sid, &cies); }
             if let Some(conds) = dbs.conditions { study_conds_dv.add(sd_sid, &conds); }
-
+            if let Some(feats) = dbs.features { study_feats_dv.add(sd_sid, &feats); }
+        
             // pass s to the procesor and receive a 'database friendly' version, 
             // with the data arranged to match the tables in the DB.
             // rather than immediately store, for each study individually,
@@ -130,6 +132,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_locs_dv.shrink_to_fit();
         study_cnts_dv.shrink_to_fit();
         study_conds_dv.shrink_to_fit();
+        study_feats_dv.shrink_to_fit();
 
         studies_dv.store_data(src_pool).await?;
         study_dates_dv.store_data(src_pool).await?;
@@ -141,6 +144,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_locs_dv.store_data(src_pool).await?;
         study_cnts_dv.store_data(src_pool).await?;
         study_conds_dv.store_data(src_pool).await?;
+        study_feats_dv.store_data(src_pool).await?;
 
         if n > 2000 {
             break;

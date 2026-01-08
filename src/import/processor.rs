@@ -319,7 +319,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // Need to check later for results being published, in which cases ensure status is completed
     
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
-    
+    let type_id = get_study_type(&s.design.primary_study_design);
+
     let iec_flag = 0;   // for now
 
     let date_last_revised = match &s.registration.last_updated {
@@ -341,7 +342,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let summary = DBSummary {
         display_title: display_title,
         brief_description: description_text,
-        type_id: get_study_type(&s.design.primary_study_design),
+        type_id: type_id,
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
         start_status_override: s.recruitment.recruitment_start_status_override.clone(),
@@ -564,13 +565,177 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     if let Some(conds) = &s.conditions {
         for c in conds {
+          
+            let mut specific = c.description.clone();
+            
+            // Move specific value into class 2 if class 2 empty
+
+            let c2 = match c.disease_class2.clone() {
+                Some(c) => Some(c),
+                None => specific.clone(),  
+            };
+
+            // Drop specific if the same as class 2, whether from above or from the start
+
+            if let Some(c) = &c2 && let Some(s) = &specific
+               && c.trim().to_lowercase() == s.trim().to_lowercase() {
+                specific = None;
+            }
+
             db_conds.push ( DBCondition {
-                original_value: c.description.clone(),
-                original_class1: c.disease_class1.clone(),
-                original_class2: c.disease_class2.clone(),
-                ct_code: None,
-                ct_type_id: None,
+                class1: c.disease_class1.clone(),
+                class2: c2,
+                specific: specific,
+
             });
+        }
+    }
+
+
+    // Features
+
+    let mut db_feats: Vec<DBFeature>= Vec::new();
+
+    if type_id == 11 {
+        if let Some(ints) = &s.interventions {
+            for int in ints {
+                if let Some(p) = &int.phase {
+                    let phase = match p.as_str() {
+                        "Not Applicable" => "Not applicable",
+                        "Phase I" => "Phase 1",
+                        "Phase I/II" => "Phase 1/Phase 2",
+                        "Phase II" => "Phase 2",
+                        "Phase II/III" => "Phase 2/Phase 3",
+                        "Phase III" => "Phase 3",
+                        "Phase III/IV" => "Phase 3",
+                        "Phase IV" => "Phase 4",
+                        "Not Specified" => "Not provided",
+                        _ => "Not provided",
+                    };
+                    if phase != "Not provided" {
+                        db_feats.push(DBFeature {
+                            source: p.clone(),
+                            feature_type: "Phase".to_string(),
+                            feature_value: phase.to_string(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    let secondary_design = &s.design.secondary_study_design.clone().unwrap_or("".to_string());
+    let study_design = &s.design.study_design.clone().unwrap_or("".to_string());
+    let design = format!("{} {}", secondary_design, study_design).trim().to_lowercase();
+
+    if design != "".to_string()
+    {
+        if type_id == 11 {
+
+            // Try to make terminology more consistent
+
+            let mut ds = design.replace("randomized", "randomised")
+                                .replace("non randomised", "non-randomised");
+            ds = ds.replace("cross over", "cross-over").replace("crossover", "cross-over");
+            ds = ds.replace("open label", "open-label").replace(" blind", "-blind");
+
+            let allocation_type = match ds
+            {
+                _ if ds.contains("non-randomised") => "Nonrandomised",
+                _ if ds.contains("randomised") => "Randomised",
+                _ => "Not provided",
+            };
+            if allocation_type != "Not provided" {
+                db_feats.push(DBFeature {
+                    source: ds.clone(),
+                    feature_type: "Allocation type".to_string(),
+                    feature_value: allocation_type.to_string(),
+                });
+            }
+
+            let intervention_model = match ds
+            {
+                _ if ds.contains("parallel") => "Parallel assignment",
+                _ if ds.contains("cross-over") => "Crossover assignment",
+                _ => "Not provided",
+            };
+            if intervention_model != "Not provided" {
+                db_feats.push(DBFeature {
+                    source: ds.clone(),
+                    feature_type: "Intervention model".to_string(),
+                    feature_value: intervention_model.to_string(),
+                });
+            }
+
+            let masking = match ds
+            {
+                _ if ds.contains("open-label") => "None (Open Label)",
+                _ if ds.contains("single-blind") => "Single",
+                _ if ds.contains("double-blind") => "Double",
+                _ if ds.contains("triple-blind") => "Triple",
+                _ if ds.contains("quadruple-blind") => "Quadruple",
+                _ => "Not provided",
+            };
+            if masking != "Not provided" {
+                db_feats.push(DBFeature {
+                    source: ds.clone(),
+                    feature_type: "Masking".to_string(),
+                    feature_value: masking.to_string(),
+                });
+            }
+        }
+
+        if type_id == 12 {
+
+            let mut ds = design.replace("case ", "case-");
+            ds = ds.replace("cross section", "cross-section");
+
+            let observational_model = match ds
+            {
+                _ if ds.contains("cohort") => "Cohort",
+                _ if ds.contains("case-control") => "Case-Control",
+                _ if ds.contains("case-series") => "Case-only",
+                _ if ds.contains("case-crossover") => "Case-crossover",
+                _ if ds.contains("ecological") => "Ecologic or community study",
+                _ => "Not provided",
+            };
+            if observational_model != "Not provided" {
+                db_feats.push(DBFeature {
+                    source: ds.clone(),
+                    feature_type: "Observational model".to_string(),
+                    feature_value: observational_model.to_string(),
+                });
+            }
+
+            let time_perspective = match ds
+            {
+                _ if ds.contains("retrospective") => "Retrospective",
+                _ if ds.contains("prospective") => "Prospective",
+                _ if ds.contains("cross section") => "Cross-sectional",
+                _ if ds.contains("longitudinal") => "Longitudinal",
+                _ => "Not provided",
+            };
+            if time_perspective != "Not provided" {
+                db_feats.push(DBFeature {
+                    source: ds.clone(),
+                    feature_type: "Time perspective".to_string(),
+                    feature_value: time_perspective.to_string(),
+                });
+            }
+
+        }
+
+    }
+ 
+    if let Some(tts) = &s.trial_types {
+        for tt in tts {
+            if tt != "Not Specified" {
+                db_feats.push(DBFeature {
+                    source: tt.clone(),
+                    feature_type: "Primary purpose".to_string(),
+                    feature_value: tt.clone(),
+                });
+            }
         }
     }
 
@@ -589,6 +754,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         locations: option_from_count(db_locs),
         countries: option_from_count(db_countries),
         conditions: option_from_count(db_conds),
+        features: option_from_count(db_feats),
+
 
     }
 
