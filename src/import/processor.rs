@@ -349,7 +349,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
         start_status_override: s.recruitment.recruitment_start_status_override.clone(),
-        iec_flag: _iec_flag ,
+        iec_flag: _iec_flag,
         ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 
         date_last_revised: date_last_revised,
