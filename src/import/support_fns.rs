@@ -3,6 +3,8 @@ use regex::Regex;
 
 use chrono::{Local, NaiveDate};
 
+//use crate::helpers::name_extensions;
+
 pub fn option_from_count<T>(v: Vec<T>) -> Option<Vec<T>> {
     match v.len() {
         0 => None,
@@ -135,13 +137,20 @@ pub fn get_age_units (au: &Option<String>) -> Option<i32> {
 
 pub fn  get_cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
 
-    static RE_NUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
-    let res: Vec<&str> = RE_NUM_SPLITTER.split(input)
-                        .map(|p| p.trim())
-                        .collect();
-    match res.len() {
+    static RE_CRNUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
+    let res: Vec<&str> = RE_CRNUM_SPLITTER.split(input).collect();
+
+    let mut result: Vec<&str> = Vec::new();
+    if res.len() > 0 {
+        for mut r in res {
+            if r.starts_with("1.") { r = &r[2..];}
+            result.push(r.trim());
+        }
+    }
+
+    match result.len() {
         0 => None,
-        _ => Some(res,)
+        _ => Some(result)
     }
 }
 
@@ -152,51 +161,131 @@ pub fn  get_numbered_strings(input: &String) -> Option<Vec<&str>> {
     let res: Vec<&str> = RE_NUM_SPLITTER.split(input)
                         .map(|p| p.trim())
                         .collect();
-    match res.len() {
+    let mut result: Vec<&str> = Vec::new();
+    if res.len() > 0 {
+        for r in res {
+            let r2 = r.trim();
+            if r2 != "" { result.push(r2); }
+        }
+    }
+
+    match result.len() {
         0 => None,
-        _ => Some(res,)
+        _ => Some(result)
     }
 }
 
 
-pub fn  split_strings_with_min_word_length(input: &String, separator: char, min_width: usize) -> Vec<String> {
+pub fn  get_comma_delim_strings(input: &String, min_width: usize) -> Vec<String> {
 
-    let res: Vec<&str> = input.split(separator)
+    // The problem is that such strings may often include brackets
+    // that themselves contain commas
+    // Therefore a need to do a run through the string chars, replacing 'meaningful' commas
+    // with '||' and then split on the '||'s.
+
+
+    // loop over string chars.
+
+    let mut in_brackets = false;
+    let mut new_s = "".to_string();
+
+    for c in input.chars() {
+        
+        match c {
+            '(' => {
+                in_brackets = true;  new_s.push(c);},
+            ')' => {
+                in_brackets = false;  new_s.push(c);},
+            ',' => {
+                    if !in_brackets {
+                        new_s.push('|');
+                        new_s.push('|');
+                    }
+                    else {
+                        new_s.push(c);
+                    }
+                },
+            _ => new_s.push(c),
+        }
+    }
+
+    let res: Vec<&str> = new_s.split("||")
                          .map(|p| p.trim())
                          .collect();
 
+    // In addition, somne comma delimited portions are small and in fact are extensions
+    // of the item before...
+
     if res.len() > 1 {
-        
         let mut modified_res: Vec<String> = Vec::new();
+        let mut skip_res1 = false;
+
         for i in 0..res.len() {
             let mut new_string = res[i].to_string();
             if res[i].len() < min_width
             {
-                if i == 0
+                if i == 0    // add to res[1], and skip over res[1]
                 {
-                    new_string = format!("{}  {}", res[0], res[1]);
+                    new_string = format!("{}, {}", res[0], res[1]);
+                    modified_res.push(new_string.trim().to_string());
+                    skip_res1 = true;
                 }
-                else
+                else         // add to the previous item and replace that item
                 {
-                    new_string = format!("{}  {}", res[i-1], res[i]);  
+                    new_string = format!("{}, {}", res[i-1], res[i]);  
+                    modified_res.pop();
+                    modified_res.push(new_string.trim().to_string());
                 }
             }
-            modified_res.push(new_string.trim().to_string());
-        }
-
-        let mut final_res: Vec<String> = Vec::new();
-        for i in 0..modified_res.len() {
-            if modified_res[i].len() >= min_width
-            {
-                final_res.push(modified_res[i].clone());
+            else {
+                if i != 1 || (i == 1 && skip_res1 == false) {
+                    modified_res.push(new_string.trim().to_string());
+                }
             }
-        }
-        final_res   
 
+        }
+        modified_res
+   
     }
     else {
-        vec![input.to_string()]   // no split, just return input
+        vec![new_s.to_string()]   // no split, just return input
     }
 
 }
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    //use crate::helpers::string_extensions::*;
+
+    #[test]
+    fn check_get_cr_numbered_strings() {
+
+        let input = &"1. Item 1\n2. item 2. \n3.item3".to_string();
+        assert_eq!(get_cr_numbered_strings(input), Some(vec!["Item 1", "item 2.", "item3"]));
+    }
+
+    #[test]
+    fn check_get_numbered_strings() {
+
+        let input = &"1. Item 1; 2. item 2; 3. item3".to_string();
+        assert_eq!(get_numbered_strings(input), Some(vec!["Item 1;", "item 2;", "item3"]));
+    }
+
+    #[test]
+    fn check_get_comma_delim_strings() {
+
+        let input = &"Item 1, Item 2, Item 3 ".to_string();
+        assert_eq!(get_comma_delim_strings(input, 4), vec!["Item 1", "Item 2", "Item 3"]);
+
+        let input = &"Item 1, Item 2 (some stuff, some other stuff), Item 3 ".to_string();
+        assert_eq!(get_comma_delim_strings(input, 4), vec!["Item 1", "Item 2 (some stuff, some other stuff)", "Item 3"]);
+
+        let input = &"foo, Item 1, Item 2 (some stuff, some other stuff), Item 3, bar ".to_string();
+        assert_eq!(get_comma_delim_strings(input, 4), vec!["foo, Item 1", "Item 2 (some stuff, some other stuff)", "Item 3, bar"]);
+
+
+    }
+
+}

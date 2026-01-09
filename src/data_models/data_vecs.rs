@@ -738,8 +738,54 @@ impl TopicVecs{
     }
 }
 
+pub struct IECVecs {
+    pub sd_sids: Vec<String>,
+    pub ie_type_ids: Vec<i32>,  
+    pub ie_nums: Vec<i32>,
+    pub criteria: Vec<String>,
+}
 
+impl IECVecs{
+    pub fn new(vsize: usize) -> Self {
+        IECVecs { 
+            sd_sids: Vec::with_capacity(vsize),
+            ie_type_ids: Vec::with_capacity(vsize),
+            ie_nums: Vec::with_capacity(vsize),
+            criteria: Vec::with_capacity(vsize),
+        }
+    }
 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBIECriterion>) 
+    {
+        for r in v {
+            self.sd_sids.push(sd_sid.clone());
+            self.ie_type_ids.push(r.ie_type_id);
+            self.ie_nums.push(r.ie_num);
+            self.criteria.push(r.criterion.clone());
+        }
+    }
+
+    pub fn shrink_to_fit(&mut self) -> () {
+        self.sd_sids.shrink_to_fit();
+        self.ie_type_ids.shrink_to_fit();
+        self.ie_nums.shrink_to_fit();
+        self.criteria.shrink_to_fit();
+    }
+
+    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+
+        let sql = r#"INSERT INTO sd.study_iec (sd_sid, ie_type_id, ie_num, criterion) 
+            SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[])"#;
+
+        sqlx::query(sql)
+        .bind(&self.sd_sids)
+        .bind(&self.ie_type_ids)
+        .bind(&self.ie_nums)
+        .bind(&self.criteria)
+        .execute(pool)
+        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
+    }
+}
 
 
 

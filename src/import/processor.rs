@@ -1,11 +1,14 @@
+
 use crate::data_models::json_models::Study;
 use crate::data_models::db_models::*;
-use crate::helpers::import_helpers::*;
+
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
-use chrono::{NaiveDate, NaiveDateTime, Local}; 
+use crate::helpers::iec_helper::*;
 
-//use crate::AppError;
+use super::support_fns::*;
+
+use chrono::{NaiveDate, NaiveDateTime, Local}; 
 use log::info;
 
  
@@ -321,7 +324,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
     let type_id = get_study_type(&s.design.primary_study_design);
 
-    let iec_flag = 0;   // for now
+    let mut _iec_flag = 0;   // for now
 
     let date_last_revised = match &s.registration.last_updated {
         Some(ds) => {
@@ -346,7 +349,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
         start_status_override: s.recruitment.recruitment_start_status_override.clone(),
-        iec_flag: iec_flag,
+        iec_flag: _iec_flag ,
         ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 
         date_last_revised: date_last_revised,
@@ -769,69 +772,111 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     let source = drug_names.clone();
                     drug_names = drug_names.replace("\u{00AE}", ""); //  lose (r) Registration mark
                     drug_names = drug_names.replace("\u{2122}", ""); //  lose (tm) Trademark mark
+                    drug_names = drug_names.replace("[", "(").replace("]", ")"); //  regularise brackets
+                    drug_names = drug_names.replace(" and ", ", "); // in most cases indicates end of list
 
-                    if drug_names.contains("1.") && drug_names.contains("\n2.")
-                    {
-                        if let Some(dns) = get_cr_numbered_strings(&drug_names) {
-                            for dn in dns {
-                                db_tops.push(DBTopic {
-                                source: source.clone(),
-                                topic_type: topic_type.clone(),
-                                value: dn.to_string(),
-                                });
-                            }
+                    if drug_names.len() < 250 {
 
-                            // may need to delete prefixing "1." here, but in all cases?
-                        }
-                    }
-                    else if drug_names.contains("1.") && drug_names.contains("2.")
-                    {
-                        if let Some(dns) = get_numbered_strings(&drug_names) {
-                            for dn in dns {
-                                db_tops.push(DBTopic {
-                                source: source.clone(),
-                                topic_type: topic_type.clone(),
-                                value: dn.to_string(),
-                                });
+                        // very long entries in this field often ;mini-essays' and cannot be split
+                    
+                        if drug_names.contains("1.") && drug_names.contains("\n2.")
+                        {
+                            if let Some(dns) = get_cr_numbered_strings(&drug_names) {
+                                for dn in dns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    value: dn.to_string(),
+                                    });
+                                }
                             }
                         }
+                        else if drug_names.contains("1. ") && drug_names.contains("2. ")
+                        {
+                            if let Some(dns) = get_numbered_strings(&drug_names) {
+                                for dn in dns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    value: dn.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                        else if drug_names.contains(',') {
+                            
+                            // if there are commas split on the commas (does not work for devices).
+
+                            if int_type== "Drug" || int_type == "Supplement" {
+                                
+                                let sns = get_comma_delim_strings(&drug_names, 4); 
+                                for sn in sns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    value: sn.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                        else
+                        {
+                            db_tops.push(DBTopic {
+                                source: source,
+                                topic_type: topic_type,
+                                value: drug_names,
+                            });
+                        }
                     }
-                    else if drug_names.contains("1.") && !drug_names.contains("2.") {
+                    else {         // long entries
                         db_tops.push(DBTopic {
-                            source: source,
-                            topic_type: topic_type,
-                            value: drug_names[2..].trim().to_string(),
-                        });
-                    }
-                    else if drug_names.contains(',') {
-                        
-                        // if there are commas split on the commas (does not work for devices).
-
-                        if int_type== "Drug" || int_type == "Supplement" {
-                            let sns = split_strings_with_min_word_length(&drug_names, ',', 4);
-                            for sn in sns {
-                                db_tops.push(DBTopic {
-                                source: source.clone(),
-                                topic_type: topic_type.clone(),
-                                value: sn,
-                                });
-                            }
-                        }
-                    }
-                    else
-                    {
-                        db_tops.push(DBTopic {
-                            source: source,
-                            topic_type: topic_type,
-                            value: drug_names,
-                        });
+                                source: source,
+                                topic_type: topic_type,
+                                value: drug_names,
+                            });
                     }
                 }
             }
         }
     }
 
-    
+    // IE Criteria
+
+    let mut db_iec: Vec<DBIECriterion>= Vec::new();
+
+    let incs = &s.participants.inclusion.clean_multiline();
+    let excs = &s.participants.exclusion.clean_multiline();
+
+    let (inc_result_code, inc_criteria) = process_iec(incs, "i");
+    let (exc_result_code, exc_criteria) = process_iec(excs, "e");
+
+    // process result codes to get overall iec status
+
+    _iec_flag = inc_result_code + exc_result_code;  // to revisit!
+
+    // write out criteria
+
+    if inc_criteria.len() > 0 {
+        for crit in inc_criteria {
+            db_iec.push (DBIECriterion {
+                    ie_type_id: crit.crit_type_id,
+                    ie_num: crit.seq_num,
+                    criterion: crit.text.to_string(),
+            });
+        }
+    }
+
+    if exc_criteria.len() > 0 {
+        for crit in exc_criteria {
+            db_iec.push (DBIECriterion {
+                    ie_type_id: crit.crit_type_id,
+                    ie_num: crit.seq_num,
+                    criterion: crit.text.to_string(),
+            });
+        }
+    }
+
+   
     DBStudy {
 
         sd_sid: sd_sid,
@@ -847,6 +892,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         conditions: option_from_count(db_conds),
         features: option_from_count(db_feats),
         topics: option_from_count(db_tops),
+        ie_crit: option_from_count(db_iec),
     }
 
 }

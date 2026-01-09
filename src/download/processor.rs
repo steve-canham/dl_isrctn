@@ -1,7 +1,7 @@
 use crate::data_models::xml_models;
 use crate::data_models::json_models::*; 
 use crate::helpers::string_extensions::*;
-use crate::helpers::download_helpers::{count_option, split_identifier, classify_identifier};
+use super::support_fns::{count_option, split_identifier, classify_identifier};
 
 use crate::err::AppError;
 use chrono::Utc;

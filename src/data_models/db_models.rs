@@ -21,6 +21,8 @@ pub struct DBStudy {
     pub conditions: Option<Vec<DBCondition>>, 
     pub features: Option<Vec<DBFeature>>, 
     pub topics: Option<Vec<DBTopic>>, 
+    pub ie_crit: Option<Vec<DBIECriterion>>, 
+
     
     /*
 
@@ -136,7 +138,7 @@ pub struct DBPerson {
 pub struct DBIECriterion {
     pub ie_type_id:  i32,
     pub ie_num: i32,
-    pub criterion: i32,
+    pub criterion: String,
 }
 
 pub struct DBLocation {
@@ -169,11 +171,13 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
+/*
 #[allow(dead_code)]
 pub struct DBRelationship {
     pub relationship_type_id: i32,
     pub target_sd_sid: String,
 }
+*/
 
 #[allow(dead_code)]
 pub struct DBReference {
