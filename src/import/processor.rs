@@ -5,6 +5,7 @@ use crate::data_models::db_models::*;
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
 use crate::helpers::iec_fns::*;
+use crate::helpers::iec_helper::IECLine;
 
 use super::support_fns::*;
 
@@ -842,7 +843,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // IE Criteria
 
-    let mut db_iec: Vec<DBIECriterion>= Vec::new();
+    let mut db_iec: Vec<IECLine>= Vec::new();
 
     let mut inc_result = 0;
     let mut exc_result = 0;
@@ -850,16 +851,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let incs = &s.participants.inclusion.clean_multiline();
     if incs.is_not_a_place_holder() {
         if let Some(inc_para) = incs {
-            let (inc_result_code, inc_criteria) = original_process_iec(&sd_sid, &inc_para, "inclusion");
+            let (inc_result_code, mut inc_criteria) = original_process_iec(&sd_sid, &inc_para, "inclusion");
             inc_result = inc_result_code;
+
             if inc_criteria.len() > 0 {
-                for crit in inc_criteria {
-                    db_iec.push (DBIECriterion {
-                        ie_type_id: crit.crit_type_id,
-                        ie_num: crit.seq_num,
-                        criterion: crit.text.to_string(),
-                    });
-                }
+                db_iec.append(&mut inc_criteria);
             }
         }
     }
@@ -867,25 +863,18 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let excs = &s.participants.exclusion.clean_multiline();
     if excs.is_not_a_place_holder() {
         if let Some(exc_para) = excs {
-            let (exc_result_code, exc_criteria) = original_process_iec(&sd_sid , &exc_para, "inclusion");
+            let (exc_result_code, mut exc_criteria) = original_process_iec(&sd_sid , &exc_para, "exclusion");
             exc_result = exc_result_code;
+
             if exc_criteria.len() > 0 {
-                for crit in exc_criteria {
-                    db_iec.push (DBIECriterion {
-                        ie_type_id: crit.crit_type_id,
-                        ie_num: crit.seq_num,
-                        criterion: crit.text.to_string(),
-                    });
-                }
+                db_iec.append(&mut exc_criteria);
             }
         }
     }
-          
+
     // process result codes to get overall iec status
 
     _iec_flag = inc_result + exc_result;  // to revisit!
-
-   
    
     DBStudy {
 

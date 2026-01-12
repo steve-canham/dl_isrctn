@@ -1,3 +1,4 @@
+use crate::helpers::iec_helper::IECLine;
 use chrono::{NaiveDate, NaiveDateTime};
 
 
@@ -21,7 +22,7 @@ pub struct DBStudy {
     pub conditions: Option<Vec<DBCondition>>, 
     pub features: Option<Vec<DBFeature>>, 
     pub topics: Option<Vec<DBTopic>>, 
-    pub ie_crit: Option<Vec<DBIECriterion>>, 
+    pub ie_crit: Option<Vec<IECLine>>, 
 
     
     /*
@@ -134,13 +135,19 @@ pub struct DBPerson {
     pub email_domain: Option<String>,
 }
 
-#[allow(dead_code)]
+/* 
 pub struct DBIECriterion {
+    pub seq_num:  i32,
     pub ie_type_id:  i32,
-    pub ie_num: i32,
+    pub split_type: String,
+    pub leader: String,
+    pub indent_level: i32,
+    pub indent_seq_num: i32,
+    pub sequence_string: String,
     pub criterion: String,
 }
-
+*/
+            
 pub struct DBLocation {
     pub facility: Option<String>,
     pub address: Option<String>,

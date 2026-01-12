@@ -1,4 +1,5 @@
 use crate::data_models::db_models::*;
+use crate::helpers::iec_helper::IECLine;
 use crate::AppError;
 use sqlx::{Pool, Postgres, postgres::PgQueryResult};
 use chrono::{NaiveDate, NaiveDateTime};
@@ -740,8 +741,13 @@ impl TopicVecs{
 
 pub struct IECVecs {
     pub sd_sids: Vec<String>,
-    pub ie_type_ids: Vec<i32>,  
-    pub ie_nums: Vec<i32>,
+    pub seq_nums:  Vec<i32>,
+    pub ie_type_ids:  Vec<i32>,
+    pub split_types: Vec<String>,
+    pub leaders: Vec<String>,
+    pub indent_levels: Vec<i32>,
+    pub indent_seq_nums: Vec<i32>,
+    pub sequence_strings: Vec<String>,
     pub criteria: Vec<String>,
 }
 
@@ -749,39 +755,61 @@ impl IECVecs{
     pub fn new(vsize: usize) -> Self {
         IECVecs { 
             sd_sids: Vec::with_capacity(vsize),
+            seq_nums: Vec::with_capacity(vsize),
             ie_type_ids: Vec::with_capacity(vsize),
-            ie_nums: Vec::with_capacity(vsize),
+            split_types: Vec::with_capacity(vsize),
+            leaders: Vec::with_capacity(vsize),
+            indent_levels: Vec::with_capacity(vsize),
+            indent_seq_nums: Vec::with_capacity(vsize),
+            sequence_strings: Vec::with_capacity(vsize),
             criteria: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBIECriterion>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<IECLine>) 
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.ie_type_ids.push(r.ie_type_id);
-            self.ie_nums.push(r.ie_num);
-            self.criteria.push(r.criterion.clone());
+            self.seq_nums.push(r.seq_num);
+            self.ie_type_ids.push(r.type_id);
+            self.split_types.push(r.split_type.clone());
+            self.leaders.push(r.leader.clone());
+            self.indent_levels.push(r.indent_level);
+            self.indent_seq_nums.push(r.indent_seq_num);
+            self.sequence_strings.push(r.sequence_string.clone());
+            self.criteria.push(r.text.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
-        self.sd_sids.shrink_to_fit();
-        self.ie_type_ids.shrink_to_fit();
-        self.ie_nums.shrink_to_fit();
-        self.criteria.shrink_to_fit();
+       
+            self.sd_sids.shrink_to_fit();
+            self.seq_nums.shrink_to_fit();
+            self.ie_type_ids.shrink_to_fit();
+            self.split_types.shrink_to_fit();
+            self.leaders.shrink_to_fit();
+            self.indent_levels.shrink_to_fit();
+            self.indent_seq_nums.shrink_to_fit();
+            self.sequence_strings.shrink_to_fit();
+            self.criteria.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_iec (sd_sid, ie_type_id, ie_num, criterion) 
-            SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[])"#;
+        let sql = r#"INSERT INTO sd.study_iec (sd_sid, seq_num, ie_type_id, split_type, leader, indent_level, indent_seq_num, sequence_string, criterion) 
+            SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::text[], $6::int[], $7::int[], $8::text[], $9::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
+        .bind(&self.seq_nums)
         .bind(&self.ie_type_ids)
-        .bind(&self.ie_nums)
+        .bind(&self.split_types)
+        .bind(&self.leaders)
+        .bind(&self.indent_levels)
+        .bind(&self.indent_seq_nums)
+        .bind(&self.sequence_strings)
         .bind(&self.criteria)
+
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }

@@ -1,159 +1,17 @@
 
 use super::iec_helper::*;
+use regex::Regex;
+//use log::info;
 
-
-pub struct Criterion {
-    pub crit_type_id: i32,
-    pub seq_num: i32,
-    pub text: String,
-}
-
-/* 
-// temp stuff
-pub fn process_iec(input: &Option<String>, input_type: &str) -> (i32, Vec<Criterion>) {
- 
-    let mut crits: Vec<Criterion> = Vec::new();
-
-    let mut crit_base_type = 0;
-    if input_type == "e" {
-        crit_base_type += 10;
-    }
-
-    match input {
-             
-       Some(s) => {
-
-        let s_low = s.to_lowercase();
-
-        if !s_low.contains("not provided")
-           && !(s_low.contains("inclusion") 
-                && (s_low.contains("not meet")  || s_low.contains("not match")  || s_low.contains("not compl")
-                    || s_low.contains("not met")  || s_low.contains("not fulfill")  || s_low.contains("failure")))
-           {
-                if !s.contains("\n") {
-                   
-                    // Single line - Most are single statements expressing a single criterion
-
-                    if s.starts_with ("1.") {      // First of a list that was never extended
-                        crits.push (Criterion {
-                            crit_type_id: 1 + crit_base_type,
-                            seq_num: 1,
-                            text: s[2..].trim().to_string(),
-                        });
-                    }
-                    else {
-                        crits.push (Criterion {
-                            crit_type_id: 1 + crit_base_type,
-                            seq_num: 1,
-                            text: s.to_string(),
-                        });
-                     }
-                }
-                else {
-                    // multiple lines, likely to be numbered criteria - but probably not always!
-
-                    if s.contains("1.") && s.contains("\n2.")      // by far the commonest pattern for ISRCTN
-                    || s.contains("1.") && s.contains("\n3.")      // there are a few!
-                    {
-                        if let Some(cs) = cr_numbered_strings(s) {
-                            let mut i = 0;
-                            for c in cs {
-                                i += 1;
-                                crits.push (Criterion {
-                                    crit_type_id: 3 + crit_base_type,
-                                    seq_num: i,
-                                    text: c.to_string(),
-                                });
-                            }
-                        }
-                    }
-                    else if s.contains("1.") && s.contains("\n1.1")      // found in a small number
-                    {
-                        if let Some(cs) = cr_1_1_numbered_strings(s) {
-                            let mut i = 0;
-                            for c in cs {
-                                i += 1;
-                                crits.push (Criterion {
-                                    crit_type_id: 3 + crit_base_type,
-                                    seq_num: i,
-                                    text: c.to_string(),
-                                });
-                            }
-                        }
-                    }
-                    else {
-
-                        // has CRs but not numbered.
-                        // Occasionally are criteria separated by CRs but
-                        // more often not structured 
-
-                        crits.push (Criterion {    
-                            crit_type_id: 101 + crit_base_type,
-                            seq_num: -1,
-                            text: s.to_string(),
-                        });
-                    }
-                }
-            }
-                                   
-            (5, crits)
-       },
-
-       None => (0, crits),
-    }
-}
-
-
-pub fn  cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
-
-    static RE_CRNUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
-    let res: Vec<&str> = RE_CRNUM_SPLITTER.split(input).collect();
-
-    let mut result: Vec<&str> = Vec::new();
-    if res.len() > 0 {
-        for mut r in res {
-            if r.starts_with("1.") { r = &r[2..];}
-            result.push(r.trim());
-        }
-    }
-
-    match result.len() {
-        0 => None,
-        _ => Some(result)
-    }
-}
-
-
-pub fn  cr_1_1_numbered_strings(input: &String) -> Option<Vec<&str>> {
-
-    static RE_CRNUM1_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.\d{1,2}\.").unwrap());
-    let res: Vec<&str> = RE_CRNUM1_SPLITTER.split(input).collect();
-
-    let mut result: Vec<&str> = Vec::new();
-    if res.len() > 0 {
-        for mut r in res {
-            if r.starts_with("1.") { r = &r[2..];}
-            result.push(r.trim());
-        }
-    }
-
-    match result.len() {
-        0 => None,
-        _ => Some(result)
-    }
-}
-*/
-
-
-pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<Criterion>) {   // Should be a vector of IECLine
+pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<IECLine>) {   // Should be a vector of IECLine
 
     // Oriinally in C# as GetNumberedCriteria
     // Parent process for the other functions
 
-    let crits: Vec<Criterion> = Vec::new();
+    let crits: Vec<IECLine> = Vec::new();
     let mut _final_cr_lines: Vec<IECLine> = Vec::new();
     let mut initial_cr_lines: Vec<IECLine> = Vec::new();
-    let mut _processed_cr_lines: Vec<IECLine> = Vec::new();
+    let mut processed_cr_lines: Vec<IECLine> = Vec::new();
 
 
     let mut null_result = false;
@@ -184,9 +42,9 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
     let raw_lines: Vec<&str> = in_st.split("\n")
                 .map(|p| p.trim())
                 .filter(| t| *t != "")
-                .filter(| t| (*t).contains("____") )
+                .filter(| t| !(*t).contains("____") )
                 .collect();
-    
+
     // Join any odd lines with 1, 2, or 3 characters to the preceding or following line (depending on content)
 
     let repaired_lines = coalesce_very_short_lines(&raw_lines);
@@ -204,14 +62,14 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         match trim_internal_iec_headers(&repaired_lines[0])
         {
             Some(sline) => {
-                _final_cr_lines.push(IECLine{
+                processed_cr_lines.push(IECLine{    // temp, should be final CR lines
                 seq_num: 1,
                 type_id: tv.no_sep,
                 split_type: "none".to_string(),
-                leader: Some("All".to_string()),
-                indent_level: Some(0),
-                indent_seq_num: Some(1),
-                sequence_string: Some(format!("{}0A", tv.sequence_start)),
+                leader: "All".to_string(),
+                indent_level: 0,
+                indent_seq_num: 1,
+                sequence_string: format!("{}0A", tv.sequence_start),
                 text: sline,
                 });
             },
@@ -227,62 +85,114 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
         for (i, s) in repaired_lines.iter().enumerate() {
             initial_cr_lines.push (
-                IECLine::new(i+1, tv.type_id, &"cr".to_string(), s));
+                IECLine::new((i + 1) as i32, tv.type_id, &"cr".to_string(), s));
         }
 
         // Initially try to find leader characters for each split line
         // then try to correct common errors in the list
 
-        _processed_cr_lines = identify_line_leaders(&mut initial_cr_lines, &tv);
-        _final_cr_lines = try_to_repair_split_lines(&_processed_cr_lines, &tv);
+        processed_cr_lines = identify_line_leaders(&mut initial_cr_lines, &tv);
+        _final_cr_lines = try_to_repair_split_lines(&processed_cr_lines, &tv);
     }
 
     // We now have one or many 'final_cr_line's. Each now needs to be processed to see
     // it it corresponds to a single criterion or is itself a list of criteria.
     // If the former, the single line can be added to the 'expanded_lines', if the 
-    // latter, the set of identified criuteria is added.
+    // latter, the set of identified criteria is added.
 
-    
-
+    // for now, just return the lines semi-processed...
+ 
     if null_result {
         (0, crits)
     }
     else {
-        (0, crits)
+        (2, processed_cr_lines)
     }
  }
 
 
 
- fn identify_line_leaders(initial_lines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
+ fn identify_line_leaders(initial_lines:&Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine> {
 
-    let processed_lines: Vec<IECLine> = Vec::new();
+    let mut processed_lines: Vec<IECLine> = Vec::new();
+
+    // Takes a mutable reference to the intiial set of IECLines (initial_lines))
+    // and completes the values of each IECLine, in situ, before returning a reference 
+    // to those same IECLines.
 
     let mut i = 0;
     let max_i = initial_lines.len() - 1;  
-
     let mut level = 0;
-    let mut _num_no_leader = 0;
-    let mut old_ldr_name = "none";
 
-    let mut levels: Vec<Level> = Vec::new();    // Initialise the level vector
+    let mut _num_no_leader = 0;
+    let mut previous_ldr_name = "none".to_string();
+    let mut previous_regex_string = "none".to_string();
+   
+    let mut levels: Vec<Level> = vec![Level::new(&"none".to_string(), 0)];    // Initialise the level vector
 
     for ie_ln in initial_lines {
 
-        let this_line = ie_ln.text.clone();
         i += 1;
-        let mut ldr_name = "none"; // initial defaults - signify no leader found
-        let mut leader = "";
+
+        let this_line = ie_ln.text.clone();
+        let mut ldr_name = "none".to_string(); // initial defaults - signify no leader found
+        let mut leader = "".to_string();
 
         // What leader character(s), if any, are starting this line?
+        // Can we match on the successful regex string (if any) from the previous line?
+        
+        if previous_regex_string != "none".to_string() {
 
-        for r in REGEX_MAP.iter() {
-
-            let re = r.1;
-            
+            let re = Regex::new(&previous_regex_string).unwrap();
             if let Some(c) = re.captures(&this_line) {
-                leader = c.get_match().as_str();
-                ldr_name = *r.0; 
+                leader = c.get_match().as_str().to_string();
+                ldr_name = previous_ldr_name.clone();     // previous_regex_string can stay the same
+            }
+        }
+
+        if ldr_name == "none".to_string() {
+            let first_char = this_line.chars().next().unwrap();
+            if first_char.is_digit(10) {
+                
+                match test_against_numeric_res(&this_line) {
+                    Some((s1, s2, s3)) => {
+                        leader = s1;
+                        ldr_name = s2;
+                        previous_regex_string = s3;
+                    },
+                    None => {},
+                }
+            }
+            else if first_char.is_alphabetic() {
+
+                match test_against_alpha_res(&this_line) {
+                    Some((s1, s2, s3)) => {
+                        leader = s1;
+                        ldr_name = s2;
+                        previous_regex_string = s3;
+                    },
+                    None => {
+                        ldr_name = "none".to_string();
+                    },
+                }
+            }
+            else {
+                match test_against_other_res(&this_line) {
+
+                    Some((s1, s2, s3)) => {
+                        leader = s1;
+                        ldr_name = s2;
+                        previous_regex_string = s3;
+                    },
+                    None => {
+                        ldr_name = "none".to_string();
+                    },
+                }
+            }
+        }
+
+
+        /*  
 
                 // some regex patterns have to have additional checks. In other cases 
                 // simply break out of the loop with the matched pattern value.
@@ -306,15 +216,9 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                     leader = &leader[0..leader.len() - 1];
 
                 }
-
-
-
-
-
             }
-
-            
         }
+        */
 
         // If a leader has been found ...see if the leader has changed from the
         // most previously used - implying the indentation level has changed.
@@ -325,8 +229,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         let seq_num: i32;
         if ldr_name != "none"
         {
-
-            if ldr_name != old_ldr_name
+            if ldr_name != previous_ldr_name
             {
                 // If the leader style has changed use the get_level function to obtain the 
                 // appropriate indent level for the new header type. This function will add 
@@ -341,23 +244,31 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 // lower level leaders is kept 'local' to an individual top level element, and 
                 // built up as necessary for each top level element.
 
-                if level == 1 && levels.len() != 1    // Remove all but the first (level 1) entry from the levels vector
+                if level == 1 && levels.len() > 2    // Remove all but the first (level 1) entry from the levels vector
                 {
-                    //levels = levels[0..1].to_owned();
+                   for _lev in levels.drain(2..) {}
                 }
             }
             
             // Change the properties of the iec_line object
 
-            if ie_ln.leader != Some("Spp".to_string())  // may have already been set above, e.g. with '*'
+            if ie_ln.leader != "Spp".to_string()  // fields may have already been set above, e.g. with '*'
             {
                 levels[level].current_seq_num += 1;
                 seq_num = levels[level].current_seq_num;
 
-                ie_ln.leader = Some(leader.to_string());
-                ie_ln.indent_level = Some(level);
-                ie_ln.indent_seq_num = Some(seq_num); // increment before applying
-                ie_ln.text = this_line[leader.len()..].trim().to_string();
+                let new_text = this_line[leader.len()..].trim().to_string();
+
+                processed_lines.push(IECLine {
+                    seq_num: ie_ln.seq_num,
+                    type_id: ie_ln.type_id,
+                    split_type: ie_ln.split_type.clone(),
+                    leader: leader,
+                    indent_level: level as i32,
+                    indent_seq_num: seq_num,
+                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
+                    text: new_text,
+                });
             }
         }
 
@@ -373,10 +284,16 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 levels[level].current_seq_num += 1;
                 seq_num = levels[level].current_seq_num;
 
-                ie_ln.leader = Some("Spp".to_string());
-                ie_ln.indent_level = Some(level);
-                ie_ln.indent_seq_num = Some(seq_num); // increment before applying
-                ie_ln.type_id = tv.post_crit;
+                processed_lines.push(IECLine {
+                    seq_num: ie_ln.seq_num,
+                    type_id: tv.post_crit,
+                    split_type: ie_ln.split_type.clone(),
+                    leader: "Spp".to_string(),
+                    indent_level: level as i32,
+                    indent_seq_num: seq_num,
+                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
+                    text: this_line,
+                });
             }
             else
             {
@@ -386,29 +303,235 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 levels[level].current_seq_num += 1;
                 seq_num = levels[level].current_seq_num;
 
-                ie_ln.leader = Some("Hdr".to_string());
-                ie_ln.indent_level = Some(level);
-                ie_ln.indent_seq_num = Some(seq_num); // increment before applying
-                ie_ln.type_id = tv.grp_hdr;
+                processed_lines.push(IECLine {
+                    seq_num: ie_ln.seq_num,
+                    type_id: tv.grp_hdr,
+                    split_type: ie_ln.split_type.clone(),
+                    leader: "Hdr".to_string(),
+                    indent_level: level as i32,
+                    indent_seq_num: seq_num,
+                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
+                    text: this_line,
+                });
+
             }
         }
 
-        old_ldr_name = ldr_name;
+        previous_ldr_name = ldr_name;
+
     }
+    
+    // check all lines have a length of at least 1, i.e. are not empty, before proceeding further
+    // Empty lines may occur - very rarely - if a line is 'all leader'
+    // (though most of these should have been eliminated at the beginning)
+    // or if, for example, the original split in CTG left a leader before the 'Exclusion Criteria' statement
+
+    let processed_lines2 = processed_lines.filter(|t.| *t != "");
+
+    processed_lines.drain()
+    crLines.RemoveAll(ln => ln.text.Length == 0);
+    
+    // check the 'all without a leader' possibility - allowing a single exception
+
+        if ((crLines.Count > 4 && num_no_leader >= crLines.Count - 1) ||
+            (crLines.Count > 2 && num_no_leader == crLines.Count))
+        {
+            // none of the lines had a leader character. If they (or most of them) had proper 
+            // termination, or consistent line starting, then it is possible that they are
+            // simply differentiated by the CRs alone...
+
+            bool assume_crs_only = IECH.CheckIfAllLinesEndConsistently(crLines, 1)
+                                   || IECH.CheckIfAllLinesStartWithCaps(crLines, 1)
+                                   || IECH.CheckIfAllLinesStartWithLowerCase(crLines, 0);
+
+            // otherwise check for a consistent bullet type character
+
+            string use_as_header = "";
+            if (!assume_crs_only)
+            {
+                // a chance that an unknown bullet character has been used to start each line
+                // start with the second line (as the first may be different) and see if they are all the same
+                // Don't test letters as some people use formulaic criteria all starting with the same word
+
+                char test_char = crLines[1].text[0];
+                if (!char.IsLetter(test_char))
+                {
+                    int valid_start_chars = 0;
+                    for (int k = 1; k < crLines.Count; k++)
+                    {
+                        // May be no termination applied but each line starts with a capital letter
+
+                        char start_char = crLines[k].text[0];
+                        if (start_char == test_char)
+                        {
+                            valid_start_chars++;
+                        }
+                    }
+
+                    if (valid_start_chars == crLines.Count - 1)
+                    {
+                        assume_crs_only = true;
+                        use_as_header = test_char.ToString();
+                    }
+                }
+            }
+
+            if (assume_crs_only)
+            {
+                int line_num = 0;
+                string leaderString = use_as_header == "" ? "@" : use_as_header;
+                for (int n = 0; n < crLines.Count; n++)
+                {
+                    if (use_as_header != "") // single character only
+                    {
+                        if (n == 0)
+                        {
+                            if (crLines[0].text[0].ToString() == use_as_header)
+                            {
+                                crLines[0].text = crLines[0].text[1..];
+                            }
+                        }
+                        else
+                        {
+                            if (crLines[n].text.Length >= 2)
+                            {
+                                crLines[n].text = crLines[n].text[1..];
+                            }
+                        }
+                    }
+
+                    crLines[n].split_type = "cr assumed";
+
+                    // Identify what appear to be headers but only make initial hdr
+                    // have indent 0, if it fits the normal pattern
+
+                    if (crLines[n].text.EndsWith(':') || crLines[n].text == crLines[n].text.ToUpper())
+                    {
+                        crLines[n].leader = leaderString + "Hdr";
+                        crLines[n].type = tv.grp_hdr;
+
+                        if (n == 0)
+                        {
+                            crLines[n].indent_level = 0;
+                            crLines[n].indent_seq_num = 1;
+                        }
+                        else
+                        {
+                            line_num++;
+                            crLines[n].indent_level = 1;
+                            crLines[n].indent_seq_num = line_num;
+                        }
+                    }
+                    else
+                    {
+                        line_num++;
+                        crLines[n].leader = leaderString;
+                        crLines[n].indent_level = 1;
+                        crLines[n].indent_seq_num = line_num;
+                        crLines[n].type = tv.type;
+                    }
+                }
+            }
+        }
+
+
 
     processed_lines
+
 
 }
 
 
-    
+
+fn test_against_numeric_res(this_line: &String) ->  Option<(String, String, String)>{
+
+    let mut ldr_name = "none";
+    let mut leader = "";
+    let mut regex = "".to_string();
+
+    for r in NUMB_MAP.iter() {
+
+        let re = r.1;
+        if let Some(c) = re.captures(&this_line) {
+
+            leader = c.get_match().as_str();
+            ldr_name = *r.0; 
+            regex = re.to_string();
+
+            // may need to do some checking / corrections before coming out of the loop
+
+
+
+            break;
+        }
+    }
+
+    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+
+}
+
+
+fn test_against_alpha_res(this_line: &String) ->  Option<(String, String, String)>{
+
+    let mut ldr_name = "none";
+    let mut leader = "";
+    let mut regex = "".to_string();
+
+    for r in ALPH_MAP.iter() {
+
+        let re = r.1;
+        if let Some(c) = re.captures(&this_line) {
+
+            leader = c.get_match().as_str();
+            ldr_name = *r.0; 
+            regex = re.to_string();
+
+            // may need to do some checking / corrections before coming out of the loop
+
+
+
+            break;
+        }
+    }
+
+    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+
+}
+
+
+fn test_against_other_res(this_line: &String) ->  Option<(String, String, String)>{
+
+    let mut ldr_name = "none";
+    let mut leader = "";
+    let mut regex = "".to_string();
+
+    for r in OTH_MAP.iter() {
+
+        let re = r.1;
+        if let Some(c) = re.captures(&this_line) {
+
+            leader = c.get_match().as_str();
+            ldr_name = *r.0; 
+            regex = re.to_string();
+
+            // may need to do some checking / corrections before coming out of the loop
+
+
+
+            break;
+        }
+    }
+
+    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+
+}
 
 
 
 
 
 
- fn try_to_repair_split_lines(__processed_lines:&Vec<IECLine>, _tv: &TypePars) ->  Vec<IECLine>{
+fn try_to_repair_split_lines(__processed_lines:&Vec<IECLine>, _tv: &TypePars) ->  Vec<IECLine>{
 
     let final_lines: Vec<IECLine> = Vec::new();
 
