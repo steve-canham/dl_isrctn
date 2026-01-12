@@ -518,6 +518,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     }
 
     // Some country name tidying to be done here
+    
     let mut s_countries: Vec<String> = Vec::new();
     for c_init in init_countries {
 

@@ -24,6 +24,8 @@ pub trait OptionStringExtensions {
 
     fn clean(&self) -> Option<String>;
     fn clean_multiline(&self) -> Option<String>;
+
+    fn is_not_a_place_holder(&self) -> bool;
 }
 
 // Extensions for Option<String>, some specific to 
@@ -306,6 +308,7 @@ impl OptionStringExtensions for Option<String> {
     }
 
 
+
     fn replace_escaped(&self) -> Option<String> {
         
         match self {
@@ -332,31 +335,64 @@ impl OptionStringExtensions for Option<String> {
                     }
                     else {
 
-                        // The escaped characters specific part
+                        // Start with replacing non breaking spaces
+
+                        let mut tr = t.replace('\u{00A0}', " ");
+                        tr = tr.replace('\u{2000}', " ").replace('\u{2001}', " ");
+                        tr = tr.replace('\u{2002}', " ").replace('\u{2003}', " ");
+                        tr = tr.replace('\u{2007}', " ").replace('\u{2008}', " ");
+                        tr = tr.replace('\u{2009}', " ").replace('\u{200A}', " ");
+
+                        tr = tr.replace('\u{00AE}', " ").replace('\u{2122}', " ");
+
+                        // Can sometimes be in as explicit unicode codes
+
+                        if t.contains(r"\u")
+                        {
+                            tr = tr.replace(r"\u00A0", " ");
+                            tr = tr.replace(r"\u2000", " ").replace(r"\u2001", " ");
+                            tr = tr.replace(r"\u2002", " ").replace(r"\u2003", " ");
+                            tr = tr.replace(r"\u2007", " ").replace(r"\u2008", " ");
+                            tr = tr.replace(r"\u2009", " ").replace(r"\u200A", " ");
+
+                            tr = tr.replace(r"\u00AE", " ").replace(r"\u2122", " ");
+                        }
+
+                        // Some codes can be included in their escaped form
 
                         if t.contains(';') {
 
-                            let mut tr = t.to_string().replace("&#44;", ",");
-                            tr = tr.replace("&#39;", "’");
-                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+                            // Do these two first as they can impact the replacements below.
 
-                            tr = tr.replace("&quot;", "'").replace("&amp;", "&");
-                            tr = tr.replace("&rsquo;", "’");
+                            tr= tr.replace("&#38;", "&").replace("&amp;", "&");
+
+                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+                            tr = tr.replace("&#44;", ",").replace("&#45;", "-");
+                            tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
+                            tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
                             tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
                             tr = tr.replace("&gt;", ">").replace("&lt;", "<");
 
-                            Some(tr.trim_matches(';').trim().to_string())
+                            tr = tr.trim_matches(&[';', ' ']).to_string()
+                            
                         }
-                        else {
-                            Some(t.to_string())
-                        }
+
+                        tr = tr.replace("â??", "");  // replace combination sometimes used to denote an 'unprintable character'
+                        tr = tr.replace(r"\\", "");  // replace 'double escape' sequence now found in some CTG text
+    
+                        Some(tr)
+   
                     }
                 }
             },
+
             None => None
+
         }
         
     }
+
+
 
     fn replace_apostrophes(&self) -> Option<String> {
     
@@ -386,22 +422,51 @@ impl OptionStringExtensions for Option<String> {
 
                         // This part replicates 'replace_escaped'
 
-                        let mut tr = t.to_string();
+                        // Start with replacing non breaking spaces
+
+                        let mut tr = t.replace('\u{00A0}', " ");
+                        tr = tr.replace('\u{2000}', " ").replace('\u{2001}', " ");
+                        tr = tr.replace('\u{2002}', " ").replace('\u{2003}', " ");
+                        tr = tr.replace('\u{2007}', " ").replace('\u{2008}', " ");
+                        tr = tr.replace('\u{2009}', " ").replace('\u{200A}', " ");
+
+                        tr = tr.replace('\u{00AE}', " ").replace('\u{2122}', " ");
+
+                        // Can sometimes be in as explicit unicode codes
+
+                        if t.contains(r"\u")
+                        {
+                            tr = tr.replace(r"\u00A0", " ");
+                            tr = tr.replace(r"\u2000", " ").replace(r"\u2001", " ");
+                            tr = tr.replace(r"\u2002", " ").replace(r"\u2003", " ");
+                            tr = tr.replace(r"\u2007", " ").replace(r"\u2008", " ");
+                            tr = tr.replace(r"\u2009", " ").replace(r"\u200A", " ");
+
+                            tr = tr.replace(r"\u00AE", " ").replace(r"\u2122", " ");
+                        }
+
+                        // Some codes can be included in their escaped form
 
                         if t.contains(';') {
 
-                            tr = tr.replace("&#44;", ",");
-                            tr = tr.replace("&#39;", "’");
-                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+                            // Do these two first as they can impact the replacements below.
 
-                            tr = tr.replace("&quot;", "'").replace("&amp;", "&");
-                            tr = tr.replace("&rsquo;", "’");
+                            tr = tr.replace("&#38;", "&").replace("&amp;", "&");
+
+                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+                            tr = tr.replace("&#44;", ",").replace("&#45;", "-");
+                            tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
+                            tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
                             tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
                             tr = tr.replace("&gt;", ">").replace("&lt;", "<");
 
-                            tr = tr.trim_matches(';').trim().to_string();
+                            tr = tr.trim_matches(&[';', ' ']).to_string()
+                            
                         }
-                        
+
+                        tr = tr.replace("â??", "");  // replace combination sometimes used to denote an 'unprintable character'
+                        tr = tr.replace(r"\\", "");  // replace 'double escape' sequence now found in some CTG text
+    
                         // Now (!) do the replace apostrophes part
 
                         if tr.contains('\'') {
@@ -429,6 +494,8 @@ impl OptionStringExtensions for Option<String> {
             None => None,
         }
     }
+
+
 
     fn replace_tags(&self) -> Option<String> {
     
@@ -586,6 +653,8 @@ impl OptionStringExtensions for Option<String> {
        }
     }
 
+
+
     fn replace_gaps(&self) -> Option<String> {
     
         // Assummed normally called after a clean process, as the final stage for trimming multiline
@@ -655,8 +724,65 @@ impl OptionStringExtensions for Option<String> {
         self.clean().replace_gaps()
     }
 
-}
 
+    fn is_not_a_place_holder(&self) -> bool {
+
+        match self {
+            
+            Some(s) => {
+
+                let mut result = true;
+
+                let lower_s = s.trim().to_lowercase();
+                let low_s = lower_s.as_str();
+
+                if s.len() < 3 {
+                    result = false;
+                }
+
+                else if low_s.starts_with("n") {
+
+                    if low_s == "n.a." || low_s == "na" || low_s == "n/a"  
+                    || low_s == "no" || low_s == "nil"  || low_s == "nill" || low_s == "non" {
+                        result = false;
+                    }
+                    else if low_s.starts_with("not ") || low_s.starts_with("non ")
+                    || low_s.starts_with("no ") 
+                    {
+                        result = false;
+                    }
+                    else if low_s == "none" || low_s == "nd" 
+                    || low_s == "nothing" || low_s == "n.a" || low_s == "n/a."
+                    {
+                        result = false;
+                    }
+                    else if low_s.starts_with("not-") || low_s.starts_with("not_")
+                    || low_s.starts_with("notapplic") ||  low_s.starts_with("notavail") 
+                    || low_s.starts_with("nonfun") || low_s.starts_with("noneno")
+                    {
+                        result = false;
+                    }
+                }
+
+                else if low_s == "same as above" || low_s == "in preparation"
+                || low_s == "other" || low_s == "pending" || low_s.contains(" none.")
+                {
+                    result = false;
+                }
+                else if low_s.starts_with("organisation name ") || low_s.starts_with("to be ")
+                || low_s.starts_with("tobealloc") || low_s.starts_with("see ")
+                {
+                    result = false;
+                }
+
+                result
+            },
+            None => false,
+        }
+
+    }
+
+}
 
 #[cfg(test)]
 mod tests {

@@ -138,7 +138,10 @@ pub fn get_age_units (au: &Option<String>) -> Option<i32> {
 pub fn  get_cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
 
     static RE_CRNUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
-    let res: Vec<&str> = RE_CRNUM_SPLITTER.split(input).collect();
+    
+    let res: Vec<&str> = RE_CRNUM_SPLITTER.split(input)
+                  .map(|p| p.trim())
+                  .collect();
 
     let mut result: Vec<&str> = Vec::new();
     if res.len() > 0 {
@@ -158,16 +161,11 @@ pub fn  get_cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
 pub fn  get_numbered_strings(input: &String) -> Option<Vec<&str>> {
 
     static RE_NUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d{1,2}\. ").unwrap());
-    let res: Vec<&str> = RE_NUM_SPLITTER.split(input)
+    
+    let result: Vec<&str> = RE_NUM_SPLITTER.split(input)
                         .map(|p| p.trim())
+                        .filter(| t| *t != "")
                         .collect();
-    let mut result: Vec<&str> = Vec::new();
-    if res.len() > 0 {
-        for r in res {
-            let r2 = r.trim();
-            if r2 != "" { result.push(r2); }
-        }
-    }
 
     match result.len() {
         0 => None,

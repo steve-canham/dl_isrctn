@@ -200,10 +200,26 @@ impl OptionNameExtensions for Option<String> {
 
                 s = s.trim_matches(&[',', '-', '*', ';', ' ']).to_string();
 
-                // Deal with some names that can be ambiguous (without country data)
-                
+                // Though cleaned there may be CRs in a few affiliation strings
+                // plus a few other oddities that need to be cleaned
+
+                s = s.replace("\n", ", ");
+                s = s.replace(" ,", ", ");
+                s = s.replace("  ", " ");
+
                 let lower_s = s.trim().to_lowercase();
                 let low_s = lower_s.as_str();
+
+                // remove initial 'The ' unless just two words in name
+
+                if low_s.starts_with("the ") {
+                    let words: Vec<&str> = s.split(' ').collect();
+                    if s.len() > 4 && words.len() > 2 {
+                        s = s[4..].to_string();
+                    }
+                }
+
+                // Deal with some names that can be ambiguous (without country data)
 
                 if low_s.contains("newcastle") {
                     if low_s.contains("university") && !low_s.contains("hospital") {
@@ -279,22 +295,43 @@ impl OptionNameExtensions for Option<String> {
                 {
                     s = s[10..].to_string();
                 }
-                else if low_s.starts_with("associate professor ")
-                {
-                    s = s[20..].to_string();
-                }
                 else if low_s.starts_with("prof ")
                 {
                     s = s[5..].to_string();
-                }
-                else if low_s.starts_with("dr med ")
-                {
-                    s = s[7..].to_string()
                 }
                 else if low_s.starts_with("dr ") || low_s.starts_with("mr ")
                           || low_s.starts_with("ms ")
                 {
                     s = s[3..].to_string();
+                }   
+                else if low_s.starts_with("ass") {
+                    if low_s.starts_with("associate professor ")
+                    || low_s.starts_with("assistant professor ")
+                    {
+                        s = s[20..].to_string();
+                    }
+                    else if low_s.starts_with("associate prof ")
+                    || low_s.starts_with("assistant prof ")
+                    {
+                        s = s[15..].to_string();
+                    }
+                    else if low_s.starts_with("assoc prof ")
+                    {
+                        s = s[11..].to_string();
+                    }
+                    else if low_s.starts_with("assocprof ")
+                    {
+                        s = s[10..].to_string();
+                    }
+                }
+                else if low_s.starts_with("a/ prof ")
+                {
+                    s = s[8..].to_string();
+                }
+                else if low_s.starts_with("dr med ")
+                    || low_s.starts_with("a/prof ") || low_s.starts_with("a prof ")
+                {
+                    s = s[7..].to_string()
                 }
                 else if low_s.starts_with("dr") && low_s.len() > 2
                     && s[2..3].to_string() == low_s[2..3].to_string().to_uppercase()
@@ -328,23 +365,24 @@ impl OptionNameExtensions for Option<String> {
                     {
                         sts.truncate(sts.len() - 4);
                     }
-
                     else if low_st.ends_with(" md") || low_st.ends_with(" ms")
                     {
                         sts.truncate(sts.len() - 3);
                     }
-
                     else if low_st.ends_with(" ms(ophthal)")
                     {
                         sts.truncate(sts.len() - 12);
                     }
+                    else if low_st.ends_with(" phd candidate")
+                    {
+                        sts.truncate(sts.len() - 13);
+                    }
 
-                    Some(sts)
+                    Some(sts.trim_matches(&[' ', '-', ',']).to_string())
 
                 }
             },
             None => None,
-
         }
     }
 
