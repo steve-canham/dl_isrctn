@@ -1,10 +1,11 @@
+/*
 use std::sync::LazyLock;
 use regex::Regex;
 use std::collections::HashMap;
 //use log::info;
 
 
-pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
+pub static NUMBDOT_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     
     let mut map = HashMap::new();
 
@@ -14,13 +15,22 @@ pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     map.insert("numdotnumspc", Regex::new(r"^\d{1,2}\.\d{1,2}\s").unwrap());             // numeric sub-heading space (without final period) N.n
     map.insert("numdotnumalcap", Regex::new(r"^\d{1,2}\.\d{1,2}[A-Z]").unwrap());        // number-dot-number cap letter  - Cap is usually from text (no space)
     map.insert("numdotspc", Regex::new(r"^\d{1,2}\.\s").unwrap());                       // number period and space / tab 1. , 2.    
+    map.insert("numdotrtpar", Regex::new(r"^\d{1,2}\.\)").unwrap());                     // number followed by dot and right bracket  1.), 2.)
+    map.insert("numdot", Regex::new(r"^\d{1,2}\.").unwrap());                            // number period only - can give false positives
+  
+    map
+});
+
+
+pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
+    
+    let mut map = HashMap::new();
+
     map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na, Nb
-                   
     map.insert("numrtpardot", Regex::new(r"^\d{1,2}\)\.").unwrap());                     // number followed by right bracket and dot 1)., 2).
     map.insert("numrtpar", Regex::new(r"^\d{1,2}\)").unwrap());                          // number followed by right bracket 1), 2)
     map.insert("numcol", Regex::new(r"^\d{1,2}\:").unwrap());                            // number followed by colon 1:, 2:
-    map.insert("numdotrtpar", Regex::new(r"^\d{1,2}\.\)").unwrap());                     // number followed by dot and right bracket  1.), 2.)
-
+ 
     map.insert("numrtbr", Regex::new(r"^\d{1,2}\]").unwrap());                           // numbers with right square bracket   1], 2]
     map.insert("numdshnumpar", Regex::new(r"^\d{1,2}\-\d{1,2}\)").unwrap());             // numbers and following dash, then following number right bracket  1-1), 1-2)
     map.insert("numdshpar", Regex::new(r"^\d{1,2}\-\)").unwrap());                       // numbers and following dash, right bracket  1-), 2-)
@@ -28,14 +38,13 @@ pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     map.insert("numslash", Regex::new(r"^\d{1,2}\/").unwrap());                          // numbers and following slash  1/, 2/
     map.insert("numtab", Regex::new(r"^\d{1,2}\t").unwrap());                            // number followed by tab, 1\t, 2\t
        
-    map.insert("num3spc", Regex::new(r"^(1|2)\d{1,2}\.?\s").unwrap());                   // 3 numbers between 100 and 300 followed by dot / space
-    map.insert("numdot", Regex::new(r"^\d{1,2}\.").unwrap());                             // number period only - can give false positives
+    map.insert("num3spc", Regex::new(r"^(1|2)\d{2}\.?\s").unwrap());                     // 3 numbers between 100 and 300 followed by dot / space
     map.insert("numspc", Regex::new(r"^\d{1,2}\s").unwrap());                            // number space only - can give false positives            
-    map.insert("numalcap", Regex::new(r"^\d{1,2}[A-Z]").unwrap());                        // number-cap letter  - might give false positives    
+    map.insert("numalcap", Regex::new(r"^\d{1,2}[A-Z]{1} ").unwrap());                   // number-cap letter  - might give false positives    
+    map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na, Nb
 
     map
 });
-
 
 pub static ALPH_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     
@@ -85,10 +94,15 @@ pub static OTH_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     map
 });
  
+*/
 
 
 
-#[allow(dead_code)]
+
+
+
+
+
 pub struct IECLine
 {
     pub seq_num: i32,
@@ -100,8 +114,6 @@ pub struct IECLine
     pub sequence_string: String,
     pub text: String,
 }
-
-#[allow(dead_code)]
 
 impl IECLine {
 
@@ -119,23 +131,9 @@ impl IECLine {
         }
     }
 
-
-    pub fn full_new(seq_num: i32, type_id: i32, split_type: &String, leader: &String, 
-                    indent_level: usize, indent_seq_num: i32, 
-                    sequence_string: &String, text: &String) -> Self {
-        IECLine { 
-            seq_num: seq_num,
-            type_id: type_id,
-            split_type: split_type.to_string(),
-            leader: leader.to_string(),
-            indent_level: indent_level as i32,
-            indent_seq_num: indent_seq_num,
-            sequence_string: sequence_string.to_string(),
-            text: text.to_string(),
-        }
-    }
-
 }
+
+
 
 #[allow(dead_code)]
 pub struct TypePars
@@ -266,7 +264,7 @@ pub fn get_level(hdr_name: &String, levels: &mut Vec<Level>) -> usize {
 }
     
 
-#[allow(dead_code)]
+
 pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
 {
     // Function deals with a rare but possible problem with very short lines.
@@ -424,6 +422,51 @@ pub fn trim_internal_iec_headers(s: &String) -> Option<String> {
         }
     }
 }
+
+
+
+pub fn check_if_all_lines_end_consistently(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+
+    let mut valid_end_chars = 0;
+    for ln in in_lines
+    {
+        let end_char = &ln.text.chars().next_back().unwrap();  // always at least one char
+        if *end_char == '.' || *end_char == ';' || *end_char ==  ','
+        {
+            valid_end_chars += 1;
+        }
+    }
+    valid_end_chars >= in_lines.len() - allowance
+}
+
+pub fn check_if_all_lines_start_with_caps(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+
+    let mut valid_start_chars = 0;
+    for ln in in_lines
+    {
+        let start_char = &ln.text.chars().next().unwrap();  // always at least one char
+        if start_char.is_uppercase()
+        {
+            valid_start_chars += 1;
+        }
+    }
+    valid_start_chars >= in_lines.len() - allowance
+}
+
+pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+
+    let mut valid_start_chars = 0;
+    for ln in in_lines
+    {
+        let start_char = &ln.text.chars().next().unwrap();  // always at least one char
+        if start_char.is_lowercase()
+        {
+            valid_start_chars += 1;
+        }
+    }
+    valid_start_chars >= in_lines.len() - allowance
+}
+
 
 #[cfg(test)]
 mod tests {

@@ -69,7 +69,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_conds_dv = ConditionVecs::new(2*batch_size);
         let mut study_feats_dv = FeatureVecs::new(4*batch_size);
         let mut study_tops_dv = TopicVecs::new(3*batch_size);
-        let mut study_iec_dv = IECVecs::new(10*batch_size);
+        let mut study_iec_dv = IECVecs::new(20*batch_size);
 
         // get the list of json files relevant to this pass
 

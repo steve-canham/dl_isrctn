@@ -1,6 +1,7 @@
 
 use super::iec_helper::*;
 use regex::Regex;
+use super::iec_res::*;
 //use log::info;
 
 pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<IECLine>) {   // Should be a vector of IECLine
@@ -124,7 +125,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
     let max_i = initial_lines.len() - 1;  
     let mut level = 0;
 
-    let mut _num_no_leader = 0;
+    let mut num_no_leader = 0;
     let mut previous_ldr_name = "none".to_string();
     let mut previous_regex_string = "none".to_string();
    
@@ -143,24 +144,62 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         
         if previous_regex_string != "none".to_string() {
 
-            let re = Regex::new(&previous_regex_string).unwrap();
-            if let Some(c) = re.captures(&this_line) {
-                leader = c.get_match().as_str().to_string();
-                ldr_name = previous_ldr_name.clone();     // previous_regex_string can stay the same
+            // But numdott REs can give false results, a n.m. is still 
+            // picked up as n. if it directly follows n.
+            
+            if !previous_regex_string.starts_with("numdot") {
+
+                let re = Regex::new(&previous_regex_string).unwrap();
+                if let Some(c) = re.captures(&this_line) {
+                    leader = c.get_match().as_str().to_string();
+                    ldr_name = previous_ldr_name.clone();     
+                    // previous_regex_string can stay the same
+                }
+            }
+            else {
+                ldr_name = "none".to_string();
             }
         }
 
         if ldr_name == "none".to_string() {
-            let first_char = this_line.chars().next().unwrap();
+            
+            // Use first character(s) of line to see which regex collection to use
+
+            let first_char = &this_line.chars().next().unwrap();
+
             if first_char.is_digit(10) {
                 
-                match test_against_numeric_res(&this_line) {
-                    Some((s1, s2, s3)) => {
-                        leader = s1;
-                        ldr_name = s2;
-                        previous_regex_string = s3;
-                    },
-                    None => {},
+                // If the second or third characteris a period use the 
+                // numdot family of REs, otherwise the normal numeric family
+
+                let second_char = &this_line.chars().nth(1).unwrap();
+                let third_char = &this_line.chars().nth(2).unwrap();
+
+                if *second_char == '.' || second_char.is_digit(10) && *third_char == '.' {
+                    
+                    match test_against_numdot_res(&this_line) {
+                        Some((s1, s2, s3)) => {
+                            leader = s1;
+                            ldr_name = s2;
+                            previous_regex_string = s3;
+                        },
+                        None => {},
+
+                        // may need to do some checking / corrections before coming out of the loop
+
+
+
+                    }
+                }
+                else {
+                    match test_against_numeric_res(&this_line) {
+                        Some((s1, s2, s3)) => {
+                            leader = s1;
+                            ldr_name = s2;
+                            previous_regex_string = s3;
+                        },
+                        None => {},
+                    }
                 }
             }
             else if first_char.is_alphabetic() {
@@ -250,7 +289,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 }
             }
             
-            // Change the properties of the iec_line object
+            // Create a nwe iec_line object
 
             if ie_ln.leader != "Spp".to_string()  // fields may have already been set above, e.g. with '*'
             {
@@ -258,11 +297,12 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 seq_num = levels[level].current_seq_num;
 
                 let new_text = this_line[leader.len()..].trim().to_string();
+                let split_type = format!("{}-{}", &ie_ln.split_type, ldr_name);
 
                 processed_lines.push(IECLine {
                     seq_num: ie_ln.seq_num,
                     type_id: ie_ln.type_id,
-                    split_type: ie_ln.split_type.clone(),
+                    split_type: split_type,
                     leader: leader,
                     indent_level: level as i32,
                     indent_seq_num: seq_num,
@@ -274,7 +314,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
         else
         {
-            _num_no_leader += 1; // keep a tally as ALL the lines may be without a leader
+            num_no_leader += 1; // keep a tally as ALL the lines may be without a leader
 
             if i == max_i
             {
@@ -321,214 +361,160 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
     }
     
-    // check all lines have a length of at least 1, i.e. are not empty, before proceeding further
-    // Empty lines may occur - very rarely - if a line is 'all leader'
-    // (though most of these should have been eliminated at the beginning)
-    // or if, for example, the original split in CTG left a leader before the 'Exclusion Criteria' statement
 
-    let processed_lines2 = processed_lines.filter(|t.| *t != "");
-
-    processed_lines.drain()
-    crLines.RemoveAll(ln => ln.text.Length == 0);
-    
     // check the 'all without a leader' possibility - allowing a single exception
 
-        if ((crLines.Count > 4 && num_no_leader >= crLines.Count - 1) ||
-            (crLines.Count > 2 && num_no_leader == crLines.Count))
+    if  (processed_lines.len() > 4 && num_no_leader >= processed_lines.len() - 1) ||
+        (processed_lines.len() > 2 && num_no_leader == processed_lines.len())
         {
-            // none of the lines had a leader character. If they (or most of them) had proper 
+
+            // First check all lines have a length of at least 1, i.e. are not empty, before proceeding further
+            // Empty lines may occur - very rarely - if a line is 'all leader'
+            // (though most of these should have been eliminated at the beginning)
+            // or if, for example, the original split in CTG left a leader before the 'Exclusion Criteria' statement
+       
+            let mut checked_lines: Vec<IECLine> = Vec::new();
+            for ln in processed_lines {
+                if ln.text.trim() != "" {
+                    checked_lines.push(ln);
+                }
+            } 
+
+            // None (or very few) of the lines have a leader character. If they (or most of them) had proper 
             // termination, or consistent line starting, then it is possible that they are
             // simply differentiated by the CRs alone...
 
-            bool assume_crs_only = IECH.CheckIfAllLinesEndConsistently(crLines, 1)
-                                   || IECH.CheckIfAllLinesStartWithCaps(crLines, 1)
-                                   || IECH.CheckIfAllLinesStartWithLowerCase(crLines, 0);
+            let mut assume_crs_only = check_if_all_lines_end_consistently(&checked_lines, 1)
+                                   || check_if_all_lines_start_with_caps(&checked_lines, 1)
+                                   || check_if_all_lines_start_with_lower_case(&checked_lines, 0);
 
             // otherwise check for a consistent bullet type character
 
-            string use_as_header = "";
-            if (!assume_crs_only)
+            let mut use_as_header = "".to_string();
+
+            if !assume_crs_only
             {
                 // a chance that an unknown bullet character has been used to start each line
                 // start with the second line (as the first may be different) and see if they are all the same
                 // Don't test letters as some people use formulaic criteria all starting with the same word
 
-                char test_char = crLines[1].text[0];
-                if (!char.IsLetter(test_char))
+                let test_char = &checked_lines[1].text.chars().next().unwrap();  // should always be at least one character in each line
+                if !test_char.is_alphabetic()
                 {
-                    int valid_start_chars = 0;
-                    for (int k = 1; k < crLines.Count; k++)
+                    let mut valid_start_chars = 0;
+                    
+                    for k in 1..checked_lines.len()
                     {
                         // May be no termination applied but each line starts with a capital letter
 
-                        char start_char = crLines[k].text[0];
-                        if (start_char == test_char)
+                        let start_char = &checked_lines[k].text.chars().next().unwrap();
+                        if start_char == test_char
                         {
-                            valid_start_chars++;
+                            valid_start_chars += 1;
                         }
                     }
 
-                    if (valid_start_chars == crLines.Count - 1)
+                    if valid_start_chars == checked_lines.len() - 1
                     {
                         assume_crs_only = true;
-                        use_as_header = test_char.ToString();
+                        use_as_header = test_char.to_string();
                     }
                 }
             }
 
-            if (assume_crs_only)
+            // for these records (assumed split on crs only) the fields in the IEC objects need to be changed
+            // which means constructing yet another vector over these criteria
+
+            if assume_crs_only
             {
-                int line_num = 0;
-                string leaderString = use_as_header == "" ? "@" : use_as_header;
-                for (int n = 0; n < crLines.Count; n++)
-                {
-                    if (use_as_header != "") // single character only
+
+                let mut revised_lines: Vec<IECLine> = Vec::new();
+
+                let mut line_num = 0;
+                let leader_string = if use_as_header == "" { "@".to_string() } else { use_as_header.clone() };
+                
+                for ln in checked_lines {
+                    
+                    let mut rev_text  = ln.text.clone();  // as a default
+                     if use_as_header != "".to_string() // single character only
                     {
-                        if (n == 0)
+                        if line_num == 0
                         {
-                            if (crLines[0].text[0].ToString() == use_as_header)
+                            if ln.text.chars().next().unwrap().to_string() == use_as_header
                             {
-                                crLines[0].text = crLines[0].text[1..];
+                                rev_text = ln.text[1..].to_string();
                             }
                         }
                         else
                         {
-                            if (crLines[n].text.Length >= 2)
+                            if ln.text.len() >= 2
                             {
-                                crLines[n].text = crLines[n].text[1..];
+                                rev_text = ln.text[1..].to_string();
                             }
                         }
                     }
 
-                    crLines[n].split_type = "cr assumed";
 
                     // Identify what appear to be headers but only make initial hdr
                     // have indent 0, if it fits the normal pattern
+                    
+                    let type_id: i32;
+                    let indent_level: i32;
+                    let indent_seq_num: i32;
+                    let leader:String;
 
-                    if (crLines[n].text.EndsWith(':') || crLines[n].text == crLines[n].text.ToUpper())
+                    if ln.text.ends_with(':') || ln.text == ln.text.to_uppercase()
                     {
-                        crLines[n].leader = leaderString + "Hdr";
-                        crLines[n].type = tv.grp_hdr;
+                        leader = leader_string.clone() + "Hdr";
+                        type_id = tv.grp_hdr;
 
-                        if (n == 0)
+                        if line_num == 0
                         {
-                            crLines[n].indent_level = 0;
-                            crLines[n].indent_seq_num = 1;
+                            indent_level = 0;
+                            indent_seq_num = 1;
                         }
                         else
                         {
-                            line_num++;
-                            crLines[n].indent_level = 1;
-                            crLines[n].indent_seq_num = line_num;
+                            indent_level = 1;
+                            indent_seq_num = line_num;
                         }
                     }
                     else
                     {
-                        line_num++;
-                        crLines[n].leader = leaderString;
-                        crLines[n].indent_level = 1;
-                        crLines[n].indent_seq_num = line_num;
-                        crLines[n].type = tv.type;
+                        leader = leader_string.clone();
+                        indent_level = 1;
+                        indent_seq_num = line_num;
+                        type_id = tv.type_id;
                     }
+
+                    revised_lines.push(IECLine {
+                        seq_num: ln.seq_num,
+                        type_id: type_id,
+                        split_type: "cr assumed".to_string(),
+                        leader: leader,
+                        indent_level: indent_level,
+                        indent_seq_num: indent_seq_num,
+                        sequence_string: format!("{}{:0>2}", tv.sequence_start, indent_seq_num),
+                        text: rev_text,
+                    });
+
+                    line_num +=1;
+
                 }
+
+                revised_lines
             }
+
+            else {
+                checked_lines   // return the lines as modified before the 'assume cr' processing above
+            }
+
+        }
+        else {
+            processed_lines    // return the originally derived IEC lines
         }
 
-
-
-    processed_lines
-
-
 }
-
-
-
-fn test_against_numeric_res(this_line: &String) ->  Option<(String, String, String)>{
-
-    let mut ldr_name = "none";
-    let mut leader = "";
-    let mut regex = "".to_string();
-
-    for r in NUMB_MAP.iter() {
-
-        let re = r.1;
-        if let Some(c) = re.captures(&this_line) {
-
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
-            regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
-
-
-            break;
-        }
-    }
-
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
-
-}
-
-
-fn test_against_alpha_res(this_line: &String) ->  Option<(String, String, String)>{
-
-    let mut ldr_name = "none";
-    let mut leader = "";
-    let mut regex = "".to_string();
-
-    for r in ALPH_MAP.iter() {
-
-        let re = r.1;
-        if let Some(c) = re.captures(&this_line) {
-
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
-            regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
-
-
-            break;
-        }
-    }
-
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
-
-}
-
-
-fn test_against_other_res(this_line: &String) ->  Option<(String, String, String)>{
-
-    let mut ldr_name = "none";
-    let mut leader = "";
-    let mut regex = "".to_string();
-
-    for r in OTH_MAP.iter() {
-
-        let re = r.1;
-        if let Some(c) = re.captures(&this_line) {
-
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
-            regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
-
-
-            break;
-        }
-    }
-
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
-
-}
-
-
-
-
 
 
 fn try_to_repair_split_lines(__processed_lines:&Vec<IECLine>, _tv: &TypePars) ->  Vec<IECLine>{

@@ -4,8 +4,8 @@ use crate::data_models::db_models::*;
 
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
-use crate::helpers::iec_fns::*;
-use crate::helpers::iec_helper::IECLine;
+use crate::iec::iec_fns::*;
+use crate::iec::iec_helper::IECLine;
 
 use super::support_fns::*;
 
