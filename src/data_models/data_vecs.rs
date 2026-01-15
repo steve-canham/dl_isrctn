@@ -1,5 +1,5 @@
 use crate::data_models::db_models::*;
-use crate::iec::iec_helper::IECLine;
+use crate::iec::iec_structs::IECLine;
 use crate::AppError;
 use sqlx::{Pool, Postgres, postgres::PgQueryResult};
 use chrono::{NaiveDate, NaiveDateTime};
@@ -744,7 +744,7 @@ pub struct IECVecs {
     pub seq_nums:  Vec<i32>,
     pub ie_type_ids:  Vec<i32>,
     pub split_types: Vec<String>,
-    pub leaders: Vec<String>,
+    pub tags: Vec<String>,
     pub indent_levels: Vec<i32>,
     pub indent_seq_nums: Vec<i32>,
     pub sequence_strings: Vec<String>,
@@ -758,7 +758,7 @@ impl IECVecs{
             seq_nums: Vec::with_capacity(vsize),
             ie_type_ids: Vec::with_capacity(vsize),
             split_types: Vec::with_capacity(vsize),
-            leaders: Vec::with_capacity(vsize),
+            tags: Vec::with_capacity(vsize),
             indent_levels: Vec::with_capacity(vsize),
             indent_seq_nums: Vec::with_capacity(vsize),
             sequence_strings: Vec::with_capacity(vsize),
@@ -773,7 +773,7 @@ impl IECVecs{
             self.seq_nums.push(r.seq_num);
             self.ie_type_ids.push(r.type_id);
             self.split_types.push(r.split_type.clone());
-            self.leaders.push(r.leader.clone());
+            self.tags.push(r.tag.clone());
             self.indent_levels.push(r.indent_level);
             self.indent_seq_nums.push(r.indent_seq_num);
             self.sequence_strings.push(r.sequence_string.clone());
@@ -787,7 +787,7 @@ impl IECVecs{
             self.seq_nums.shrink_to_fit();
             self.ie_type_ids.shrink_to_fit();
             self.split_types.shrink_to_fit();
-            self.leaders.shrink_to_fit();
+            self.tags.shrink_to_fit();
             self.indent_levels.shrink_to_fit();
             self.indent_seq_nums.shrink_to_fit();
             self.sequence_strings.shrink_to_fit();
@@ -796,7 +796,7 @@ impl IECVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_iec (sd_sid, seq_num, ie_type_id, split_type, leader, indent_level, indent_seq_num, sequence_string, criterion) 
+        let sql = r#"INSERT INTO sd.study_iec (sd_sid, seq_num, ie_type_id, split_type, tag, indent_level, indent_seq_num, sequence_string, criterion) 
             SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::text[], $6::int[], $7::int[], $8::text[], $9::text[])"#;
 
         sqlx::query(sql)
@@ -804,7 +804,7 @@ impl IECVecs{
         .bind(&self.seq_nums)
         .bind(&self.ie_type_ids)
         .bind(&self.split_types)
-        .bind(&self.leaders)
+        .bind(&self.tags)
         .bind(&self.indent_levels)
         .bind(&self.indent_seq_nums)
         .bind(&self.sequence_strings)

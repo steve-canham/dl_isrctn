@@ -1,8 +1,10 @@
 
 use super::iec_helper::*;
-use regex::Regex;
 use super::iec_res::*;
-//use log::info;
+use super::iec_structs::*;
+use regex::Regex;
+
+use log::info;
 
 pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<IECLine>) {   // Should be a vector of IECLine
 
@@ -10,8 +12,8 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
     // Parent process for the other functions
 
     let crits: Vec<IECLine> = Vec::new();
-    let mut _final_cr_lines: Vec<IECLine> = Vec::new();
-    let mut initial_cr_lines: Vec<IECLine> = Vec::new();
+    let mut final_cr_lines: Vec<IECLine> = Vec::new();
+    //let mut initial_cr_lines: Vec<IECLine> = Vec::new();
     let mut processed_cr_lines: Vec<IECLine> = Vec::new();
 
 
@@ -60,17 +62,17 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                     
         // A single line, i.e. with no carriage returns
 
-        match trim_internal_iec_headers(&repaired_lines[0])
+        match remove_iec_header_text(&repaired_lines[0])
         {
             Some(sline) => {
                 processed_cr_lines.push(IECLine{    // temp, should be final CR lines
                 seq_num: 1,
                 type_id: tv.no_sep,
                 split_type: "none".to_string(),
-                leader: "All".to_string(),
+                tag: "All".to_string(),
                 indent_level: 0,
                 indent_seq_num: 1,
-                sequence_string: format!("{}0A", tv.sequence_start),
+                sequence_string: format!("{}.A00", tv.sequence_start),
                 text: sline,
                 });
             },
@@ -84,19 +86,13 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
         // multiple lines
 
-        for (i, s) in repaired_lines.iter().enumerate() {
-            initial_cr_lines.push (
-                IECLine::new((i + 1) as i32, tv.type_id, &"cr".to_string(), s));
-        }
+        processed_cr_lines = process_initial_lines( &repaired_lines, &tv);
 
-        // Initially try to find leader characters for each split line
-        // then try to correct common errors in the list
-
-        processed_cr_lines = identify_line_leaders(&mut initial_cr_lines, &tv);
-        _final_cr_lines = try_to_repair_split_lines(&processed_cr_lines, &tv);
+        final_cr_lines = repair_split_lines(&mut processed_cr_lines, &tv);
+        //final_cr_lines = processed_cr_lines;
     }
 
-    // We now have one or many 'final_cr_line's. Each now needs to be processed to see
+    // Now have one or many 'final_cr_line's. Each now needs to be processed to see
     // it it corresponds to a single criterion or is itself a list of criteria.
     // If the former, the single line can be added to the 'expanded_lines', if the 
     // latter, the set of identified criteria is added.
@@ -107,126 +103,138 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         (0, crits)
     }
     else {
-        (2, processed_cr_lines)
+        (2, final_cr_lines)
     }
+
+    // to be continued...
+
  }
 
 
+fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECLine> {
 
- fn identify_line_leaders(initial_lines:&Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine> {
+    let mut tagged_lines: Vec<IECLine> = Vec::new();
 
-    let mut processed_lines: Vec<IECLine> = Vec::new();
+    // Consumes the intiial lines, as split by CR, to create
+    // an IECLine struct for each, returning a vector of those IECLines.
 
-    // Takes a mutable reference to the intiial set of IECLines (initial_lines))
-    // and completes the values of each IECLine, in situ, before returning a reference 
-    // to those same IECLines.
-
-    let mut i = 0;
     let max_i = initial_lines.len() - 1;  
-    let mut level = 0;
-
-    let mut num_no_leader = 0;
-    let mut previous_ldr_name = "none".to_string();
+    let mut num_no_tag = 0;
+    let mut previous_tag_style = "none".to_string();
     let mut previous_regex_string = "none".to_string();
    
-    let mut levels: Vec<Level> = vec![Level::new(&"none".to_string(), 0)];    // Initialise the level vector
+    let mut levels: Vec<Level> = vec![Level::new(&"none".to_string(), 0), 
+                                      Level::new(&"Hdr".to_string(), 1)];    // Initialise the level vector
+    let mut level = 0;
+    let mut hdr_seq_num = 0;
 
-    for ie_ln in initial_lines {
+    for (i, ln) in initial_lines.into_iter().enumerate() {
 
-        i += 1;
+        let mut tag_style = "none".to_string(); // initial defaults - signify no leader found
+        let mut tag = "".to_string();
 
-        let this_line = ie_ln.text.clone();
-        let mut ldr_name = "none".to_string(); // initial defaults - signify no leader found
-        let mut leader = "".to_string();
-
-        // What leader character(s), if any, are starting this line?
+        // What tag character(s), if any, are starting this line?
         // Can we match on the successful regex string (if any) from the previous line?
         
         if previous_regex_string != "none".to_string() {
 
-            // But numdott REs can give false results, a n.m. is still 
-            // picked up as n. if it directly follows n.
+            // BUT - numdot REs can give false results, e.g. 'n.m.' is still 
+            // picked up as 'n.' if it directly follows 'n.' Therefore do 
+            // not use this shortcut if the last tag was a numdot.
             
             if !previous_regex_string.starts_with("numdot") {
 
                 let re = Regex::new(&previous_regex_string).unwrap();
-                if let Some(c) = re.captures(&this_line) {
-                    leader = c.get_match().as_str().to_string();
-                    ldr_name = previous_ldr_name.clone();     
+                if let Some(c) = re.captures(&ln) {
+                    tag = c.get_match().as_str().to_string();
+                    tag_style = previous_tag_style.clone();     
+                    
                     // previous_regex_string can stay the same
                 }
             }
             else {
-                ldr_name = "none".to_string();
+
+                // force normal usage, as below, especially for numdot sequences
+
+                tag_style = "none".to_string();  
             }
         }
 
-        if ldr_name == "none".to_string() {
+        if tag_style == "none".to_string() {
             
             // Use first character(s) of line to see which regex collection to use
 
-            let first_char = &this_line.chars().next().unwrap();
+            let first_char = ln.chars().next().unwrap();
 
             if first_char.is_digit(10) {
                 
                 // If the second or third characteris a period use the 
                 // numdot family of REs, otherwise the normal numeric family
 
-                let second_char = &this_line.chars().nth(1).unwrap();
-                let third_char = &this_line.chars().nth(2).unwrap();
+                let second_char = &ln.chars().nth(1).unwrap();
+                let third_char = &ln.chars().nth(2).unwrap();
 
                 if *second_char == '.' || second_char.is_digit(10) && *third_char == '.' {
                     
-                    match test_against_numdot_res(&this_line) {
+                    match test_against_numdot_res(ln) {
                         Some((s1, s2, s3)) => {
-                            leader = s1;
-                            ldr_name = s2;
+                            tag = s1;
+                            tag_style = s2;
                             previous_regex_string = s3;
                         },
                         None => {},
-
-                        // may need to do some checking / corrections before coming out of the loop
-
-
-
                     }
+                    
+                    // may need to do some checking / corrections before coming out of the loop
+
+
+
                 }
                 else {
-                    match test_against_numeric_res(&this_line) {
+                    match test_against_numeric_res(ln) {
                         Some((s1, s2, s3)) => {
-                            leader = s1;
-                            ldr_name = s2;
+                            tag = s1;
+                            tag_style = s2;
                             previous_regex_string = s3;
                         },
                         None => {},
                     }
+
+
                 }
             }
+
             else if first_char.is_alphabetic() {
 
-                match test_against_alpha_res(&this_line) {
+                match test_against_alpha_res(ln) {
                     Some((s1, s2, s3)) => {
-                        leader = s1;
-                        ldr_name = s2;
+                        tag = s1;
+                        tag_style = s2;
                         previous_regex_string = s3;
                     },
                     None => {
-                        ldr_name = "none".to_string();
+                        tag_style = "none".to_string();
                     },
                 }
+
+
+
             }
             else {
-                match test_against_other_res(&this_line) {
+                match test_against_other_res(ln) {
 
                     Some((s1, s2, s3)) => {
-                        leader = s1;
-                        ldr_name = s2;
+                        tag = s1;
+                        tag_style = s2;
                         previous_regex_string = s3;
                     },
                     None => {
-                        ldr_name = "none".to_string();
+                        tag_style = "none".to_string();
                     },
                 }
+
+
+
             }
         }
 
@@ -259,138 +267,127 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         }
         */
 
-        // If a leader has been found ...see if the leader has changed from the
-        // most previously used - implying the indentation level has changed.
-        // If it has changed 
-        // else - store the line as a sub-header, unless it is the last line of the set
-        // when it will be classified as a supplementary statement.
+        // If a tag has been found ...see if the tag has changed from the
+        // previous one - implying the indentation level has changed.
+        // If no tag, store the line as a sub-header, unless it is the last 
+        // line of the set when it will be classified as a supplementary statement.
         
-        let seq_num: i32;
-        if ldr_name != "none"
+        let mut type_id = tv.type_id;
+        let split_type = format!("v-{}", tag_style);  
+        let mut ln_text = ln.to_string();
+        let in_hdr_seq: bool;
+        let num_in_seq: i32;
+     
+        if tag_style != "none"
         {
-            if ldr_name != previous_ldr_name
+            if tag_style != previous_tag_style
             {
                 // If the leader style has changed use the get_level function to obtain the 
                 // appropriate indent level for the new header type. This function will add 
-                // the leader type to the levels vector, if it is not already present in the 
+                // the tag type to the levels vector, if it is not already present in the 
                 // collection (the level returned being that of the new entry), otherwise it 
                 // will simply return the associated level number.
 
-                level = get_level(&ldr_name.to_string(), &mut levels);
-
-                // if level = 1, (and is not the first) we have 'returned to a 'top level' leader.
+                level = get_level(&tag_style, &mut levels);
+             
+                // if level = 2, (and is not the first) we have 'returned to a 'top level' tag.
                 // The rest of the levels array needs to be cleared so that identification of
-                // lower level leaders is kept 'local' to an individual top level element, and 
+                // lower level tags is kept 'local' to an individual top level element, and 
                 // built up as necessary for each top level element.
 
-                if level == 1 && levels.len() > 2    // Remove all but the first (level 1) entry from the levels vector
+                if level == 2 && levels.len() > 3    // Remove all but the first 2 (levels 0 and 1) entries from the levels vector
                 {
-                   for _lev in levels.drain(2..) {}
+                   for _ in levels.drain(3..) {}
                 }
             }
-            
-            // Create a nwe iec_line object
 
-            if ie_ln.leader != "Spp".to_string()  // fields may have already been set above, e.g. with '*'
-            {
-                levels[level].current_seq_num += 1;
-                seq_num = levels[level].current_seq_num;
+            in_hdr_seq = false;
+            ln_text = ln[tag.len()..].trim().to_string();
 
-                let new_text = this_line[leader.len()..].trim().to_string();
-                let split_type = format!("{}-{}", &ie_ln.split_type, ldr_name);
-
-                processed_lines.push(IECLine {
-                    seq_num: ie_ln.seq_num,
-                    type_id: ie_ln.type_id,
-                    split_type: split_type,
-                    leader: leader,
-                    indent_level: level as i32,
-                    indent_seq_num: seq_num,
-                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
-                    text: new_text,
-                });
-            }
         }
 
         else
         {
-            num_no_leader += 1; // keep a tally as ALL the lines may be without a leader
+            num_no_tag += 1; // keep a tally as ALL the lines may be without a tag
+            in_hdr_seq = true;
+            level = 1;
 
-            if i == max_i
+            if i == max_i // initially, make this final line without a tag a 'supplement'
             {
-                // initially at least, make this final line without any 'leader' character
-                // a supplement (at the same indent level as the previous criteria).
-
-                levels[level].current_seq_num += 1;
-                seq_num = levels[level].current_seq_num;
-
-                processed_lines.push(IECLine {
-                    seq_num: ie_ln.seq_num,
-                    type_id: tv.post_crit,
-                    split_type: ie_ln.split_type.clone(),
-                    leader: "Spp".to_string(),
-                    indent_level: level as i32,
-                    indent_seq_num: seq_num,
-                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
-                    text: this_line,
-                });
+                tag = "Spp".to_string();
+                type_id = tv.post_crit;
             }
-            else
+            else // Otherwise, by default, add a line without any tag as a sub-header
             {
-                // Otherwise, by default, add a line without any 'header' character as a sub-header
-                // in the list (at the same indent level as the previous criteria) 
-
-                levels[level].current_seq_num += 1;
-                seq_num = levels[level].current_seq_num;
-
-                processed_lines.push(IECLine {
-                    seq_num: ie_ln.seq_num,
-                    type_id: tv.grp_hdr,
-                    split_type: ie_ln.split_type.clone(),
-                    leader: "Hdr".to_string(),
-                    indent_level: level as i32,
-                    indent_seq_num: seq_num,
-                    sequence_string: format!("{}{:0>2}", tv.sequence_start, seq_num),
-                    text: this_line,
-                });
-
+                tag = "Hdr".to_string();
+                type_id = tv.grp_hdr;
             }
         }
 
-        previous_ldr_name = ldr_name;
+        if in_hdr_seq {
+            hdr_seq_num += 1;
+            num_in_seq = hdr_seq_num;
+        }
+        else {
+            levels[level].current_seq_num += 1;
+            num_in_seq = levels[level].current_seq_num;
+        }
+
+        let seq_string = match tag.as_str() {
+            "Hdr" => format!("{}.H{:0>2}", tv.sequence_start, num_in_seq),
+            "Spp" => format!("{}.E{:0>2}", tv.sequence_start, num_in_seq),
+            _ => format!("{}.{:0>2}", tv.sequence_start, num_in_seq),
+        };
+
+
+        // Create the new struct and push to the growing target vector
+
+        // At moment possibility of a preformed IEC for some tags, e.g. *
+        // Need to investigate nbew best way of handling this
+
+        tagged_lines.push(IECLine {
+            seq_num: (i + 1) as i32,
+            type_id: type_id,
+            split_type: split_type,
+            tag: tag,
+            indent_level: level as i32,
+            indent_seq_num: num_in_seq,
+            sequence_string: seq_string,
+            text: ln_text,
+        });
+
+        previous_tag_style = tag_style;
 
     }
     
+    // Finally, again check all lines have a length of at least 1, i.e. are not empty, 
+    // before proceeding further. Empty lines may occur - very rarely - if a line is 'just tag'
+    // (though most of these should have been eliminated at the beginning)
+    // or if, for example, the original split in CTG left a tag before the 'Exclusion Criteria' statement
+    
+    let mut processed_lines: Vec<IECLine> = Vec::new();
+    for tln in tagged_lines {
+        if tln.text.trim() != "" {
+            processed_lines.push(tln);
+        }
+    } 
 
-    // check the 'all without a leader' possibility - allowing a single exception
+    // Check the 'all without a tag' possibility - allowing a single exception
 
-    if  (processed_lines.len() > 4 && num_no_leader >= processed_lines.len() - 1) ||
-        (processed_lines.len() > 2 && num_no_leader == processed_lines.len())
+    if  (processed_lines.len() > 4 && num_no_tag >= processed_lines.len() - 1) ||
+        (processed_lines.len() > 2 && num_no_tag == processed_lines.len())
         {
-
-            // First check all lines have a length of at least 1, i.e. are not empty, before proceeding further
-            // Empty lines may occur - very rarely - if a line is 'all leader'
-            // (though most of these should have been eliminated at the beginning)
-            // or if, for example, the original split in CTG left a leader before the 'Exclusion Criteria' statement
-       
-            let mut checked_lines: Vec<IECLine> = Vec::new();
-            for ln in processed_lines {
-                if ln.text.trim() != "" {
-                    checked_lines.push(ln);
-                }
-            } 
-
-            // None (or very few) of the lines have a leader character. If they (or most of them) had proper 
+            // None (or very few) of the lines have a tag character. If they (or most of them) had proper 
             // termination, or consistent line starting, then it is possible that they are
             // simply differentiated by the CRs alone...
 
-            let mut assume_crs_only = check_if_all_lines_end_consistently(&checked_lines, 1)
-                                   || check_if_all_lines_start_with_caps(&checked_lines, 1)
-                                   || check_if_all_lines_start_with_lower_case(&checked_lines, 0);
+            let mut assume_crs_only = check_if_all_lines_end_consistently(&processed_lines, 1)
+                                   || check_if_all_lines_start_with_caps(&processed_lines, 1)
+                                   || check_if_all_lines_start_with_lower_case(&processed_lines, 0);
 
             // otherwise check for a consistent bullet type character
 
-            let mut use_as_header = "".to_string();
+            let mut possible_tag = "".to_string();
 
             if !assume_crs_only
             {
@@ -398,49 +395,51 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                 // start with the second line (as the first may be different) and see if they are all the same
                 // Don't test letters as some people use formulaic criteria all starting with the same word
 
-                let test_char = &checked_lines[1].text.chars().next().unwrap();  // should always be at least one character in each line
+                let test_char = &processed_lines[1].text.chars().next().unwrap();  // should always be at least one character in each line
                 if !test_char.is_alphabetic()
                 {
                     let mut valid_start_chars = 0;
                     
-                    for k in 1..checked_lines.len()
+                    for k in 1..processed_lines.len()
                     {
                         // May be no termination applied but each line starts with a capital letter
 
-                        let start_char = &checked_lines[k].text.chars().next().unwrap();
+                        let start_char = &processed_lines[k].text.chars().next().unwrap();
                         if start_char == test_char
                         {
                             valid_start_chars += 1;
                         }
                     }
 
-                    if valid_start_chars == checked_lines.len() - 1
+                    if valid_start_chars == processed_lines.len() - 1
                     {
                         assume_crs_only = true;
-                        use_as_header = test_char.to_string();
+                        possible_tag = test_char.to_string();
                     }
                 }
             }
 
-            // for these records (assumed split on crs only) the fields in the IEC objects need to be changed
-            // which means constructing yet another vector over these criteria
-
             if assume_crs_only
             {
+                // for these records (assumed split on crs only) the fields in the IEC objects need to be changed
+                // which means constructing yet another vector over these criteria
 
                 let mut revised_lines: Vec<IECLine> = Vec::new();
 
                 let mut line_num = 0;
-                let leader_string = if use_as_header == "" { "@".to_string() } else { use_as_header.clone() };
+                let tag_string = if possible_tag == "" { "@".to_string() } else { possible_tag.clone() };
+
+                let mut crit_seq_num = 0;
+                hdr_seq_num = 0;
                 
-                for ln in checked_lines {
+                for ln in processed_lines {
                     
                     let mut rev_text  = ln.text.clone();  // as a default
-                     if use_as_header != "".to_string() // single character only
+                    if possible_tag != "".to_string() // single character only
                     {
                         if line_num == 0
                         {
-                            if ln.text.chars().next().unwrap().to_string() == use_as_header
+                            if ln.text.chars().next().unwrap().to_string() == possible_tag
                             {
                                 rev_text = ln.text[1..].to_string();
                             }
@@ -454,47 +453,47 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                         }
                     }
 
-
-                    // Identify what appear to be headers but only make initial hdr
-                    // have indent 0, if it fits the normal pattern
+                    // Identify what appear to be headers 
+                    // Otherwise treat all lines as being 'normal' criteria
                     
                     let type_id: i32;
                     let indent_level: i32;
                     let indent_seq_num: i32;
-                    let leader:String;
+                    let tag:String;
+
 
                     if ln.text.ends_with(':') || ln.text == ln.text.to_uppercase()
                     {
-                        leader = leader_string.clone() + "Hdr";
+                        tag = tag_string.clone() + "Hdr";
                         type_id = tv.grp_hdr;
-
-                        if line_num == 0
-                        {
-                            indent_level = 0;
-                            indent_seq_num = 1;
-                        }
-                        else
-                        {
-                            indent_level = 1;
-                            indent_seq_num = line_num;
-                        }
+                        indent_level = 1;
+                        hdr_seq_num += 1;
+                        indent_seq_num = hdr_seq_num
                     }
                     else
                     {
-                        leader = leader_string.clone();
-                        indent_level = 1;
-                        indent_seq_num = line_num;
+                        tag = tag_string.clone();
+                        indent_level = 2;
                         type_id = tv.type_id;
+                        crit_seq_num += 1;
+                        indent_seq_num = crit_seq_num
                     }
 
+                    let seq_string = if tag.contains("Hdr") {
+                       format!("{}.H{:0>2}", tv.sequence_start, indent_seq_num)
+                    }
+                    else {
+                        format!("{}.{:0>2}", tv.sequence_start, indent_seq_num)
+                    };
+                    
                     revised_lines.push(IECLine {
                         seq_num: ln.seq_num,
                         type_id: type_id,
                         split_type: "cr assumed".to_string(),
-                        leader: leader,
+                        tag: tag,
                         indent_level: indent_level,
                         indent_seq_num: indent_seq_num,
-                        sequence_string: format!("{}{:0>2}", tv.sequence_start, indent_seq_num),
+                        sequence_string: seq_string,
                         text: rev_text,
                     });
 
@@ -506,7 +505,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
             }
 
             else {
-                checked_lines   // return the lines as modified before the 'assume cr' processing above
+                processed_lines   // return the lines as modified before the 'assume cr' processing above
             }
 
         }
@@ -517,15 +516,463 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 }
 
 
-fn try_to_repair_split_lines(__processed_lines:&Vec<IECLine>, _tv: &TypePars) ->  Vec<IECLine>{
+fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
 
-    let final_lines: Vec<IECLine> = Vec::new();
+    // Repair some of the more obvious mis-interpretations
+    
+    // First, working backwards, re-aggregate lines split with spurious \n.
+    // Add the first line (no previous line for it to merge into).
+    // Then loop through the rest.
+
+    let mut reversed_lines: Vec<IECLine> = Vec::new();
+    let max_i = plines.len();
+
+    //plines[0].clone()
+
+    for i in (0..max_i).rev() {
+    
+    let mut transfer_line = true;  
+    if i > 0 {
+
+     // by default
+
+        let this_text = plines[i].text.clone();
+        let prev_text = plines[i - 1].text.clone();
+        let init_char = &this_text.chars().next().unwrap_or('?'); 
+
+        // Remove (i.e. don't transfer) simple header lines or headings with no information
+
+        if remove_iec_header_text(&this_text).is_none() {
+            transfer_line = false;
+        }
+        else {
+
+            // Try and identify spurious 'headers', i.e. lines without leaders, caused by spurious CRs.
+            // Following recent revisions spurious CRs no longer seem to exist within CGT IEC data. 
+            // Lines without headers (usually 1., 2., *, *) are therefore normally genuine header
+            // statements for this source. The next two routines therefore do not apply for CTG data.
+
+            if !tv.sd_sid.starts_with("NCT")
+            {
+                // Consider lines originally specified as headers (leave out last line)  
+
+                if plines[i].type_id == tv.grp_hdr && i < plines.len() - 1
+                {
+                    // Ignore line starting with 'Note'- very likely to be a true 'header'. 
+                    // Also ignore lines where preceding line ends with ':' (unless both lines end with :)
+                    // as a final ':' usually denotes a true (sub-) header.
+                    // (N.B. Very last line not checked).
+
+                    if !this_text.to_lowercase().starts_with("note") && !prev_text.ends_with(':')
+                    {
+                        if !this_text.ends_with(':')  // Consider first lines without a final ':'.
+                        {
+                            // Check if the starts with a lower case letter or digit, and
+                            // previous line does not end in a full stop or (semi) colon. If the case,
+                            // add the line to the preceding line.
+
+                            if !(prev_text.ends_with('.') || prev_text.ends_with(';') || prev_text.ends_with(':'))
+                                        && (init_char.is_lowercase() || init_char.is_digit(10)) {
+                                    
+                                plines[i - 1].text = format!("{} {}", prev_text, this_text)
+                                                    .replace("  ", " ");
+                                transfer_line = false;
+
+                                // Difficulty is that some spurious \n are mid-word...and some
+                                // are between words - no easy way to distinguish - hence the replace
+                            }
+                        }
+  
+                        // Then consider lines with a final ':'. Only those that do not
+                        // start with a capital letter. This indicates a likely 'split' 
+                        // header that should be merged with the line above.
+
+                        if this_text.ends_with(':')
+                            && (init_char.is_lowercase() || init_char.is_digit(10))
+                        {
+
+                            let prev_lchar = &plines[i - 1].text.chars().next_back().unwrap();
+                            if *prev_lchar != '.' &&  *prev_lchar != ';' && *prev_lchar != ':'
+                            {
+                                if *prev_lchar == ':'{   // both lines end in ':'
+
+                                    // Merge, changing the first colon to a period.
+                                    plines[i - 1].text = format!("{}. {}", prev_text[..(prev_text.len() - 1)].to_string(), this_text)
+                                }
+                                else {
+                                    plines[i - 1].text = format!("{} {}", prev_text, this_text)
+                                                    .replace("  ", " ");
+                                    plines[i - 1].type_id = tv.grp_hdr;
+                                }
+                                transfer_line = false;
+                            }
+
+                        }
+                    }
+                }
+
+                // Consider lines originally specified as 'supplementary' final lines
+                
+                if plines[i].type_id == tv.post_crit {
+
+                    let low_line = this_text.to_lowercase();
+                    if !this_text.ends_with(':') && !this_text.starts_with('*')
+                    && !low_line.starts_with("note") && !low_line.starts_with("other ")
+                    && !low_line.starts_with("for further ") && !low_line.starts_with("further") 
+                    && !low_line.starts_with("for more ") && !low_line.starts_with("more ") {
+
+                        // Almost always is a spurious supplement, better considerd as a normal criterion.
+                        // Whether should be joined depends on whether there is an initial
+                        // lower case or upper case letter... 
+
+                        if init_char.is_lowercase() 
+                        {
+                            plines[i - 1].text = format!("{} {}", prev_text, this_text)
+                                                .replace("  ", " ");
+                            transfer_line = false;
+                        }
+                        else
+                        {
+                            // Reset the indent level and seq number to be follow those 
+                            // of the preceding criterion line.
+
+                            plines[i].indent_level = plines[i - 1].indent_level;
+                            plines[i].indent_seq_num = plines[i - 1].indent_seq_num + 1;
+                        }
+                    }
+                }
+            }      
+        }
+    }
+
+        if transfer_line
+        {
+            reversed_lines.push(plines[i].clone());
+        }
+        else {
+           // info!("{}, {},\n{} \n{}",plines[i].indent_level, plines[i - 1].indent_level, plines[i].text, plines[i - 1].text)
+        }
+
+    }
+
+    // Put things back in correct order    
+
+    // Add in sequence numbers and strings to try to 
+    // ensure numbering is continuous and reflects indent levels
+
+    // Need to establish yet another collection as the 
+    // iteration process consumes the original items.
+    // There does not seem to be any easy way around this!
+
+    // First do a reversal in place of the existing reversed records
+    // so that they are in the correct order.
+    // Then create yet another blank vector.
+
+    reversed_lines.reverse();
+
+    let mut sequenced_lines: Vec<IECLine> = Vec::new();
+
+    // Clarify situation with one or two criteria only.
+
+    if reversed_lines.len() == 1
+    { 
+        let single_iec = IECLine {
+            seq_num: 1,
+            split_type:"none".to_string(),
+            type_id: tv.no_sep,
+            tag: "All".to_string(),
+            indent_level: 0,
+            indent_seq_num:1,
+            sequence_string:tv.sequence_start.clone() + ".A00",
+            text: reversed_lines[0].text.clone()
+        };
+        sequenced_lines.push(single_iec);
+    }
+
+    if reversed_lines.len() == 2 && reversed_lines[0].type_id == tv.grp_hdr {
+
+        let top_text = reversed_lines[0].text.clone();
+        let bottom_text = reversed_lines[1].text.clone();
+        if top_text.ends_with(":") && top_text.to_lowercase().contains("criteria")
+        {
+            // Probably a genuine header (unusual). Make the second line a criterion
+
+            reversed_lines[1].type_id = tv.type_id;
+            reversed_lines[1].tag = "-1-".to_string();
+            reversed_lines[1].indent_level = 2;
+            reversed_lines[1].indent_seq_num = 1;
+
+            reversed_lines[0].sequence_string = format!("{}.H01", tv.sequence_start);
+            reversed_lines[1].sequence_string = format!("{}.01", tv.sequence_start);
+
+            sequenced_lines.push(reversed_lines[0].clone());
+            sequenced_lines.push(reversed_lines[1].clone());
+
+          //  info!("Pushing pair0 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+        }
+        else
+        {
+            if check_if_all_lines_end_consistently(&reversed_lines, 0)
+                || check_if_all_lines_start_with_caps(&reversed_lines, 0)
+            {
+                // More likely that these are a pair of criteria statements 
+                // (or multiple criteria statements)
+
+                reversed_lines[0].seq_num = 1;
+                reversed_lines[1].seq_num = 2;
+                reversed_lines[0].split_type = "cr pair".to_string();
+                reversed_lines[1].split_type = "cr pair".to_string();
+                
+                reversed_lines[0].type_id = tv.type_id;
+                reversed_lines[0].tag = "-1-".to_string();
+                reversed_lines[0].indent_level = 2;
+                reversed_lines[0].indent_seq_num = 1;
+                
+                reversed_lines[1].type_id = tv.type_id;
+                reversed_lines[1].tag = "-2-".to_string();
+                reversed_lines[1].indent_level = 2;
+                reversed_lines[1].indent_seq_num = 2;
+
+                reversed_lines[0].sequence_string = format!("{}.01", tv.sequence_start);
+                reversed_lines[1].sequence_string = format!("{}.02", tv.sequence_start);
+                
+                // In case they include them strip lines of headers.
+                // Are not removed beforehand as first and last lines are not processed
+                
+                reversed_lines[0].text = remove_iec_header_text(&top_text).unwrap_or("??".to_string());  
+                reversed_lines[1].text = remove_iec_header_text(&bottom_text).unwrap_or("??".to_string()); 
+
+                sequenced_lines.push(reversed_lines[0].clone());
+                sequenced_lines.push(reversed_lines[1].clone());
+                
+                info!("Pushing pair1 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+            }
+
+            else if !(top_text.ends_with('.') || top_text.ends_with(';') || top_text.ends_with(':'))
+                        && bottom_text.chars().next().unwrap().is_lowercase()
+            {
+                // More likely they are a single statement split for some reason
+
+                reversed_lines[0].text = format!("{} {}", reversed_lines[0].text, reversed_lines[1].text)
+                                            .replace("  ", " ");
+                reversed_lines[0].seq_num = 1;
+                reversed_lines[0].split_type = "none".to_string();
+                reversed_lines[0].type_id = tv.no_sep;
+                reversed_lines[0].tag = "All".to_string();
+                reversed_lines[0].indent_level = 0;
+                reversed_lines[0].indent_seq_num = 1;
+                reversed_lines[0].sequence_string = tv.sequence_start.clone() + ".A00";
+
+                sequenced_lines.push(reversed_lines[0].clone());
+               
+            }
+            else
+            {
+                // leave as a hdr / spp pair...
+
+                reversed_lines[0].sequence_string = format!("{}.{}01", tv.sequence_start, &reversed_lines[0].tag.chars().next().unwrap());
+                reversed_lines[1].sequence_string = format!("{}.{}02", tv.sequence_start, &reversed_lines[1].tag.chars().next().unwrap() );
+
+                sequenced_lines.push(reversed_lines[0].clone());
+                sequenced_lines.push(reversed_lines[1].clone());
+
+                info!("Pushing pair2 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+            }
+
+        }
+    }
+
+
+    if reversed_lines.len() > 2
+    {
+        // Add in sequence numbers and strings to try to 
+        // ensure numbering is continuous and reflects indent levels
+
+        // Need to establish yet another collection as the 
+        // iteration process consumes the original items.
+        // There does not seem to be any easy way around this!
+
+        // Assumed (for now) lines are in the correct order.
+        // Otherwise would need Ord, Cmp traits to be defined
+        // Try to get away without this sort of thing:
+        // reversed_lines = reversed_lines.OrderBy(c => c.seq_num).ThenBy(c => c.indent_seq_num).ToList();
+
+        let seq_start = format!("{}.", &tv.sequence_start);    //starts with e. or i. (or g.)
+        let mut seq_base = seq_start.clone();  
+
+        let mut old_level = -1;
+        let mut level_pos_store = vec![0, 0, 0, 0, 0, 0, 0, 0, 0];  // up to 8 levels possible
+        let mut current_level_pos = 0;
+
+        for i in 0..reversed_lines.len(){    // reversed lines now in normal order
+
+            let seq_string: String;
+            let mut new_iecline = reversed_lines[i].clone();
+            let level = reversed_lines[i].indent_level; //  assumed always non-null
+
+            if level != old_level  
+            {   
+                // A change of level so reset the sequence string    
+                let lu = level as usize;
+                let olu = old_level as usize;
+
+                if old_level != -1  // store the most recently used value
+                {
+                    level_pos_store[olu] = current_level_pos; 
+                }
+
+                if level == 0 {
+                    seq_string = reversed_lines[i].sequence_string.clone();
+                }
+
+                else if level == 1  {   // Hdr or Spp
+
+                    level_pos_store[1] += 1;
+                    current_level_pos = level_pos_store[1];
+
+                    let tag2 = reversed_lines[i].tag.clone();
+                    let mut level1_prefix = tag2.chars().next().unwrap();
+
+                    if level1_prefix == '@' {
+                        level1_prefix = tag2.chars().nth(1).unwrap();
+                    }
+                    seq_base = seq_start.clone();
+                    seq_string = format!("{}{}{:02}", seq_base, level1_prefix, level_pos_store[1]);
+                }
+
+                else if level == 2  {
+
+                    level_pos_store[2] += 1;
+                    current_level_pos = level_pos_store[2];
+
+                    seq_base = seq_start.clone();
+                    seq_string = format!("{}{:02}", seq_base, current_level_pos);
+                }
+
+                else {
+                    if level > old_level  // level has increased
+                    {
+                        level_pos_store[lu] = 1;
+                        current_level_pos = 1;
+
+                        let mut seq_nums = "".to_string();
+                        for lev in 2..level {
+                            seq_nums = format!("{}{:02}.", seq_nums, level_pos_store[lev as usize]);
+                        }
+                        seq_base = format!("{}{}", seq_start.clone(), seq_nums);
+                        seq_string = format!("{}01", seq_base);
+                    }
+                    else
+                    {   
+                        // level less than old level - use current set of values to construct the base
+ 
+                        level_pos_store[lu] += 1;
+                        current_level_pos = level_pos_store[lu];  // restore the previous value + 1
+
+                        let mut seq_nums = "".to_string();
+                        for lev in 2..(level-1) {
+                            seq_nums = format!("{}{:02}.", seq_nums, level_pos_store[lev as usize]);
+                        }
+                        seq_base = format!("{}{}", seq_start.clone(), seq_nums);
+                        seq_string = format!("{}{:02}", seq_base, current_level_pos);
+                    }
+                }
+
+                old_level = level;
+
+            }
+            else  {
+
+                if level == 1  {   // Repeated Hdr or Spp line
+                   
+                    level_pos_store[1] += 1;
+                    current_level_pos = level_pos_store[1];
+
+                    let tag2 = new_iecline.tag.clone();
+                    let mut level1_prefix = tag2.chars().next().unwrap();
+
+                    if level1_prefix == '@' {
+                        level1_prefix = tag2.chars().nth(1).unwrap();
+                    }
+                    seq_base = seq_start.clone();
+                    seq_string = format!("{}{}{:02}", seq_base, level1_prefix, level_pos_store[1]);
+
+                }
+
+                else {
+
+                current_level_pos += 1;
+                seq_string = format!("{}{:02}", seq_base, current_level_pos);
+
+                }
+            }
+
+            new_iecline.sequence_string = seq_string; //seq_string.to_string();
+            sequenced_lines.push(new_iecline);
+
+        }
+
+        
+
+    }
+
+    sequenced_lines
+
+
+}
+
+    /*
+           
+                    if (level != old_level)
+                    {
+                        // a change of level so reset parameters to construct the sequence string
+
+                        if (old_level != -1)
+                        {
+                            level_pos[old_level] = current_level_pos; // store the most recently used value
+                        }
+
+                        if (level == 1)
+                        {
+                            sequence_base = sequence_start;
+                            current_level_pos = level_pos[1];
+                        }
+                        else
+                        {
+                            if (level > old_level)
+                            {
+                                sequence_base = seq_string + "."; // current string plus dot separator
+                                current_level_pos = 0;
+                            }
+                            else
+                            {
+                                // level less than old level
+                                // use current set of values to construct the base
+                                sequence_base = sequence_start;
+                                for (int b = 1; b < level; b++)
+                                {
+                                    sequence_base += level_pos[b].ToString("0#") + ".";
+                                }
+
+                                current_level_pos = level_pos[level]; // restore the previous value
+                            }
+                        }
+
+                        old_level = level;
+                    }
+
+                    seq_string = sequence_base + (++current_level_pos).ToString("0#");
+                }
+
+                t.sequence_string = seq_string;
+            }
+        }
+
+        return revised_lines;
+    }
+     */
 
 
 
 
-    final_lines
-
-
- }
     

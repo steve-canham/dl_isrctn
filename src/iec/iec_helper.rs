@@ -1,268 +1,4 @@
-/*
-use std::sync::LazyLock;
-use regex::Regex;
-use std::collections::HashMap;
-//use log::info;
-
-
-pub static NUMBDOT_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
-    
-    let mut map = HashMap::new();
-
-    map.insert("numdot4", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());  // numeric sub-sub-sub-heading. N.n.n.n
-    map.insert("numdot3", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());           // numeric sub-sub-heading. N.n.n 
-    map.insert("numdot2", Regex::new(r"^d{1,2}\.\d{1,2}\.").unwrap());                   // numeric sub-heading. N.n. 
-    map.insert("numdotnumspc", Regex::new(r"^\d{1,2}\.\d{1,2}\s").unwrap());             // numeric sub-heading space (without final period) N.n
-    map.insert("numdotnumalcap", Regex::new(r"^\d{1,2}\.\d{1,2}[A-Z]").unwrap());        // number-dot-number cap letter  - Cap is usually from text (no space)
-    map.insert("numdotspc", Regex::new(r"^\d{1,2}\.\s").unwrap());                       // number period and space / tab 1. , 2.    
-    map.insert("numdotrtpar", Regex::new(r"^\d{1,2}\.\)").unwrap());                     // number followed by dot and right bracket  1.), 2.)
-    map.insert("numdot", Regex::new(r"^\d{1,2}\.").unwrap());                            // number period only - can give false positives
-  
-    map
-});
-
-
-pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
-    
-    let mut map = HashMap::new();
-
-    map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na, Nb
-    map.insert("numrtpardot", Regex::new(r"^\d{1,2}\)\.").unwrap());                     // number followed by right bracket and dot 1)., 2).
-    map.insert("numrtpar", Regex::new(r"^\d{1,2}\)").unwrap());                          // number followed by right bracket 1), 2)
-    map.insert("numcol", Regex::new(r"^\d{1,2}\:").unwrap());                            // number followed by colon 1:, 2:
- 
-    map.insert("numrtbr", Regex::new(r"^\d{1,2}\]").unwrap());                           // numbers with right square bracket   1], 2]
-    map.insert("numdshnumpar", Regex::new(r"^\d{1,2}\-\d{1,2}\)").unwrap());             // numbers and following dash, then following number right bracket  1-1), 1-2)
-    map.insert("numdshpar", Regex::new(r"^\d{1,2}\-\)").unwrap());                       // numbers and following dash, right bracket  1-), 2-)
-    map.insert("numdsh", Regex::new(r"^\d{1,2}\-").unwrap());                            // numbers and following dash  1-, 2-
-    map.insert("numslash", Regex::new(r"^\d{1,2}\/").unwrap());                          // numbers and following slash  1/, 2/
-    map.insert("numtab", Regex::new(r"^\d{1,2}\t").unwrap());                            // number followed by tab, 1\t, 2\t
-       
-    map.insert("num3spc", Regex::new(r"^(1|2)\d{2}\.?\s").unwrap());                     // 3 numbers between 100 and 300 followed by dot / space
-    map.insert("numspc", Regex::new(r"^\d{1,2}\s").unwrap());                            // number space only - can give false positives            
-    map.insert("numalcap", Regex::new(r"^\d{1,2}[A-Z]{1} ").unwrap());                   // number-cap letter  - might give false positives    
-    map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na, Nb
-
-    map
-});
-
-pub static ALPH_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
-    
-    let mut map = HashMap::new();
-  
-    map.insert("aldottab", Regex::new(r"^[a-z]\.\t").unwrap());                          // alpha-period followed by tab   a.\t, b.\t
-    map.insert("aldot", Regex::new(r"^[a-z]\.").unwrap());                               // alpha period. a., b.
-    map.insert("alcapdot", Regex::new(r"^[A-Z]\.").unwrap());                            // alpha caps period. A., B.
-    map.insert("alinpar", Regex::new(r"^\([a-z]\)").unwrap());                           // alpha in parentheses. (a), (b)
-    map.insert("alrpar", Regex::new(r"^[a-z]\)").unwrap());                              // alpha with right bracket. a), b)
-           
-    map.insert("ospc", Regex::new(r"^o ").unwrap());                                     // open 'o' bullet followed by space, o , o
-    map.insert("otab", Regex::new(r"^o\t").unwrap());                                    // open 'o' bullet followed by tab  o\t, o\t
-    
-    map.insert("romrtpar", Regex::new(r"^x{0,3}(|ix|iv|v?i{0,3})\)").unwrap());          // roman numerals right brackets    i), ii)
-    map.insert("romdot", Regex::new(r"^x{0,3}(|ix|iv|v?i{0,3})\.").unwrap());            // roman numerals dots   i., ii.
-
-    map.insert("e_num", Regex::new(r"^(E|e)\s?\d{1,2}").unwrap());                       // exclusion as E or e numbers, optional space E 01, E 02
-    map.insert("i_num", Regex::new(r"^(I|i)\s?\d{1,2}").unwrap());                       // inclusion as I or i numbers, optional space i1, i2
-   
-    map
-});
-
-pub static OTH_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
-    
-    let mut map = HashMap::new();
- 
-    map.insert("alinpar", Regex::new(r"^\([a-z]\)").unwrap());                           // alpha in parentheses. (a), (b)
-    map.insert("numinpar", Regex::new(r"^\(\d{1,2}\)").unwrap());                        // bracketed numbers (1), (2)
-    map.insert("numinbrs", Regex::new(r"^\[\d{1,2}\]").unwrap());                        // numbers in square brackets   [1], [2]
-       
-    map.insert("buls1", Regex::new(r"^[\u{2022},\u{2023},\u{25E6},\u{2043},\u{2219}]").unwrap());  // various bullets 1  
-    map.insert("buls2", Regex::new(r"^[\u{2212},\u{2666},\u{00B7},\u{F0B7}]").unwrap());           // various bullets 2
-    map.insert("bultab", Regex::new(r"^\u{F0A7}\t").unwrap());                             // ? bullet and tab     
-    map.insert("dshtab", Regex::new(r"^-\t").unwrap());                                  // hyphen followed by tab, -\t, -\t 
-    map.insert("strtab", Regex::new(r"^\*\t").unwrap());                                 // asterisk followed by tab    *\t, *\t      
-     
-    map.insert("rominpar", Regex::new(r"^\(x{0,3}(|ix|iv|v?i{0,3})\)").unwrap());        // roman numerals double bracket   (i), (ii)
-   
-    map.insert("dshonly", Regex::new(r"^-").unwrap());                                   // dash only   -, -
-    map.insert("dblstr", Regex::new(r"^\*\*").unwrap());                                 // two asterisks   **, **
-    map.insert("stronly", Regex::new(r"^\*").unwrap());                                  // asterisk only   *, *
-    map.insert("semcolonly", Regex::new(r"^;").unwrap());                                // semi-colon only   ;, ; 
-    map.insert("qmkonly", Regex::new(r"^\?").unwrap());                                  // question mark only   ?, ?  
-    map.insert("invqm", Regex::new(r"^¿").unwrap());                                     // inverted question mark only   ¿, ¿
- 
-    map
-});
- 
-*/
-
-
-
-
-
-
-
-
-pub struct IECLine
-{
-    pub seq_num: i32,
-    pub type_id: i32,
-    pub split_type: String,
-    pub leader: String,
-    pub indent_level: i32,
-    pub indent_seq_num: i32,
-    pub sequence_string: String,
-    pub text: String,
-}
-
-impl IECLine {
-
-    pub fn new(seq_num: i32, type_id: i32, split_type: &String, text: &String) -> Self {
-
-        IECLine { 
-            seq_num: seq_num,
-            type_id: type_id,
-            split_type: split_type.to_string(),
-            leader: "".to_string(),
-            indent_level: 0,
-            indent_seq_num: 0,
-            sequence_string: "".to_string(),
-            text: text.to_string(),
-        }
-    }
-
-}
-
-
-
-#[allow(dead_code)]
-pub struct TypePars
-{
-    pub sd_sid: String,
-    pub type_base: String,
-    pub type_id: i32,
-    pub post_crit: i32,
-    pub grp_hdr: i32,
-    pub no_sep: i32,
-    pub type_name: String,
-    pub post_crit_name: String,
-    pub grp_hdr_name: String,
-    pub no_sep_name: String,
-    pub sequence_start: String,
-}
-
-#[allow(dead_code)]
-impl TypePars {
-
-    pub fn new(sd_sid: &String, input_type: &str) -> Self {
-        
-        let t =  match input_type
-        {
-            "inclusion" => 1,
-            "exclusion" => 2,
-            "eligibility" => 3,
-            _ => 4
-        };
-
-        let ss = match t
-        {
-            1 => "n.".to_string(),
-            2 => "e.".to_string(),
-            3 => "g.".to_string(),
-            _ => "??".to_string(),
-        };
-
-        TypePars { 
-            sd_sid: sd_sid.to_string(),
-            type_base: input_type.to_string(),
-            type_id: t,
-            post_crit: 200 + t,
-            grp_hdr: 300 + t,
-            no_sep: 1000 + t,
-            type_name: format!("{} criterion", input_type),
-            post_crit_name: format!("{} supplementary statement", input_type),
-            grp_hdr_name: format!("{} criteria group heading", input_type),
-            no_sep_name: format!("{} criteria with no separator", input_type),
-            sequence_start: ss,
-        }
-    }
-
-
-    pub fn get_type_name(&self, type_id: i32) -> String {
-
-        if type_id > 1000 {
-            self.no_sep_name.clone()
-        }
-        else if type_id > 300 {
-            self.grp_hdr_name.clone()
-        }
-        else if type_id > 200 {
-            self.post_crit_name.clone()
-        }
-        else {
-            self.type_name.clone()
-        }
-    }
-
-}
-    
-
-// The levels vector (Vec<Level>) stores the different indent levels,
-// and the names of the leader types associated with them, as used within 
-// a set of criteria. The lavel of the line is given by the position of 
-// the name in the vector. The L1 leader is at pos(0). L2 leader at pos1 etc.
-// The current_seq_num field gives the current sequence number within the level of
-// the line
-
-#[allow(dead_code)]
-pub struct Level
-{
-    pub level_name: String,
-    pub current_seq_num: i32,
-}
-
-
-#[allow(dead_code)]
-impl Level {
-
-    pub fn new(level_name: &String, level_num: i32) -> Self {
-        Level { 
-            level_name: level_name.to_string(),
-            current_seq_num: level_num,
-        }
-    }
-}
-
-
-pub fn get_level(hdr_name: &String, levels: &mut Vec<Level>) -> usize {
-
-    if levels.len() == 1   // as on initial use - there is a dummy 'none', 0 entry already present.
-    {
-        levels.push(Level::new(hdr_name, 0));
-        return 1;
-    }
-
-    // See if the level header has been used - if so
-    // return level, if not add and return new level
-    
-    let mut found_level = 0;
-    for i in 0..levels.len() {
-        
-        if hdr_name == &levels[i].level_name
-        {
-            found_level = i;
-            break;
-        }
-    }
-
-    if found_level == 0 {
-        levels.push(Level::new(hdr_name, 0));
-        found_level = levels.len() - 1;
-    }
-
-    found_level
-}
-    
+use super::iec_structs::*;
 
 
 pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
@@ -389,9 +125,9 @@ pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
 }
 
 
-pub fn trim_internal_iec_headers(s: &String) -> Option<String> {
+pub fn remove_iec_header_text(s: &String) -> Option<String> {
 
-    if s.len() < 4 {
+    if s.len() < 3 {
         None
     }
     else {
@@ -467,6 +203,40 @@ pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<IECLine>, allowan
     valid_start_chars >= in_lines.len() - allowance
 }
 
+/* 
+pub fn is_spurious_line(input_line: &String) -> bool {
+
+    if input_line.is_empty()
+    {
+        true;
+    }
+
+    else {
+
+        string line = input_line.Trim().ToLower();
+        if (line is "inclusion:" or "included:" or "exclusion:" or "excluded:")
+        {
+            return true;;
+        }
+
+        input_line = input_line.Replace("key inclusion criteria", "", true, CultureInfo.CurrentCulture);
+        input_line = input_line.Replace("inclusion criteria include", "", true, CultureInfo.CurrentCulture);
+        input_line = input_line.Replace("key exclusion criteria", "", true, CultureInfo.CurrentCulture);
+        ;
+        input_line = input_line.Replace("exclusion criteria include", "", true, CultureInfo.CurrentCulture);
+        input_line = input_line.Replace("key criteria", "", true, CultureInfo.CurrentCulture);
+        input_line = input_line.Replace("inclusion criteria", "", true, CultureInfo.CurrentCulture);
+        input_line = input_line.Replace("exclusion criteria", "", true, CultureInfo.CurrentCulture);
+        
+        if (string.IsNullOrEmpty(input_line) || input_line.Length < 4)
+        {
+            return true;;
+        }
+        
+        return false;  // the default if the line passes the tests below
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {

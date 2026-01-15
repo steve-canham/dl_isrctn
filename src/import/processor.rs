@@ -5,12 +5,12 @@ use crate::data_models::db_models::*;
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
 use crate::iec::iec_fns::*;
-use crate::iec::iec_helper::IECLine;
+use crate::iec::iec_structs::IECLine;
 
 use super::support_fns::*;
 
 use chrono::{NaiveDate, NaiveDateTime, Local}; 
-use log::info;
+//use log::info;
 
  
 // The processor needs to creat a full DB version of each study's data,
@@ -501,7 +501,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 }
             }
             else {
-                info!("odd org name{:?}, for {}", f.name.clone(), &sd_sid)
+               // info!("odd org name{:?}, for {}", f.name.clone(), &sd_sid)
             }
         }
     }
@@ -528,7 +528,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 }
             }
             else {
-                info!("odd person name{:?}, for {}", c.surname.clone(), &sd_sid)
+                //info!("odd person name{:?}, for {}", c.surname.clone(), &sd_sid)
             }
         }
     }

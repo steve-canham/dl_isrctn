@@ -130,7 +130,7 @@ CREATE TABLE sd.study_iec(
 , seq_num                INT             NULL
 , ie_type_id             INT             NULL    
 , split_type             VARCHAR         NULL
-, leader                 VARCHAR         NULL  
+, tag                    VARCHAR         NULL  
 , indent_level           INT             NULL
 , indent_seq_num         INT             NULL
 , sequence_string         VARCHAR         NULL

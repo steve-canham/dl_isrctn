@@ -10,7 +10,7 @@ pub static NUMBDOT_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(|
 
     map.insert("numdot4", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());  // numeric sub-sub-sub-heading. N.n.n.n
     map.insert("numdot3", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());           // numeric sub-sub-heading. N.n.n 
-    map.insert("numdot2", Regex::new(r"^d{1,2}\.\d{1,2}\.").unwrap());                   // numeric sub-heading. N.n. 
+    map.insert("numdot2", Regex::new(r"^\d{1,2}\.\d{1,2}\.").unwrap());                   // numeric sub-heading. N.n. 
     map.insert("numdotnumspc", Regex::new(r"^\d{1,2}\.\d{1,2}\s").unwrap());             // numeric sub-heading space (without final period) N.n
     map.insert("numdotnumalcap", Regex::new(r"^\d{1,2}\.\d{1,2}[A-Z]").unwrap());        // number-dot-number cap letter  - Cap is usually from text (no space)
     map.insert("numdotspc", Regex::new(r"^\d{1,2}\.\s").unwrap());                       // number period and space / tab 1. , 2.    
@@ -24,8 +24,8 @@ pub static NUMBDOT_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(|
 pub static NUMB_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     
     let mut map = HashMap::new();
-
-    map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na, Nb
+    map.insert("numaldot", Regex::new(r"^\d{1,2}[a-z]{1}\.").unwrap());                  // number plus letter and space Na., Nb. 
+    map.insert("numal", Regex::new(r"^\d{1,2}[a-z]{1} ").unwrap());                      // number plus letter and space Na , Nb 
     map.insert("numrtpardot", Regex::new(r"^\d{1,2}\)\.").unwrap());                     // number followed by right bracket and dot 1)., 2).
     map.insert("numrtpar", Regex::new(r"^\d{1,2}\)").unwrap());                          // number followed by right bracket 1), 2)
     map.insert("numcol", Regex::new(r"^\d{1,2}\:").unwrap());                            // number followed by colon 1:, 2:

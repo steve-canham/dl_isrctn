@@ -155,7 +155,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.store_data(src_pool).await?;
 
 
-        if n > 1000 {
+        if n > 300 {
             break;
         }
 
