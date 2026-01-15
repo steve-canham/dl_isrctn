@@ -436,7 +436,8 @@
                             leader = "";
                         }
                     }
-
+                    
+/*
                     if (ldrName == "resnumdash")
                     {
                         // hdrName = "resnumdash", regex_pattern = @"^\d{1,2}\-" by default 
@@ -452,6 +453,7 @@
 
                         break;
                     }
+*/
 
                     if (ldrName == "resh1")
                     {

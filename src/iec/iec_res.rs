@@ -1,8 +1,16 @@
 use std::sync::LazyLock;
 use regex::Regex;
 use std::collections::HashMap;
+use super::iec_helper::*;
 //use log::info;
 
+pub struct RegexResults {
+    pub tag: String,
+    pub tag_name: String,
+    pub regex: String, 
+    pub new_line: String,
+
+}
 
 pub static NUMBDOT_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     
@@ -95,7 +103,7 @@ pub static OTH_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
  
 
 
-pub fn test_against_numdot_res(this_line: &String) ->  Option<(String, String, String)>{
+pub fn test_against_numdot_res(this_line: &String) ->  Option<RegexResults>{
 
     // Ordering of these 'numdot' REs is important and not easily done from the hashmap
     // where theyare stored. Therefore each one called individually in the 
@@ -132,53 +140,91 @@ pub fn test_against_numdot_res(this_line: &String) ->  Option<(String, String, S
 }
 
 
-fn test_numdot_re(ldr_name: &str, this_line: &String) ->  Option<(String, String, String)>{
+fn test_numdot_re(tag_name: &str, this_line: &String) ->  Option<RegexResults> {
 
-    let re = NUMBDOT_MAP.get(ldr_name).unwrap();
+    let re = NUMBDOT_MAP.get(tag_name).unwrap();
     if let Some(c) = re.captures(this_line) {
 
-        let leader = c.get_match().as_str();
+        let tag = c.get_match().as_str();
         let regex = re.to_string();
-        Some((leader.to_string(), ldr_name.to_string(), regex))
+
+        match tag_name {
+
+            "none" => None,
+
+            _ => Some (RegexResults {
+            tag: tag.to_string(),
+            tag_name: tag_name.to_string(),
+            regex: regex, 
+            new_line: this_line[tag.len()..].to_string(),
+        }) 
+        }
     }
     else {
-       None
+
+        None
     }
+
+
 }
 
 
-pub fn test_against_numeric_res(this_line: &String) ->  Option<(String, String, String)>{
+pub fn test_against_numeric_res(this_line: &String) ->  Option<RegexResults>{
 
-    let mut ldr_name = "none";
-    let mut leader = "";
+    let mut tag = "";
+    let mut tag_name = "none";
     let mut regex = "".to_string(); 
 
     for r in NUMB_MAP.iter() {
 
         let re = r.1;
         if let Some(c) = re.captures(&this_line) {
-
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
+            tag = c.get_match().as_str();
+            tag_name = *r.0; 
             regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
-
 
             break;
         }
     }
 
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+   // Beware false positives
+
+    if tag_name == "numdsh"
+    {
+        // regex_pattern = @"^\d{1,2}\-", number followed by a dash
+        // may need to be put back together if the first character of the text is also
+        // a number - indicates that this is a numeric range (e.g. of age, weight)
+
+        let rest_of_text = this_line[tag.len()..].trim().to_string();
+        if rest_of_text.first_char().is_digit(10)
+        {
+            tag_name = "none"; // not really a match for anything
+            tag = "";
+            regex = "".to_string();
+        }
+    }
+
+    match tag_name {
+
+        "none" => None,
+
+        _ => Some (RegexResults {
+        tag: tag.to_string(),
+        tag_name: tag_name.to_string(),
+        regex: regex, 
+        new_line: this_line[tag.len()..].to_string(),
+    }) 
+}
+
+
 
 }
 
 
-pub fn test_against_alpha_res(this_line: &String) ->  Option<(String, String, String)>{
+pub fn test_against_alpha_res(this_line: &String) ->  Option<RegexResults> {
 
-    let mut ldr_name = "none";
-    let mut leader = "";
+    let mut tag_name = "none";
+    let mut tag = "";
     let mut regex = "".to_string();
 
     for r in ALPH_MAP.iter() {
@@ -186,27 +232,32 @@ pub fn test_against_alpha_res(this_line: &String) ->  Option<(String, String, St
         let re = r.1;
         if let Some(c) = re.captures(&this_line) {
 
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
+            tag = c.get_match().as_str();
+            tag_name = *r.0; 
             regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
-
 
             break;
         }
     }
 
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+    match tag_name {
 
+        "none" => None,
+
+        _ => Some (RegexResults {
+        tag: tag.to_string(),
+        tag_name: tag_name.to_string(),
+        regex: regex, 
+        new_line: this_line[tag.len()..].to_string(),
+        }) 
+    }
 }
 
+// may need to do some checking / corrections before coming out of the loop
+pub fn test_against_other_res(this_line: &String) ->  Option<RegexResults>{
 
-pub fn test_against_other_res(this_line: &String) ->  Option<(String, String, String)>{
-
-    let mut ldr_name = "none";
-    let mut leader = "";
+    let mut tag_name = "none";
+    let mut tag = "";
     let mut regex = "".to_string();
 
     for r in OTH_MAP.iter() {
@@ -214,19 +265,32 @@ pub fn test_against_other_res(this_line: &String) ->  Option<(String, String, St
         let re = r.1;
         if let Some(c) = re.captures(&this_line) {
 
-            leader = c.get_match().as_str();
-            ldr_name = *r.0; 
+            tag = c.get_match().as_str();
+            tag_name = *r.0; 
             regex = re.to_string();
-
-            // may need to do some checking / corrections before coming out of the loop
-
 
 
             break;
         }
     }
 
-    if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
+    // may need to do some checking / corrections before coming out of the loop
+
+    match tag_name {
+
+        "none" => None,
+
+        _ => Some (RegexResults {
+        tag: tag.to_string(),
+        tag_name: tag_name.to_string(),
+        regex: regex, 
+        new_line: this_line[tag.len()..].to_string(),
+        }) 
+
+    }
+
+
+   // if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}
 
 }
 

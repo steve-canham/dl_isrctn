@@ -128,6 +128,8 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     let mut level = 0;
     let mut hdr_seq_num = 0;
 
+    let mut crit_text: String = "".to_string();
+
     for (i, ln) in initial_lines.into_iter().enumerate() {
 
         let mut tag_style = "none".to_string(); // initial defaults - signify no leader found
@@ -150,6 +152,8 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                     tag_style = previous_tag_style.clone();     
                     
                     // previous_regex_string can stay the same
+
+
                 }
             }
             else {
@@ -164,38 +168,38 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             
             // Use first character(s) of line to see which regex collection to use
 
-            let first_char = ln.chars().next().unwrap();
+            let first_char = &ln.first_char();
 
             if first_char.is_digit(10) {
                 
                 // If the second or third characteris a period use the 
                 // numdot family of REs, otherwise the normal numeric family
 
-                let second_char = &ln.chars().nth(1).unwrap();
-                let third_char = &ln.chars().nth(2).unwrap();
+                let second_char = &ln.nth_char(1);
+                let third_char = &ln.nth_char(2);
 
                 if *second_char == '.' || second_char.is_digit(10) && *third_char == '.' {
                     
                     match test_against_numdot_res(ln) {
-                        Some((s1, s2, s3)) => {
-                            tag = s1;
-                            tag_style = s2;
-                            previous_regex_string = s3;
+                         Some(rr) => {
+                            tag = rr.tag;
+                            tag_style = rr.tag_name;
+                            previous_regex_string = rr.regex;
+                            crit_text = rr.new_line;
                         },
                         None => {},
                     }
                     
                     // may need to do some checking / corrections before coming out of the loop
 
-
-
                 }
                 else {
                     match test_against_numeric_res(ln) {
-                        Some((s1, s2, s3)) => {
-                            tag = s1;
-                            tag_style = s2;
-                            previous_regex_string = s3;
+                        Some(rr) => {
+                            tag = rr.tag;
+                            tag_style = rr.tag_name;
+                            previous_regex_string = rr.regex;
+                            crit_text = rr.new_line;
                         },
                         None => {},
                     }
@@ -207,11 +211,12 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             else if first_char.is_alphabetic() {
 
                 match test_against_alpha_res(ln) {
-                    Some((s1, s2, s3)) => {
-                        tag = s1;
-                        tag_style = s2;
-                        previous_regex_string = s3;
-                    },
+                     Some(rr) => {
+                            tag = rr.tag;
+                            tag_style = rr.tag_name;
+                            previous_regex_string = rr.regex;
+                            crit_text = rr.new_line;
+                        },
                     None => {
                         tag_style = "none".to_string();
                     },
@@ -223,11 +228,12 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             else {
                 match test_against_other_res(ln) {
 
-                    Some((s1, s2, s3)) => {
-                        tag = s1;
-                        tag_style = s2;
-                        previous_regex_string = s3;
-                    },
+                     Some(rr) => {
+                            tag = rr.tag;
+                            tag_style = rr.tag_name;
+                            previous_regex_string = rr.regex;
+                            crit_text = rr.new_line;
+                        },
                     None => {
                         tag_style = "none".to_string();
                     },
@@ -274,7 +280,7 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         
         let mut type_id = tv.type_id;
         let split_type = format!("v-{}", tag_style);  
-        let mut ln_text = ln.to_string();
+
         let in_hdr_seq: bool;
         let num_in_seq: i32;
      
@@ -302,7 +308,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             }
 
             in_hdr_seq = false;
-            ln_text = ln[tag.len()..].trim().to_string();
 
         }
 
@@ -353,7 +358,7 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             indent_level: level as i32,
             indent_seq_num: num_in_seq,
             sequence_string: seq_string,
-            text: ln_text,
+            text: crit_text.clone(),
         });
 
         previous_tag_style = tag_style;
@@ -365,12 +370,19 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     // (though most of these should have been eliminated at the beginning)
     // or if, for example, the original split in CTG left a tag before the 'Exclusion Criteria' statement
     
+    /* 
     let mut processed_lines: Vec<IECLine> = Vec::new();
     for tln in tagged_lines {
         if tln.text.trim() != "" {
             processed_lines.push(tln);
         }
     } 
+    */
+
+    let processed_lines: Vec<IECLine> = tagged_lines
+                                       .into_iter()
+                                       .filter(|t| t.text != "")
+                                       .collect();
 
     // Check the 'all without a tag' possibility - allowing a single exception
 
@@ -395,7 +407,7 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 // start with the second line (as the first may be different) and see if they are all the same
                 // Don't test letters as some people use formulaic criteria all starting with the same word
 
-                let test_char = &processed_lines[1].text.chars().next().unwrap();  // should always be at least one character in each line
+                let test_char = &processed_lines[1].text.first_char();  // should always be at least one character in each line
                 if !test_char.is_alphabetic()
                 {
                     let mut valid_start_chars = 0;
@@ -530,129 +542,125 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
     //plines[0].clone()
 
     for i in (0..max_i).rev() {
-    
-    let mut transfer_line = true;  
-    if i > 0 {
+        
+        let mut transfer_line = true;  
+        if i > 0 {
 
-     // by default
+            // by default
 
-        let this_text = plines[i].text.clone();
-        let prev_text = plines[i - 1].text.clone();
-        let init_char = &this_text.chars().next().unwrap_or('?'); 
+            let this_text = plines[i].text.clone();
+            let prev_text = plines[i - 1].text.clone();
+            let init_char = &this_text.chars().next().unwrap_or('?'); 
 
-        // Remove (i.e. don't transfer) simple header lines or headings with no information
+            // Remove (i.e. don't transfer) simple header lines or headings with no information
 
-        if remove_iec_header_text(&this_text).is_none() {
-            transfer_line = false;
-        }
-        else {
+            if remove_iec_header_text(&this_text).is_none() {
+                transfer_line = false;
+            }
+            else {
 
-            // Try and identify spurious 'headers', i.e. lines without leaders, caused by spurious CRs.
-            // Following recent revisions spurious CRs no longer seem to exist within CGT IEC data. 
-            // Lines without headers (usually 1., 2., *, *) are therefore normally genuine header
-            // statements for this source. The next two routines therefore do not apply for CTG data.
+                // Try and identify spurious 'headers', i.e. lines without leaders, caused by spurious CRs.
+                // Following recent revisions spurious CRs no longer seem to exist within CGT IEC data. 
+                // Lines without headers (usually 1., 2., *, *) are therefore normally genuine header
+                // statements for this source. The next two routines therefore do not apply for CTG data.
 
-            if !tv.sd_sid.starts_with("NCT")
-            {
-                // Consider lines originally specified as headers (leave out last line)  
-
-                if plines[i].type_id == tv.grp_hdr && i < plines.len() - 1
+                if !tv.sd_sid.starts_with("NCT")
                 {
-                    // Ignore line starting with 'Note'- very likely to be a true 'header'. 
-                    // Also ignore lines where preceding line ends with ':' (unless both lines end with :)
-                    // as a final ':' usually denotes a true (sub-) header.
-                    // (N.B. Very last line not checked).
+                    // Consider lines originally specified as headers (leave out last line)  
 
-                    if !this_text.to_lowercase().starts_with("note") && !prev_text.ends_with(':')
+                    if plines[i].type_id == tv.grp_hdr && i < plines.len() - 1
                     {
-                        if !this_text.ends_with(':')  // Consider first lines without a final ':'.
-                        {
-                            // Check if the starts with a lower case letter or digit, and
-                            // previous line does not end in a full stop or (semi) colon. If the case,
-                            // add the line to the preceding line.
+                        // Ignore line starting with 'Note'- very likely to be a true 'header'. 
+                        // Also ignore lines where preceding line ends with ':' (unless both lines end with :)
+                        // as a final ':' usually denotes a true (sub-) header.
+                        // (N.B. Very last line not checked).
 
-                            if !(prev_text.ends_with('.') || prev_text.ends_with(';') || prev_text.ends_with(':'))
-                                        && (init_char.is_lowercase() || init_char.is_digit(10)) {
-                                    
+                        if !this_text.to_lowercase().starts_with("note") && !prev_text.ends_with(':')
+                        {
+                            if !this_text.ends_with(':')  // Consider first lines without a final ':'.
+                            {
+                                // Check if the starts with a lower case letter or digit, and
+                                // previous line does not end in a full stop or (semi) colon. If the case,
+                                // add the line to the preceding line.
+
+                                if !(prev_text.ends_with('.') || prev_text.ends_with(';') || prev_text.ends_with(':'))
+                                            && (init_char.is_lowercase() || init_char.is_digit(10)) {
+                                        
+                                    plines[i - 1].text = format!("{} {}", prev_text, this_text)
+                                                        .replace("  ", " ");
+                                    transfer_line = false;
+
+                                    // Difficulty is that some spurious \n are mid-word...and some
+                                    // are between words - no easy way to distinguish - hence the replace
+                                }
+                            }
+    
+                            // Then consider lines with a final ':'. Only those that do not
+                            // start with a capital letter. This indicates a likely 'split' 
+                            // header that should be merged with the line above.
+
+                            if this_text.ends_with(':')
+                                && (init_char.is_lowercase() || init_char.is_digit(10))
+                            {
+
+                                let prev_lchar = &plines[i - 1].text.last_char();
+                                if *prev_lchar != '.' &&  *prev_lchar != ';'
+                                {
+                                    if *prev_lchar == ':'{   // both lines end in ':'
+
+                                        // Merge, changing the first colon to a period.
+                                        plines[i - 1].text = format!("{}. {}", prev_text[..(prev_text.len() - 1)].to_string(), this_text)
+                                    }
+                                    else {
+                                        plines[i - 1].text = format!("{} {}", prev_text, this_text)
+                                                        .replace("  ", " ");
+                                        plines[i - 1].type_id = tv.grp_hdr;
+                                    }
+                                    transfer_line = false;
+                                }
+
+                            }
+                        }
+                    }
+
+                    // Consider lines originally specified as 'supplementary' final lines
+                    
+                    if plines[i].type_id == tv.post_crit {
+
+                        let low_line = this_text.to_lowercase();
+                        if !this_text.ends_with(':') && !this_text.starts_with('*')
+                            && !low_line.starts_with("note") && !low_line.starts_with("other ")
+                            && !low_line.starts_with("for further ") && !low_line.starts_with("further") 
+                            && !low_line.starts_with("for more ") && !low_line.starts_with("more ") {
+
+                            // Almost always is a spurious supplement, better considerd as a normal criterion.
+                            // Whether should be joined depends on whether there is an initial
+                            // lower case or upper case letter... 
+
+                            if init_char.is_lowercase() 
+                            {
                                 plines[i - 1].text = format!("{} {}", prev_text, this_text)
                                                     .replace("  ", " ");
                                 transfer_line = false;
-
-                                // Difficulty is that some spurious \n are mid-word...and some
-                                // are between words - no easy way to distinguish - hence the replace
                             }
-                        }
-  
-                        // Then consider lines with a final ':'. Only those that do not
-                        // start with a capital letter. This indicates a likely 'split' 
-                        // header that should be merged with the line above.
-
-                        if this_text.ends_with(':')
-                            && (init_char.is_lowercase() || init_char.is_digit(10))
-                        {
-
-                            let prev_lchar = &plines[i - 1].text.chars().next_back().unwrap();
-                            if *prev_lchar != '.' &&  *prev_lchar != ';' && *prev_lchar != ':'
+                            else
                             {
-                                if *prev_lchar == ':'{   // both lines end in ':'
+                                // Reset the indent level and seq number to be follow those 
+                                // of the preceding criterion line.
 
-                                    // Merge, changing the first colon to a period.
-                                    plines[i - 1].text = format!("{}. {}", prev_text[..(prev_text.len() - 1)].to_string(), this_text)
-                                }
-                                else {
-                                    plines[i - 1].text = format!("{} {}", prev_text, this_text)
-                                                    .replace("  ", " ");
-                                    plines[i - 1].type_id = tv.grp_hdr;
-                                }
-                                transfer_line = false;
+                                plines[i].indent_level = plines[i - 1].indent_level;
+                                plines[i].indent_seq_num = plines[i - 1].indent_seq_num + 1;
                             }
-
                         }
                     }
-                }
-
-                // Consider lines originally specified as 'supplementary' final lines
-                
-                if plines[i].type_id == tv.post_crit {
-
-                    let low_line = this_text.to_lowercase();
-                    if !this_text.ends_with(':') && !this_text.starts_with('*')
-                    && !low_line.starts_with("note") && !low_line.starts_with("other ")
-                    && !low_line.starts_with("for further ") && !low_line.starts_with("further") 
-                    && !low_line.starts_with("for more ") && !low_line.starts_with("more ") {
-
-                        // Almost always is a spurious supplement, better considerd as a normal criterion.
-                        // Whether should be joined depends on whether there is an initial
-                        // lower case or upper case letter... 
-
-                        if init_char.is_lowercase() 
-                        {
-                            plines[i - 1].text = format!("{} {}", prev_text, this_text)
-                                                .replace("  ", " ");
-                            transfer_line = false;
-                        }
-                        else
-                        {
-                            // Reset the indent level and seq number to be follow those 
-                            // of the preceding criterion line.
-
-                            plines[i].indent_level = plines[i - 1].indent_level;
-                            plines[i].indent_seq_num = plines[i - 1].indent_seq_num + 1;
-                        }
-                    }
-                }
-            }      
+                }      
+            }
         }
-    }
 
         if transfer_line
         {
             reversed_lines.push(plines[i].clone());
         }
-        else {
-           // info!("{}, {},\n{} \n{}",plines[i].indent_level, plines[i - 1].indent_level, plines[i].text, plines[i - 1].text)
-        }
-
     }
 
     // Put things back in correct order    

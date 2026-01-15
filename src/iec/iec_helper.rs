@@ -1,6 +1,38 @@
 use super::iec_structs::*;
 
 
+
+// These function need better handling of the 'None' option from the unwrap
+// Probably as some sort of recoverable error, or a message that logs the issue
+// before returning a 'None equivalent' character.
+// The problem of using a '?' as below is of course that a '?' may really 
+// correspond to the charater being sought.
+
+#[allow(dead_code)]
+pub trait StringExtensions {
+    fn first_char(&self) -> char;
+    fn last_char(&self) -> char;
+    fn nth_char(&self, n: usize) -> char;
+
+}
+
+impl StringExtensions for String {
+
+    fn first_char(&self) -> char {
+         self.chars().next().unwrap_or('?')
+    }
+
+    fn last_char(&self) -> char {
+         self.chars().next_back().unwrap_or('?')
+    }
+
+    fn nth_char(&self, n: usize) -> char {
+         self.chars().nth(n).unwrap_or('?')
+    }
+}
+
+
+
 pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
 {
     // Function deals with a rare but possible problem with very short lines.
@@ -166,7 +198,7 @@ pub fn check_if_all_lines_end_consistently(in_lines: &Vec<IECLine>, allowance: u
     let mut valid_end_chars = 0;
     for ln in in_lines
     {
-        let end_char = &ln.text.chars().next_back().unwrap();  // always at least one char
+        let end_char = &ln.text.last_char();  // always at least one char
         if *end_char == '.' || *end_char == ';' || *end_char ==  ','
         {
             valid_end_chars += 1;
@@ -180,7 +212,7 @@ pub fn check_if_all_lines_start_with_caps(in_lines: &Vec<IECLine>, allowance: us
     let mut valid_start_chars = 0;
     for ln in in_lines
     {
-        let start_char = &ln.text.chars().next().unwrap();  // always at least one char
+        let start_char = &ln.text.first_char();  // always at least one char
         if start_char.is_uppercase()
         {
             valid_start_chars += 1;
@@ -194,7 +226,7 @@ pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<IECLine>, allowan
     let mut valid_start_chars = 0;
     for ln in in_lines
     {
-        let start_char = &ln.text.chars().next().unwrap();  // always at least one char
+        let start_char = &ln.text.first_char();  // always at least one char
         if start_char.is_lowercase()
         {
             valid_start_chars += 1;
