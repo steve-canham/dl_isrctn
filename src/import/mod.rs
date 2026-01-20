@@ -126,6 +126,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
                     
             //i += 1;
             //if i > 40 { break;}
+
+
         } 
 
         study_titles_dv.shrink_to_fit();
@@ -155,13 +157,17 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.store_data(src_pool).await?;
 
 
-        if n > 300 {
+        if n % 50 == 0 {
+            info!("number of files processed: {}",  n);
+        }
+
+        if n > 500 {
             break;
         }
 
     }
 
-    info!("number of files found: {}",  num_files);
+    info!("total number of files found: {}",  num_files);
 
     Ok(ImportResult {
         num_available: num_files,

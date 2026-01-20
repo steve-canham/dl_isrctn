@@ -2,9 +2,8 @@
 use super::iec_helper::*;
 use super::iec_res::*;
 use super::iec_structs::*;
-use regex::Regex;
 
-use log::info;
+//use log::info;
 
 pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<IECLine>) {   // Should be a vector of IECLine
 
@@ -13,9 +12,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
     let crits: Vec<IECLine> = Vec::new();
     let mut final_cr_lines: Vec<IECLine> = Vec::new();
-    //let mut initial_cr_lines: Vec<IECLine> = Vec::new();
     let mut processed_cr_lines: Vec<IECLine> = Vec::new();
-
 
     let mut null_result = false;
 
@@ -62,23 +59,21 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
                     
         // A single line, i.e. with no carriage returns
 
-        match remove_iec_header_text(&repaired_lines[0])
+        if !is_redundant_header(&repaired_lines[0])
         {
-            Some(sline) => {
-                processed_cr_lines.push(IECLine{    // temp, should be final CR lines
-                seq_num: 1,
-                type_id: tv.no_sep,
-                split_type: "none".to_string(),
-                tag: "All".to_string(),
-                indent_level: 0,
-                indent_seq_num: 1,
-                sequence_string: format!("{}.A00", tv.sequence_start),
-                text: sline,
-                });
-            },
-            None =>  {
-                null_result = true; // line has disappeared after trimming
-            },
+            processed_cr_lines.push(IECLine {    // temp, should be final CR lines
+            seq_num: 1,
+            type_id: tv.no_sep,
+            split_type: "none".to_string(),
+            tag: "All".to_string(),
+            indent_level: 0,
+            indent_seq_num: 1,
+            sequence_string: format!("{}.A00", tv.sequence_start),
+            text: repaired_lines[0].clone(),
+            });
+        }
+        else {
+            null_result = true; // line has disappeared after trimming
         }
     }
 
@@ -89,6 +84,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         processed_cr_lines = process_initial_lines( &repaired_lines, &tv);
 
         final_cr_lines = repair_split_lines(&mut processed_cr_lines, &tv);
+        
         //final_cr_lines = processed_cr_lines;
     }
 
@@ -111,6 +107,11 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
  }
 
 
+
+
+
+
+
 fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECLine> {
 
     let mut tagged_lines: Vec<IECLine> = Vec::new();
@@ -121,55 +122,44 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     let max_i = initial_lines.len() - 1;  
     let mut num_no_tag = 0;
     let mut previous_tag_style = "none".to_string();
-    let mut previous_regex_string = "none".to_string();
    
     let mut levels: Vec<Level> = vec![Level::new(&"none".to_string(), 0), 
                                       Level::new(&"Hdr".to_string(), 1)];    // Initialise the level vector
     let mut level = 0;
-    let mut hdr_seq_num = 0;
-
+    //let mut hdr_seq_num = 0;
     let mut crit_text: String = "".to_string();
 
     for (i, ln) in initial_lines.into_iter().enumerate() {
 
-        let mut tag_style = "none".to_string(); // initial defaults - signify no leader found
+        let mut tag_style = "none".to_string(); // initial defaults - signify no tag found
         let mut tag = "".to_string();
 
         // What tag character(s), if any, are starting this line?
         // Can we match on the successful regex string (if any) from the previous line?
         
-        if previous_regex_string != "none".to_string() {
+        // BUT - numdot REs can give false results, e.g. 'n.m.' is still 
+        // picked up as 'n.' if it directly follows 'n.' Therefore do 
+        // not use this shortcut if the last tag was a numdot.
+        
+        if previous_tag_style != "none".to_string() && !previous_tag_style.starts_with("numdot"){
 
-            // BUT - numdot REs can give false results, e.g. 'n.m.' is still 
-            // picked up as 'n.' if it directly follows 'n.' Therefore do 
-            // not use this shortcut if the last tag was a numdot.
-            
-            if !previous_regex_string.starts_with("numdot") {
-
-                let re = Regex::new(&previous_regex_string).unwrap();
-                if let Some(c) = re.captures(&ln) {
-                    tag = c.get_match().as_str().to_string();
-                    tag_style = previous_tag_style.clone();     
-                    
-                    // previous_regex_string can stay the same
-
-
-                }
-            }
-            else {
-
-                // force normal usage, as below, especially for numdot sequences
-
-                tag_style = "none".to_string();  
+            match test_re(&previous_tag_style, &ln) {
+                        Some(rr) => {
+                        tag = rr.tag;
+                        tag_style = rr.tag_name;
+                        crit_text = rr.new_line;
+                    },
+                    None => { },
             }
         }
 
-        if tag_style == "none".to_string() {
-            
-            // Use first character(s) of line to see which regex collection to use
+        if tag == "".to_string() {  
+
+            // Previous tag style dis not work, (or it was a 'numdot').
+            // So need to search through the RES - usinge first 
+            // character(s) of line to see which regex cluster to use
 
             let first_char = &ln.first_char();
-
             if first_char.is_digit(10) {
                 
                 // If the second or third characteris a period use the 
@@ -184,7 +174,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                          Some(rr) => {
                             tag = rr.tag;
                             tag_style = rr.tag_name;
-                            previous_regex_string = rr.regex;
                             crit_text = rr.new_line;
                         },
                         None => {},
@@ -198,7 +187,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                         Some(rr) => {
                             tag = rr.tag;
                             tag_style = rr.tag_name;
-                            previous_regex_string = rr.regex;
                             crit_text = rr.new_line;
                         },
                         None => {},
@@ -214,7 +202,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                      Some(rr) => {
                             tag = rr.tag;
                             tag_style = rr.tag_name;
-                            previous_regex_string = rr.regex;
                             crit_text = rr.new_line;
                         },
                     None => {
@@ -231,7 +218,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                      Some(rr) => {
                             tag = rr.tag;
                             tag_style = rr.tag_name;
-                            previous_regex_string = rr.regex;
                             crit_text = rr.new_line;
                         },
                     None => {
@@ -273,19 +259,21 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         }
         */
 
-        // If a tag has been found ...see if the tag has changed from the
-        // previous one - implying the indentation level has changed.
-        // If no tag, store the line as a sub-header, unless it is the last 
-        // line of the set when it will be classified as a supplementary statement.
+        // Construct the IECLine fields from the tag (if any)
+        // found, the derived indent and sequence numbers, and the line text. 
         
         let mut type_id = tv.type_id;
         let split_type = format!("v-{}", tag_style);  
 
-        let in_hdr_seq: bool;
-        let num_in_seq: i32;
+      //  let in_hdr_seq: bool;
+      //  let num_in_seq: i32;
+        let criterion: String;
      
         if tag_style != "none"
         {
+            // If a tag has been found ...see if the tag has changed from the
+            // previous one - implying the indentation level has changed.
+
             if tag_style != previous_tag_style
             {
                 // If the leader style has changed use the get_level function to obtain the 
@@ -307,14 +295,19 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 }
             }
 
-            in_hdr_seq = false;
+            criterion = crit_text.clone();
+        //    in_hdr_seq = false;
 
         }
 
         else
         {
+            // If no tag, store the line as a sub-header, unless it is the last 
+            // line of the set when it will be classified as a supplementary statement.
+
             num_no_tag += 1; // keep a tally as ALL the lines may be without a tag
-            in_hdr_seq = true;
+            criterion = ln.to_string();
+       //     in_hdr_seq = true;
             level = 1;
 
             if i == max_i // initially, make this final line without a tag a 'supplement'
@@ -327,8 +320,14 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 tag = "Hdr".to_string();
                 type_id = tv.grp_hdr;
             }
+
         }
 
+        // Sequence numbers and strings constructed differently
+        // for header lines (though these will be over written later).
+        // This code may therefore probably go.
+
+/* 
         if in_hdr_seq {
             hdr_seq_num += 1;
             num_in_seq = hdr_seq_num;
@@ -337,12 +336,14 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             levels[level].current_seq_num += 1;
             num_in_seq = levels[level].current_seq_num;
         }
-
+*/
+        /* 
         let seq_string = match tag.as_str() {
             "Hdr" => format!("{}.H{:0>2}", tv.sequence_start, num_in_seq),
-            "Spp" => format!("{}.E{:0>2}", tv.sequence_start, num_in_seq),
+            "Spp" => format!("{}.S{:0>2}", tv.sequence_start, num_in_seq),
             _ => format!("{}.{:0>2}", tv.sequence_start, num_in_seq),
         };
+*/
 
 
         // Create the new struct and push to the growing target vector
@@ -356,9 +357,9 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
             split_type: split_type,
             tag: tag,
             indent_level: level as i32,
-            indent_seq_num: num_in_seq,
-            sequence_string: seq_string,
-            text: crit_text.clone(),
+            indent_seq_num: 0,
+            sequence_string: "".to_string(),
+            text: criterion,
         });
 
         previous_tag_style = tag_style;
@@ -370,15 +371,6 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     // (though most of these should have been eliminated at the beginning)
     // or if, for example, the original split in CTG left a tag before the 'Exclusion Criteria' statement
     
-    /* 
-    let mut processed_lines: Vec<IECLine> = Vec::new();
-    for tln in tagged_lines {
-        if tln.text.trim() != "" {
-            processed_lines.push(tln);
-        }
-    } 
-    */
-
     let processed_lines: Vec<IECLine> = tagged_lines
                                        .into_iter()
                                        .filter(|t| t.text != "")
@@ -442,8 +434,8 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 let tag_string = if possible_tag == "" { "@".to_string() } else { possible_tag.clone() };
 
                 let mut crit_seq_num = 0;
-                hdr_seq_num = 0;
-                
+                //hdr_seq_num = 0;
+                let mut hdr_seq_num = 0;
                 for ln in processed_lines {
                     
                     let mut rev_text  = ln.text.clone();  // as a default
@@ -554,7 +546,7 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
 
             // Remove (i.e. don't transfer) simple header lines or headings with no information
 
-            if remove_iec_header_text(&this_text).is_none() {
+            if is_redundant_header(&this_text) {
                 transfer_line = false;
             }
             else {
@@ -747,13 +739,13 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                 // In case they include them strip lines of headers.
                 // Are not removed beforehand as first and last lines are not processed
                 
-                reversed_lines[0].text = remove_iec_header_text(&top_text).unwrap_or("??".to_string());  
-                reversed_lines[1].text = remove_iec_header_text(&bottom_text).unwrap_or("??".to_string()); 
+                reversed_lines[0].text = top_text;  
+                reversed_lines[1].text = bottom_text; 
 
                 sequenced_lines.push(reversed_lines[0].clone());
                 sequenced_lines.push(reversed_lines[1].clone());
                 
-                info!("Pushing pair1 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+                //info!("Pushing pair1 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
             }
 
             else if !(top_text.ends_with('.') || top_text.ends_with(';') || top_text.ends_with(':'))
@@ -784,7 +776,7 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                 sequenced_lines.push(reversed_lines[0].clone());
                 sequenced_lines.push(reversed_lines[1].clone());
 
-                info!("Pushing pair2 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+                //info!("Pushing pair2 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
             }
 
         }
@@ -915,6 +907,7 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                 }
             }
 
+            new_iecline.indent_seq_num = current_level_pos; //seq_string.to_string();
             new_iecline.sequence_string = seq_string; //seq_string.to_string();
             sequenced_lines.push(new_iecline);
 

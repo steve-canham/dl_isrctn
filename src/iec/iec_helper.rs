@@ -157,39 +157,32 @@ pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
 }
 
 
-pub fn remove_iec_header_text(s: &String) -> Option<String> {
+pub fn is_redundant_header(s: &String) -> bool {
+
+    // Some header lines are redundant in that they state the obvious.
+    // These can and should be removed.
+    // A line that consists of just a few key words, spaces and often a colon are 
+    // returned as 'true', i.e. is redundant. Otherwise 'false' is returned.'
 
     if s.len() < 3 {
-        None
+        true
     }
     else {
-        let s_low = s.trim().to_lowercase();
-        if s_low == "inclusion:" || s_low == "included:" || s_low =="exclusion:" || s_low == "excluded:"
-        {
-            None
+        let mut s_low = s.trim().to_lowercase();
+        s_low = s_low.replace("inclusion", "").replace("included", "");
+        s_low = s_low.replace("exclusion", "").replace("excluded", "");
+        s_low = s_low.replace("key", "").replace("criteria", "");
+        s_low = s_low.replace("include", "");
+        s_low = s_low.trim_matches(&[':', ' ']).to_string();
+        if s_low.is_empty() {
+            true
         }
         else {
-
-            let mut st = s.to_string();
-            st = st.replace("key inclusion criteria", "");
-            st = st.replace("inclusion criteria include", "");
-            st = st.replace("key exclusion criteria", "");
-            st = st.replace("exclusion criteria include", "");
-            st = st.replace("key criteria", "");
-            st = st.replace("inclusion criteria", "");
-            st = st.replace("exclusion criteria", "");
-
-            st = st.trim_matches(&[':', ' ']).to_string();
-            
-            if !st.is_empty() {
-                Some(st)
-            }
-            else {
-                None
-            }
+            false
         }
     }
 }
+
 
 
 
