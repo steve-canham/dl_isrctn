@@ -1,12 +1,13 @@
 use std::sync::LazyLock;
 use regex::Regex;
 use std::collections::HashMap;
+use super::iec_structs::*;
 //use log::info;
 
 pub struct RegexResults {
     pub tag: String,
-    pub tag_name: String,
-    pub new_line: String,
+    pub tag_type: String,
+    pub text: String,
 
 }
 
@@ -14,12 +15,12 @@ pub static IE_RE_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     
     let mut map = HashMap::new();
 
-    map.insert("numdot4", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());  // numeric sub-sub-sub-heading. N.n.n.n
-    map.insert("numdot3", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());           // numeric sub-sub-heading. N.n.n 
-    map.insert("numdot2", Regex::new(r"^\d{1,2}\.\d{1,2}\.").unwrap());                  // numeric sub-heading. N.n. 
-    map.insert("numdotnumspc", Regex::new(r"^\d{1,2}\.\d{1,2}\s").unwrap());             // numeric sub-heading space (without final period) N.n
+    map.insert("numdot4", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());  // numeric sub-sub-sub-heading. N.n.n.n(.)
+    map.insert("numdot3", Regex::new(r"^\d{1,2}\.\d{1,2}\.\d{1,2}").unwrap());           // numeric sub-sub-heading. N.n.n(.) 
+    map.insert("numdot2", Regex::new(r"^\d{1,2}\.\d{1,2}").unwrap());                    // numeric sub-heading. N.n(.) 
+    map.insert("numdotspc", Regex::new(r"^\d{1,2}\.\s").unwrap());                       // number period and space / tab 1. , 2.   
+
     map.insert("numdotnumalcap", Regex::new(r"^\d{1,2}\.\d{1,2}[A-Z]").unwrap());        // number-dot-number cap letter  - Cap is usually from text (no space)
-    map.insert("numdotspc", Regex::new(r"^\d{1,2}\.\s").unwrap());                       // number period and space / tab 1. , 2.    
     map.insert("numdotrtpar", Regex::new(r"^\d{1,2}\.\)").unwrap());                     // number followed by dot and right bracket  1.), 2.)
     map.insert("numdot", Regex::new(r"^\d{1,2}\.").unwrap());                            // number period only - can give false positives
 
@@ -74,19 +75,27 @@ pub static IE_RE_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     map
 });
 
-pub fn test_re(tag_name: &str, this_line: &String) ->  Option<RegexResults> {
+pub fn test_re(tag_type: &str, this_line: &String) ->  Option<RegexResults> {
 
-    let re = IE_RE_MAP.get(tag_name).unwrap();  // should always be present
+    let re = IE_RE_MAP.get(tag_type).unwrap();  // should always be present
     if let Some(c) = re.captures(this_line) {
         let tag = c.get_match().as_str();
 
-        match tag_name {
+        match tag_type {
             "none" => None,
-            _ => Some (RegexResults {
-                tag: tag.to_string(),
-                tag_name: tag_name.to_string(),
-                new_line: this_line[tag.len()..].trim().to_string(),
-            }) 
+            _ => {
+
+                let tt = tag_type.to_string();
+                
+                let init_rr = Some (RegexResults {
+        
+                    tag: tag.to_string(),
+                    tag_type: tt.clone(),
+                    text: this_line[tag.len()..].trim().to_string(),
+                });
+
+                init_rr
+            }
         }
     }
     else {
@@ -94,21 +103,47 @@ pub fn test_re(tag_name: &str, this_line: &String) ->  Option<RegexResults> {
     }
 }
 
-pub fn test_against_numdot_res(this_line: &String) ->  Option<RegexResults>{
+pub fn test_against_numdot_res(index: usize, this_line: &String, tagged_lines: &Vec<IECLine>, levels: &mut Vec<Level>) ->  IECLine {
 
     // Ordering of these 'numdot' REs is important and not easily done from the hashmap
     // where they are stored. Therefore each one called individually in the 
     // required order.
 
+    let  mut prev_tag_type = String::from("none");
+    if tagged_lines.len() > 0 {
+        prev_tag_type = tagged_lines[tagged_lines.len() - 1].split_type.clone();
+    }
+
+
     let raw_result = 
     if let Some(s1) = test_re("numdotspc", this_line) { Some(s1) }               // number period and space / tab 1. , 2.   
-    else if let Some(s2) = test_re("numdotnumspc", this_line) { Some(s2) }       // numeric sub-heading space (without final period) N.n
-    else if let Some(s3) = test_re("numdot4", this_line) { Some(s3) }            // numeric sub-sub-sub-heading. N.n.n.n
-    else if let Some(s4) = test_re("numdot3", this_line) { Some(s4) }            // numeric sub-sub-heading. N.n.n 
-    else if let Some(s5) = test_re("numdot2", this_line) { Some(s5) }            // numeric sub-heading. N.n. 
+    else if let Some(mut s4) = test_re("numdot4", this_line) {   // numeric sub-sub-sub-heading. N.n.n.n, may have additional final '.'
+        
+        if s4.text.starts_with('.') {
+            s4.text = s4.text.trim_start_matches(&['.', ' ']).to_string();
+        }
+        Some(s4) 
+    }            
+    else if let Some(mut s3) = test_re("numdot3", this_line) {   // numeric sub-sub-heading. N.n.n, may have additional final '.' 
+        
+        if s3.text.starts_with('.') {
+            s3.text = s3.text.trim_start_matches(&['.', ' ']).to_string();
+        }
+        Some(s3) 
+    }            
+    else if let Some(mut s2) = test_re("numdot2", this_line) {    // numeric sub-heading. N.n, may have additional final '.' 
+        if s2.text.starts_with('.') {
+            s2.text = s2.text.trim_start_matches(&['.', ' ']).to_string();
+        }
+        else {
+
+            // May be a float number before a term (N.B. term now has initial tag trimmed)
+        }
+        Some(s2) 
+    }           
     else if let Some(s6) = test_re("numdotrtpar", this_line) { Some(s6) }        // number followed by dot and right bracket  1.), 2.)
     else if let Some(s7) = test_re("numdotnumalcap", this_line) { Some(s7) }     // number-dot-number cap letter  - Cap is usually from text (no space)
-    else if let Some(s8) = test_re("numdot", this_line) { Some(s8) }             // number period only - can give false positives
+    else if let Some(s8) = test_re("numdot", this_line,) { Some(s8) }             // number period only - can give false positives
     else {
         None
     };
@@ -116,13 +151,68 @@ pub fn test_against_numdot_res(this_line: &String) ->  Option<RegexResults>{
     // Guard against ambiguity, especially as often final periods may be omiited
     // in a small proportion of the lines
 
-    raw_result
+    // get level - necesary in some cases to properly compare with previous lines
+
+    if let Some(r) = raw_result {
+        
+        let this_tag_type = r.tag_type.clone();
+        
+        let mut level = 99;
+        if this_tag_type != prev_tag_type
+        {
+            let tt = r.tag.clone();
+            // If the leader style has changed use the get_level function to obtain the 
+            // appropriate indent level for the new header type. This function will add 
+            // the tag type to the levels vector, if it is not already present in the 
+            // collection (the level returned being that of the new entry), otherwise it 
+            // will simply return the associated level number.
+
+            level = get_level(&tt, levels);
+        }
+        else {
+            // level should be the same as previous level
+        }
+        
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: r.tag,
+            type_id: 0,
+            split_type: r.tag_type.clone(),
+            indent_level: level,
+            text: r.text,
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+    else  {
+        // no tag IECLine
+
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: "Hdr".to_string(),
+            type_id: 0,
+            split_type: "Hdr".to_string(),
+            indent_level: 1,
+            text: this_line.to_string(),
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+
+   
       
 }
 
 
 
-pub fn test_against_numeric_res(this_line: &String) ->  Option<RegexResults>{
+pub fn test_against_numeric_res(index: usize, this_line: &String, tagged_lines: &Vec<IECLine>, levels: &mut Vec<Level>) ->  IECLine{
+    
+    let  mut prev_tag_type = String::from("none");
+    if tagged_lines.len() > 0 {
+        prev_tag_type = tagged_lines[tagged_lines.len() - 1].split_type.clone();
+    }
 
     let raw_result = 
     if let Some(s1) = test_re("numaldot", this_line) { Some(s1) }
@@ -133,7 +223,7 @@ pub fn test_against_numeric_res(this_line: &String) ->  Option<RegexResults>{
     
     else if let Some(s6) = test_re("numrtbr", this_line) { Some(s6) }
     else if let Some(s7) = test_re("numdshnumpar", this_line) { Some(s7) }   
-    else if let Some(s8) = test_re("numdshpar", this_line) { Some(s8) }   
+    else if let Some(s8) = test_re("numdshpar",  this_line) { Some(s8) }   
     else if let Some(s9) = test_re("numdsh", this_line) { Some(s9) }
     else if let Some(s10) = test_re("numslash", this_line) { Some(s10) }
     else if let Some(s11) = test_re("numtab", this_line) { Some(s11) }   
@@ -148,8 +238,56 @@ pub fn test_against_numeric_res(this_line: &String) ->  Option<RegexResults>{
 
     // Guard against ambiguity
 
-    raw_result 
-    
+   
+    if let Some(r) = raw_result {
+        
+        let this_tag_type = r.tag_type.clone();
+        
+        let mut level = 99;
+        if this_tag_type != prev_tag_type
+        {
+            let tt = r.tag.clone();
+            // If the leader style has changed use the get_level function to obtain the 
+            // appropriate indent level for the new header type. This function will add 
+            // the tag type to the levels vector, if it is not already present in the 
+            // collection (the level returned being that of the new entry), otherwise it 
+            // will simply return the associated level number.
+
+            level = get_level(&tt, levels);
+        }
+        else {
+            // level should be the same as previous level
+        }
+        
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: r.tag,
+            type_id: 0,
+            split_type: r.tag_type.clone(),
+            indent_level: level,
+            text: r.text,
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+    else  {
+        // no tag IECLine
+
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: "Hdr".to_string(),
+            type_id: 0,
+            split_type: "Hdr".to_string(),
+            indent_level: 1,
+            text: this_line.to_string(),
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+
+}
 
 /* 
     let mut tag = "";
@@ -200,7 +338,7 @@ pub fn test_against_numeric_res(this_line: &String) ->  Option<RegexResults>{
 
  */
 
-}
+
 
 /* 
 fn tag_in_sequence(c: char, tagged_lines: &Vec<IECLine>, current_indent_level: i32) -> bool {
@@ -223,8 +361,13 @@ fn tag_in_sequence(c: char, tagged_lines: &Vec<IECLine>, current_indent_level: i
 }
 */
 
-pub fn test_against_alpha_res(this_line: &String) ->  Option<RegexResults> {
-    
+pub fn test_against_alpha_res(index: usize, this_line: &String, tagged_lines: &Vec<IECLine>, levels: &mut Vec<Level>) ->  IECLine{
+        
+    let  mut prev_tag_type = String::from("none");
+    if tagged_lines.len() > 0 {
+        prev_tag_type = tagged_lines[tagged_lines.len() - 1].split_type.clone();
+    }
+
     /* 
 
 
@@ -267,20 +410,69 @@ pub fn test_against_alpha_res(this_line: &String) ->  Option<RegexResults> {
     }     
 */
     let raw_result = if let Some(si) = test_re("romrtpar", this_line) { Some(si) }    
-    else if let Some(si) = test_re("romdot", this_line) { Some(si) }  // roman numerals dot   i., ii.
-    else if let Some(si) = test_re("romcapdot", this_line) { Some(si) }   // capital roman numerals dot   I., II.
+    else if let Some(si) = test_re("romdot", this_line)  { Some(si) }  // roman numerals dot   i., ii.
+    else if let Some(si) = test_re("romcapdot", this_line)  { Some(si) }   // capital roman numerals dot   I., II.
 
-    else if let Some(s1) = test_re("aldottab", this_line) { Some(s1) }      // alpha-period followed by tab   a.\t, b.\t
-    else if let Some(s2) = test_re("aldot", this_line) { Some(s2) }         // alpha period. a., b.
-    else if let Some(s3) = test_re("alcapdot", this_line) { Some(s3) }      // alpha caps period. A., B.
+    else if let Some(s1) = test_re("aldottab", this_line)  { Some(s1) }      // alpha-period followed by tab   a.\t, b.\t
+    else if let Some(s2) = test_re("aldot", this_line)  { Some(s2) }         // alpha period. a., b.
+    else if let Some(s3) = test_re("alcapdot", this_line)  { Some(s3) }      // alpha caps period. A., B.
     else if let Some(s5) = test_re("alrpar", this_line) { Some(s5) }        // alpha with right bracket. a), b)
-    else if let Some(s6) = test_re("ospc", this_line) { Some(s6) }          // open 'o' bullet followed by space or tab, o , o
+    else if let Some(s6) = test_re("ospc", this_line)  { Some(s6) }          // open 'o' bullet followed by space or tab, o , o
 
-    else if let Some(s10) = test_re("e_num", this_line) { Some(s10) }       // exclusion as E or e numbers, optional space E 01, E 02
-    else if let Some(s11) = test_re("i_num", this_line) { Some(s11) }        // inclusion as I or i numbers, optional space i1, i2 
+    else if let Some(s10) = test_re("e_num", this_line)  { Some(s10) }       // exclusion as E or e numbers, optional space E 01, E 02
+    else if let Some(s11) = test_re("i_num", this_line)  { Some(s11) }        // inclusion as I or i numbers, optional space i1, i2 
     else {
         None
     };
+
+    
+    if let Some(r) = raw_result {
+        
+        let this_tag_type = r.tag_type.clone();
+        
+        let mut level = 99;
+        if this_tag_type != prev_tag_type
+        {
+            let tt = r.tag.clone();
+            // If the leader style has changed use the get_level function to obtain the 
+            // appropriate indent level for the new header type. This function will add 
+            // the tag type to the levels vector, if it is not already present in the 
+            // collection (the level returned being that of the new entry), otherwise it 
+            // will simply return the associated level number.
+
+            level = get_level(&tt, levels);
+        }
+        else {
+            // level should be the same as previous level
+        }
+        
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: r.tag,
+            type_id: 0,
+            split_type: r.tag_type.clone(),
+            indent_level: level,
+            text: r.text,
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+    else  {
+        // no tag IECLine
+
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: "Hdr".to_string(),
+            type_id: 0,
+            split_type: "Hdr".to_string(),
+            indent_level: 1,
+            text: this_line.to_string(),
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
 
     /*                    
     let mut tag_name = "none";
@@ -301,118 +493,90 @@ pub fn test_against_alpha_res(this_line: &String) ->  Option<RegexResults> {
     }
     */  
     
-    match raw_result {
-        None => None, 
-        Some(rr) => {
-
-                let tag = rr.tag.clone();
-
-                // Dismbiguate where necessary
-            
-                if tag == "i." || tag == "i.\t" || tag == "I." || tag == "i)"  {
-                    
-                    // first or scond in list -> latin letters - next line should be ii)
-
-
-                    // preceding at same indent level = 'h.', 'h.\tab', 'H.', 'h)'-> letter,
-                    
-
-                    // neither?
-
-
-                }
-
-                if tag == "e." {
-                    // check for e.g.
-                }
-
-                if tag == "N." {
-                    // check for N.B.
-                }
-
-                if tag == r"o\s" {
-                    // check for 'o' bullet'
-                }
-
-
-                if tag == "v." || tag == "v.\t" || tag == "V." || tag == "v)"  {
-
-                }
-
-                Some(rr)  // for now
-        }
-    }
+    
    
 }
 
 
 // may need to do some checking / corrections before coming out of the loop
 
-pub fn test_against_other_res(this_line: &String) ->  Option<RegexResults>{
+pub fn test_against_other_res(index: usize, this_line: &String, tagged_lines: &Vec<IECLine>, levels: &mut Vec<Level>) ->  IECLine{
+
+    let  mut prev_tag_type = String::from("none");
+    if tagged_lines.len() > 0 {
+        prev_tag_type = tagged_lines[tagged_lines.len() - 1].split_type.clone();
+    }
 
     let raw_result = 
-    if let Some(s1) = test_re("alinpar", this_line) { Some(s1) }            // alpha in parentheses. (a), (b)
-    else if let Some(s2) = test_re("numinpar", this_line) { Some(s2) }      // bracketed numbers (1), (2)
-    else if let Some(s3) = test_re("numinbrs", this_line) { Some(s3) }      // numbers in square brackets   [1], [2]
+    if let Some(s1) = test_re("alinpar", this_line)   { Some(s1) }            // alpha in parentheses. (a), (b)
+    else if let Some(s2) = test_re("numinpar", this_line)  { Some(s2) }      // bracketed numbers (1), (2)
+    else if let Some(s3) = test_re("numinbrs", this_line)  { Some(s3) }      // numbers in square brackets   [1], [2]
     
-    else if let Some(s4) = test_re("buls1", this_line) { Some(s4) }         // various bullets 1  
-    else if let Some(s5) = test_re("buls2", this_line) { Some(s5) }         // various bullets 2  
-    else if let Some(s6) = test_re("bultab", this_line) { Some(s6) }        // ? bullet and space or tab     
+    else if let Some(s4) = test_re("buls1", this_line)  { Some(s4) }         // various bullets 1  
+    else if let Some(s5) = test_re("buls2", this_line)  { Some(s5) }         // various bullets 2  
+    else if let Some(s6) = test_re("bultab", this_line)  { Some(s6) }        // ? bullet and space or tab     
     else if let Some(s7) = test_re("dshtab", this_line) { Some(s7) }        // hyphen followed by space or tab, -\t, -\t 
-    else if let Some(s8) = test_re("strtab", this_line) { Some(s8) }        // asterisk followed by space or tab  *\t, *\t      
+    else if let Some(s8) = test_re("strtab", this_line)  { Some(s8) }        // asterisk followed by space or tab  *\t, *\t      
 
-    else if let Some(s9) = test_re("rominpar", this_line) { Some(s9) }      // roman numerals double bracket   (i), (ii)
-    else if let Some(s10) = test_re("dshonly", this_line) { Some(s10) }     // dash only   -, -
-    else if let Some(s11) = test_re("dblstr", this_line) { Some(s11) }      // two asterisks   **, **
-    else if let Some(s4) = test_re("stronly", this_line) { Some(s4) }       // asterisk only   *, *
-    else if let Some(s5) = test_re("semcolonly", this_line) { Some(s5) }    // semi-colon only   ;, ; 
-    else if let Some(s6) = test_re("qmkonly", this_line) { Some(s6) }       // question mark only   ?, ?  
-    else if let Some(s7) = test_re("invqm", this_line) { Some(s7) }         // inverted question mark only   ¿, ¿
+    else if let Some(s9) = test_re("rominpar", this_line)  { Some(s9) }      // roman numerals double bracket   (i), (ii)
+    else if let Some(s10) = test_re("dshonly", this_line)  { Some(s10) }     // dash only   -, -
+    else if let Some(s11) = test_re("dblstr", this_line)  { Some(s11) }      // two asterisks   **, **
+    else if let Some(s4) = test_re("stronly", this_line)  { Some(s4) }       // asterisk only   *, *
+    else if let Some(s5) = test_re("semcolonly", this_line)  { Some(s5) }    // semi-colon only   ;, ; 
+    else if let Some(s6) = test_re("qmkonly", this_line)  { Some(s6) }       // question mark only   ?, ?  
+    else if let Some(s7) = test_re("invqm", this_line)  { Some(s7) }         // inverted question mark only   ¿, ¿
 
     else {
         None
     };
 
-    match raw_result {
-        None => None, 
-        Some(rr) => {
+    
+    if let Some(r) = raw_result {
+        
+        let this_tag_type = r.tag_type.clone();
+        
+        let mut level = 99;
+        if this_tag_type != prev_tag_type
+        {
+            let tt = r.tag.clone();
+            // If the leader style has changed use the get_level function to obtain the 
+            // appropriate indent level for the new header type. This function will add 
+            // the tag type to the levels vector, if it is not already present in the 
+            // collection (the level returned being that of the new entry), otherwise it 
+            // will simply return the associated level number.
 
-                let tag = rr.tag.clone();
-
-                // Dismbiguate where necessary
-            
-                if tag == "i." || tag == "i.\t" || tag == "I." || tag == "i)"  {
-                    
-                    // first or scond in list -> latin letters - next line should be ii)
-
-
-                    // preceding at same indent level = 'h.', 'h.\tab', 'H.', 'h)'-> letter,
-                    
-
-                    // neither?
-
-
-                }
-
-                if tag == "e." {
-                    // check for e.g.
-                }
-
-                if tag == "N." {
-                    // check for N.B.
-                }
-
-                if tag == r"o\s" {
-                    // check for 'o' bullet'
-                }
-
-
-                if tag == "v." || tag == "v.\t" || tag == "V." || tag == "v)"  {
-
-                }
-
-                Some(rr)  // for now
+            level = get_level(&tt, levels);
         }
+        else {
+            // level should be the same as previous level
+        }
+        
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: r.tag,
+            type_id: 0,
+            split_type: r.tag_type.clone(),
+            indent_level: level,
+            text: r.text,
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
+    }
+    else  {
+        // no tag IECLine
+
+        IECLine {
+            seq_num: (index + 1) as i32,
+            tag: "Hdr".to_string(),
+            type_id: 0,
+            split_type: "Hdr".to_string(),
+            indent_level: 1,
+            text: this_line.to_string(),
+            indent_seq_num: 0,
+            sequence_string:"".to_string(),
+        }
+
     }
 
    // if ldr_name == "none" {None} else {Some((leader.to_string(), ldr_name.to_string(), regex))}

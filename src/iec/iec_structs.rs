@@ -132,7 +132,7 @@ impl Level {
 }
 
 
-pub fn get_level(tag_style: &String, levels: &mut Vec<Level>) -> usize {
+pub fn get_level(tag_style: &String, levels: &mut Vec<Level>) -> i32 {
 
    // if levels.len() == 2  // as on initial use - there are initial entries for levels 0 and 1
    // {
@@ -158,6 +158,6 @@ pub fn get_level(tag_style: &String, levels: &mut Vec<Level>) -> usize {
         found_level = levels.len() - 1;
     }
 
-    found_level
+    found_level as i32
 }
     

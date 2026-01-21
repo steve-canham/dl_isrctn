@@ -119,8 +119,9 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     // Consumes the intiial lines, as split by CR, to create
     // an IECLine struct for each, returning a vector of those IECLines.
 
-    let max_i = initial_lines.len() - 1;  
-    let mut num_no_tag = 0;
+    //let max_i = initial_lines.len() - 1;  
+    //let mut seq_num: i32 = 0;
+    let num_no_tag = 0;
     let mut previous_tag_style = "none".to_string();
    
     let mut levels: Vec<Level> = vec![Level::new(&"none".to_string(), 0), 
@@ -128,10 +129,22 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     let mut level = 0;
     //let mut hdr_seq_num = 0;
     let mut crit_text: String = "".to_string();
+    
 
     for (i, ln) in initial_lines.into_iter().enumerate() {
 
-        let mut tag_style = "none".to_string(); // initial defaults - signify no tag found
+        let mut iec_line = IECLine {
+            seq_num: 0,
+            type_id: tv.type_id,
+            split_type: "none".to_string(),
+            tag: "".to_string(),
+            indent_level: level as i32,
+            indent_seq_num: 0,
+            sequence_string: "".to_string(),
+            text: "".to_string(),
+        };
+
+        let mut tag_type = "none".to_string(); // initial defaults - signify no tag found
         let mut tag = "".to_string();
 
         // What tag character(s), if any, are starting this line?
@@ -141,22 +154,27 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         // picked up as 'n.' if it directly follows 'n.' Therefore do 
         // not use this shortcut if the last tag was a numdot.
         
-        if previous_tag_style != "none".to_string() && !previous_tag_style.starts_with("numdot"){
+        if previous_tag_style != "none".to_string() 
+                && !previous_tag_style.starts_with("numdot"){
 
-            match test_re(&previous_tag_style, &ln) {
+            // Change return value to an IEC
+            // do other fields here...
+
+            match test_re(&previous_tag_style,&ln) {
                         Some(rr) => {
+
                         tag = rr.tag;
-                        tag_style = rr.tag_name;
-                        crit_text = rr.new_line;
+                        tag_type = rr.tag_type;
+                        crit_text = rr.text;
                     },
-                    None => { },
+                    None => { tag = "".to_string();},
             }
         }
 
         if tag == "".to_string() {  
 
             // Previous tag style dis not work, (or it was a 'numdot').
-            // So need to search through the RES - usinge first 
+            // So need to search through the RES - using first 
             // character(s) of line to see which regex cluster to use
 
             let first_char = &ln.first_char();
@@ -168,68 +186,31 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 let second_char = &ln.nth_char(1);
                 let third_char = &ln.nth_char(2);
 
-                if *second_char == '.' || second_char.is_digit(10) && *third_char == '.' {
-                    
-                    match test_against_numdot_res(ln) {
-                         Some(rr) => {
-                            tag = rr.tag;
-                            tag_style = rr.tag_name;
-                            crit_text = rr.new_line;
-                        },
-                        None => {},
-                    }
-                    
-                    // may need to do some checking / corrections before coming out of the loop
+                if *second_char == '.' || (second_char.is_digit(10) && *third_char == '.') {
 
+                    iec_line = test_against_numdot_res(i, ln, &tagged_lines, &mut levels);
                 }
                 else {
-                    match test_against_numeric_res(ln) {
-                        Some(rr) => {
-                            tag = rr.tag;
-                            tag_style = rr.tag_name;
-                            crit_text = rr.new_line;
-                        },
-                        None => {},
-                    }
-
-
+                    iec_line = test_against_numeric_res(i, ln, &tagged_lines, &mut levels);
                 }
             }
-
             else if first_char.is_alphabetic() {
-
-                match test_against_alpha_res(ln) {
-                     Some(rr) => {
-                            tag = rr.tag;
-                            tag_style = rr.tag_name;
-                            crit_text = rr.new_line;
-                        },
-                    None => {
-                        tag_style = "none".to_string();
-                    },
-                }
-
-
-
+                iec_line = test_against_alpha_res(i, ln, &tagged_lines, &mut levels);
             }
             else {
-                match test_against_other_res(ln) {
-
-                     Some(rr) => {
-                            tag = rr.tag;
-                            tag_style = rr.tag_name;
-                            crit_text = rr.new_line;
-                        },
-                    None => {
-                        tag_style = "none".to_string();
-                    },
-                }
+                iec_line = test_against_other_res(i, ln, &tagged_lines, &mut levels);
+            }
 
 
 
             }
-        }
 
+        tagged_lines.push(iec_line);
+
+        previous_tag_style = tag_type;
+
+    }
+    
 
         /*  
 
@@ -257,18 +238,19 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 }
             }
         }
-        */
+
 
         // Construct the IECLine fields from the tag (if any)
         // found, the derived indent and sequence numbers, and the line text. 
         
-        let mut type_id = tv.type_id;
-        let split_type = format!("v-{}", tag_style);  
+        // type_id = tv.type_id;
+       // let split_type = format!("v-{}", tag_style);  
 
-      //  let in_hdr_seq: bool;
-      //  let num_in_seq: i32;
-        let criterion: String;
-     
+        //  let in_hdr_seq: bool;
+        //  let num_in_seq: i32;
+        //let criterion: String;
+           */
+     /* 
         if tag_style != "none"
         {
             // If a tag has been found ...see if the tag has changed from the
@@ -299,8 +281,8 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         //    in_hdr_seq = false;
 
         }
-
-        else
+*/
+  /*       else
         {
             // If no tag, store the line as a sub-header, unless it is the last 
             // line of the set when it will be classified as a supplementary statement.
@@ -323,6 +305,7 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
 
         }
 
+*/
         // Sequence numbers and strings constructed differently
         // for header lines (though these will be over written later).
         // This code may therefore probably go.
@@ -351,20 +334,10 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         // At moment possibility of a preformed IEC for some tags, e.g. *
         // Need to investigate nbew best way of handling this
 
-        tagged_lines.push(IECLine {
-            seq_num: (i + 1) as i32,
-            type_id: type_id,
-            split_type: split_type,
-            tag: tag,
-            indent_level: level as i32,
-            indent_seq_num: 0,
-            sequence_string: "".to_string(),
-            text: criterion,
-        });
 
-        previous_tag_style = tag_style;
 
-    }
+
+    
     
     // Finally, again check all lines have a length of at least 1, i.e. are not empty, 
     // before proceeding further. Empty lines may occur - very rarely - if a line is 'just tag'
