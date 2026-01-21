@@ -124,7 +124,8 @@
                             leader = leader.Trim();
                             break;
                         }
-
+                        
+/*
                         if (ldrName == "recrit1")
                         {
                             // regex_pattern = @"^\d{1,2}." 
@@ -139,7 +140,8 @@
 
                             break;
                         }
-
+*/
+/*
                         if (ldrName == "recrit2")
                         {
                             // hdrName = "recrit2", regex_pattern = @"^\d{1,2} " 
@@ -239,7 +241,8 @@
 
                             break;
                         }
-
+*/
+/*
                         if (ldrName == "recrit3")
                         {
                             // regex = @"^\d{1,2}[A-Z]"}
@@ -252,7 +255,8 @@
                             break;
                         }
                     }
-
+*/
+/*
                     if (ldrName.StartsWith("reha"))
                     {
                         if (ldrName == "reha")
@@ -294,6 +298,7 @@
 
                             break;
                         }
+   
 
                         if (ldrName == "rehadb")
                         {
@@ -437,7 +442,7 @@
                         }
                     }
                     
-/*
+
                     if (ldrName == "resnumdash")
                     {
                         // hdrName = "resnumdash", regex_pattern = @"^\d{1,2}\-" by default 
@@ -454,7 +459,7 @@
                         break;
                     }
 */
-
+/*
                     if (ldrName == "resh1")
                     {
                         // hdrName = "resh1", regex_pattern = @"^\d{1,2}\.\d{1,2} "
@@ -547,7 +552,7 @@
                             }
                         }
                     }
-                    
+*/
                     
                     if (ldrName == "restar")
                     {

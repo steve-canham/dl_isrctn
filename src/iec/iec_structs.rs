@@ -4,7 +4,7 @@ pub struct IECLine
 {
     pub seq_num: i32,
     pub type_id: i32,
-    pub split_type: String,
+    pub tag_type: String,
     pub tag: String,
     pub indent_level: i32,
     pub indent_seq_num: i32,
@@ -107,10 +107,13 @@ impl TypePars {
 
 // The levels vector (Vec<Level>) stores the different indent levels,
 // and the names of the leader types associated with them, as used within 
-// a set of criteria. The lavel of the line is given by the position of 
-// the name in the vector. The L1 leader is at pos(0). L2 leader at pos1 etc.
+// a set of criteria. The level of the line is given by the position of 
+// the name in the vector. 
+// The L0 tag ("All") is at pos(0), the L1 tag ("Hdr") is always at posotion 1. 
+// The L2 level holds the tag of the current top level criteria, further
+// entries in the vector hold the sub-criteria tags, if any.
 // The current_seq_num field gives the current sequence number within the level of
-// the line
+// the line.
 
 #[allow(dead_code)]
 pub struct Level
@@ -131,7 +134,7 @@ impl Level {
     }
 }
 
-
+/*
 pub fn get_level(tag_style: &String, levels: &mut Vec<Level>) -> i32 {
 
    // if levels.len() == 2  // as on initial use - there are initial entries for levels 0 and 1
@@ -160,4 +163,4 @@ pub fn get_level(tag_style: &String, levels: &mut Vec<Level>) -> i32 {
 
     found_level as i32
 }
-    
+     */

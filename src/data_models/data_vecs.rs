@@ -743,7 +743,7 @@ pub struct IECVecs {
     pub sd_sids: Vec<String>,
     pub seq_nums:  Vec<i32>,
     pub ie_type_ids:  Vec<i32>,
-    pub split_types: Vec<String>,
+    pub tag_types: Vec<String>,
     pub tags: Vec<String>,
     pub indent_levels: Vec<i32>,
     pub indent_seq_nums: Vec<i32>,
@@ -757,7 +757,7 @@ impl IECVecs{
             sd_sids: Vec::with_capacity(vsize),
             seq_nums: Vec::with_capacity(vsize),
             ie_type_ids: Vec::with_capacity(vsize),
-            split_types: Vec::with_capacity(vsize),
+            tag_types: Vec::with_capacity(vsize),
             tags: Vec::with_capacity(vsize),
             indent_levels: Vec::with_capacity(vsize),
             indent_seq_nums: Vec::with_capacity(vsize),
@@ -772,7 +772,7 @@ impl IECVecs{
             self.sd_sids.push(sd_sid.clone());
             self.seq_nums.push(r.seq_num);
             self.ie_type_ids.push(r.type_id);
-            self.split_types.push(r.split_type.clone());
+            self.tag_types.push(r.tag_type.clone());
             self.tags.push(r.tag.clone());
             self.indent_levels.push(r.indent_level);
             self.indent_seq_nums.push(r.indent_seq_num);
@@ -786,7 +786,7 @@ impl IECVecs{
             self.sd_sids.shrink_to_fit();
             self.seq_nums.shrink_to_fit();
             self.ie_type_ids.shrink_to_fit();
-            self.split_types.shrink_to_fit();
+            self.tag_types.shrink_to_fit();
             self.tags.shrink_to_fit();
             self.indent_levels.shrink_to_fit();
             self.indent_seq_nums.shrink_to_fit();
@@ -803,7 +803,7 @@ impl IECVecs{
         .bind(&self.sd_sids)
         .bind(&self.seq_nums)
         .bind(&self.ie_type_ids)
-        .bind(&self.split_types)
+        .bind(&self.tag_types)
         .bind(&self.tags)
         .bind(&self.indent_levels)
         .bind(&self.indent_seq_nums)
