@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::iec::iec_helper::StringExtensions;
 
 use super::iec_structs::*;
-use log::info;
+// use log::info;
 
 pub struct RegexResults {
     pub tag: String,
@@ -68,8 +68,7 @@ pub static IE_RE_MAP: LazyLock<HashMap<&'static str, Regex>> = LazyLock::new(||{
     map.insert("rominpar", Regex::new(r"^\(x{0,3}(|ix|iv|v?i{0,3})\)").unwrap());        // roman numerals double bracket   (i), (ii)
    
     map.insert("dshonly", Regex::new(r"^-").unwrap());                                   // dash only   -, -
-    map.insert("dblstr", Regex::new(r"^\*\*").unwrap());                                 // two asterisks   **, **
-    map.insert("stronly", Regex::new(r"^\*").unwrap());                                  // asterisk only   *, *
+    map.insert("stronly", Regex::new(r"^\*{1,3}").unwrap());                                  // asterisk only   *, *
     map.insert("semcolonly", Regex::new(r"^;").unwrap());                                // semi-colon only   ;, ; 
     map.insert("qmkonly", Regex::new(r"^\?").unwrap());                                  // question mark only   ?, ?  
     map.insert("invqm", Regex::new(r"^¿").unwrap());                                     // inverted question mark only   ¿, ¿
@@ -100,7 +99,7 @@ pub fn test_re(tag_type: &str, this_line: &String) ->  Option<RegexResults> {
     }
 }
 
-pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, _tagged_lines: &Vec<IECLine>, levels: &mut Vec<String>) ->  Option<IECLine> {
+pub fn test_against_numdot_res(index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, _tagged_lines: &Vec<CLine>, levels: &mut Vec<String>) ->  Option<CLine> {
 
     // Ordering of these 'numdot' REs is important and not easily done from the hashmap
     // where they are stored. Therefore each one called individually in the 
@@ -155,7 +154,7 @@ pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, p
             
             // get level - necessary to properly compare with previous lines
 
-            let level = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {prev_level};
+            let (level, new_level) = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {(prev_level, false)};
             
             let mut genuine = true; // as the starting point
             let mut proc_tag_type = r.tag_type.clone();
@@ -179,24 +178,15 @@ pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, p
             // The n.n tag type may be a genuine number in front of a quantity 
 
             if &r.tag_type == "numdot2" {
-
-                if index == 0 || (index == 1 && prev_level == 1)
+                
+                if prev_tag_type == "numdot2" 
+                    || (prev_tag_type == "numdot" && proc_tag.ends_with(".1"))
+                    || (prev_tag_type == "none" && proc_tag.ends_with(".1"))
                 {
-                    // very unlikely to be genuinely a N.n if first in  
-                    // any sequence or the first after a header 
-
-                    genuine = false;   
+                    genuine = true;   // continuation of numdot2 or the first in a numdot2 sequence
                 }
-                else
-                {
-                    if prev_tag_type == "numdot2" 
-                        || (prev_tag_type == "numdot" && proc_tag.ends_with(".1"))
-                    {
-                        genuine = true;   // continuation of numdot2 or the first in a numdot2 sequence
-                    }
-                    else {
-                        genuine = false;
-                    }
+                else {
+                    genuine = false;
                 }
 
                 // if genuine appears false what is this line? 
@@ -221,6 +211,7 @@ pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, p
                         || low_text.starts_with("g/")
                         || low_text.starts_with("cm")
                         || low_text.starts_with("patient")
+                        || low_text.starts_with("subject")
                     {
                         // appears to be a header or (more likely) a split line part
                     }
@@ -242,18 +233,20 @@ pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, p
             
 
             if !genuine {
+
+                // remove the level if one has just been added to the levels vector
+                if new_level {
+                    levels.pop();   
+                }             
                 None
             }
             else {
-                Some(IECLine {
+                Some(CLine {
                     seq_num: (index + 1) as i32,
                     tag: proc_tag,
-                    type_id: type_id,
                     tag_type: proc_tag_type,
                     indent_level: level,
                     text: proc_text,
-                    indent_seq_num: 0,
-                    sequence_string:"".to_string(),
                 })
             }
         },
@@ -266,7 +259,7 @@ pub fn test_against_numdot_res(type_id: i32, index: usize, this_line: &String, p
 
 
 
-pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<IECLine>, levels: &mut Vec<String>) ->  Option<IECLine> {
+pub fn test_against_numeric_res(index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<CLine>, levels: &mut Vec<String>) ->  Option<CLine> {
     
     let raw_result = 
     if let Some(s1) = test_re("numaldot", this_line) { Some(s1) }
@@ -321,7 +314,7 @@ pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, 
             
             // get level - necessary to properly compare with previous lines
 
-            let level = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {prev_level};
+            let (level, new_level) = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {(prev_level, false)};
 
             let mut genuine = true; // as the starting point
             let proc_tag_type = r.tag_type.clone();
@@ -355,6 +348,7 @@ pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, 
                     || low_text.starts_with("g/")
                     || low_text.starts_with("cm")
                     || low_text.starts_with("patient")
+                    || low_text.starts_with("subject")
                 {
                     // appears to be a header or (more likely) a split line part
 
@@ -387,7 +381,7 @@ pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, 
                if low_text.starts_with("mg") || low_text.starts_with("cm")
                   || low_text.starts_with("kg") || low_text.starts_with("secs")
                   || low_text.starts_with("patients") ||  low_text.starts_with("min")
-                  || low_text.starts_with("days") 
+                  || low_text.starts_with("days") ||  low_text.starts_with("subjects")
                 {
                     genuine = false;
                 }
@@ -427,18 +421,19 @@ pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, 
 
             if genuine {
 
-                Some(IECLine {
+                Some(CLine {
                     seq_num: (index + 1) as i32,
                     tag: r.tag,
-                    type_id: type_id,
                     tag_type: proc_tag_type,
                     indent_level: level,
                     text: r.text,
-                    indent_seq_num: 0,
-                    sequence_string:"".to_string(),
                 })
             }
             else {
+                // remove the level if one has just been added to the levels vector
+                if new_level {
+                    levels.pop();   
+                }             
                 None
             }
         },
@@ -450,19 +445,16 @@ pub fn test_against_numeric_res(type_id: i32, index: usize, this_line: &String, 
 }
 
 
-pub fn test_against_alpha_res(type_id: i32, index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<IECLine>, levels: &mut Vec<String>) -> Option<IECLine> {
+pub fn test_against_alpha_res(index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<CLine>, levels: &mut Vec<String>) -> Option<CLine> {
         
     let raw_result = 
     
     if let Some(si) = test_re("romdot", this_line) {  // roman numerals dot   i., ii.
-
         Some(si) 
     } 
-
     else if let Some(si) = test_re("romrtpar", this_line)  {   // roman numerals and right paranthesis
         Some(si) 
     }  
-    
     else if let Some(si) = test_re("romcapdot", this_line)  {  // capital roman numerals dot   I., II.
         Some(si)
     }   
@@ -502,7 +494,7 @@ pub fn test_against_alpha_res(type_id: i32, index: usize, this_line: &String, pr
             
             // get level - necessary to properly compare with previous lines
 
-            let mut level = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {prev_level};
+            let (mut level, _new_level) = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {(prev_level, false)};
 
             // Some roman numeral tags may in fact be part of an alpha sequence - check sequence
             // They would be in as a sub-criterion at a level 1 more than they should be.
@@ -524,15 +516,12 @@ pub fn test_against_alpha_res(type_id: i32, index: usize, this_line: &String, pr
                 None
             }
             else {
-                Some(IECLine {
+                Some(CLine {
                     seq_num: (index + 1) as i32,
                     tag: r.tag,
-                    type_id: type_id,
                     tag_type: proc_tag_type,
                     indent_level: level,
                     text: r.text,
-                    indent_seq_num: 0,
-                    sequence_string:"".to_string(),
                 })
             }
         },
@@ -543,7 +532,7 @@ pub fn test_against_alpha_res(type_id: i32, index: usize, this_line: &String, pr
 }
  
 
-pub fn test_against_other_res(type_id: i32, index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<IECLine>, levels: &mut Vec<String>) ->  Option<IECLine> {
+pub fn test_against_other_res(index: usize, this_line: &String, prev_tag_type: &String, prev_level: i32, tagged_lines: &Vec<CLine>, levels: &mut Vec<String>) ->  Option<CLine> {
 
     let raw_result = 
     if let Some(s9) = test_re("rominpar", this_line)  { Some(s9) }      // roman numerals double bracket   (i), (ii)
@@ -559,7 +548,6 @@ pub fn test_against_other_res(type_id: i32, index: usize, this_line: &String, pr
     else if let Some(s8) = test_re("strtab", this_line)  { Some(s8) }        // asterisk followed by space or tab  *\t, *\t      
 
     else if let Some(s10) = test_re("dshonly", this_line)  { Some(s10) }     // dash only   -, -
-    else if let Some(s11) = test_re("dblstr", this_line)  { Some(s11) }      // two asterisks   **, **
     else if let Some(s4) = test_re("stronly", this_line)  { Some(s4) }       // asterisk only   *, *
     else if let Some(s5) = test_re("semcolonly", this_line)  { Some(s5) }    // semi-colon only   ;, ; 
     else if let Some(s6) = test_re("qmkonly", this_line)  { Some(s6) }       // question mark only   ?, ?  
@@ -575,7 +563,7 @@ pub fn test_against_other_res(type_id: i32, index: usize, this_line: &String, pr
             
             // get level - necessary to properly compare with previous lines
 
-            let mut level = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {prev_level};
+            let (mut level, _new_level) = if &r.tag_type != prev_tag_type {get_level(&r.tag_type, levels)} else {(prev_level, false)};
 
             // Some roman numeral tags may in fact be part of an alpha sequence - check sequence
             // They would be in as a sub-criterion at a level 1 more than they should be.
@@ -591,15 +579,12 @@ pub fn test_against_other_res(type_id: i32, index: usize, this_line: &String, pr
                 }
             }
            
-            Some(IECLine {
+            Some(CLine {
                 seq_num: (index + 1) as i32,
                 tag: r.tag,
-                type_id: type_id,
                 tag_type: proc_tag_type,
                 indent_level: level,
                 text: r.text,
-                indent_seq_num: 0,
-                sequence_string:"".to_string(),
             })
 
         },
@@ -611,7 +596,7 @@ pub fn test_against_other_res(type_id: i32, index: usize, this_line: &String, pr
 }
 
 
-fn get_level(tag_type: &String, levels: &mut Vec<String>) -> i32 {
+fn get_level(tag_type: &String, levels: &mut Vec<String>) -> (i32, bool) {
             
     // The tag style has changed - therefore use the get_level function to obtain the 
     // appropriate indent level for the new tag type. 
@@ -619,16 +604,15 @@ fn get_level(tag_type: &String, levels: &mut Vec<String>) -> i32 {
     // This function adds the tag type to the levels vector, if it is not already present 
     // in that vector - the level returned being that of the new entry. Otherwise it 
     // will simply return the associated level number.
-
+    
+    let mut new_level = true;
     let mut found_level = 0;
     for i in 2..levels.len() {
         
         if tag_type == &levels[i]
         {
+            new_level = false;
             found_level = i;
-            if found_level == 2 {
-                info!("tag_type: {}", tag_type)
-            }
             break;
         }
     }
@@ -636,10 +620,6 @@ fn get_level(tag_type: &String, levels: &mut Vec<String>) -> i32 {
     if found_level == 0 {     // tag not found
         levels.push(tag_type.to_string());
         found_level = levels.len() - 1;
-
-        if found_level == 6 {
-                info!("levels: {:?}", levels)
-            }
     }
    
     // if level = 2, (and is not the first such entry) we have 'returned to a 
@@ -652,12 +632,12 @@ fn get_level(tag_type: &String, levels: &mut Vec<String>) -> i32 {
         for _ in levels.drain(3..) {}
     }
 
-    found_level as i32
+    (found_level as i32, new_level)
 
 }
 
 
-fn tag_in_sequence(tag: &String, tagged_lines: &Vec<IECLine>, current_indent_level: i32) -> bool {
+fn tag_in_sequence(tag: &String, tagged_lines: &Vec<CLine>, current_indent_level: i32) -> bool {
 
     // Rolls back through the lines tagged so far (if any) to see if the most recent line with the same indent level
     // has the form equivalent to the preceeding character, i.e. if the parameter passed appears to be in a sequence
@@ -681,7 +661,7 @@ fn tag_in_sequence(tag: &String, tagged_lines: &Vec<IECLine>, current_indent_lev
 }
 
 
-fn tag_in_bracketed_sequence(tag: &String, tagged_lines: &Vec<IECLine>, current_indent_level: i32) -> bool {
+fn tag_in_bracketed_sequence(tag: &String, tagged_lines: &Vec<CLine>, current_indent_level: i32) -> bool {
 
     // Rolls back through the lines tagged so far (if any) to see if the most recent line with the same indent level
     // has the form equivalent to the preceeding character, i.e. if the parameter passed appears to be in a sequence
@@ -706,7 +686,7 @@ fn tag_in_bracketed_sequence(tag: &String, tagged_lines: &Vec<IECLine>, current_
 }
 
 
-fn tag_in_numeric_sequence(tag_num: i32, tagged_lines: &Vec<IECLine>, current_indent_level: i32) -> bool {
+fn tag_in_numeric_sequence(tag_num: i32, tagged_lines: &Vec<CLine>, current_indent_level: i32) -> bool {
 
     // Rolls back through the lines tagged so far (if any) to see if the most recent line with the same indent level
     // has the form equivalent to the preceeding character, i.e. if the parameter passed appears to be in a sequence

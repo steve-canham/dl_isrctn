@@ -3,7 +3,7 @@ use super::iec_helper::*;
 use super::iec_res::*;
 use super::iec_structs::*;
 
-//use log::info;
+// use log::info;
 
 pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &str) -> (i32, Vec<IECLine>) {   // Should be a vector of IECLine
 
@@ -12,7 +12,6 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
     let crits: Vec<IECLine> = Vec::new();
     let mut final_cr_lines: Vec<IECLine> = Vec::new();
-    let mut processed_cr_lines: Vec<IECLine> = Vec::new();
 
     let mut null_result = false;
 
@@ -61,7 +60,7 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
         if !is_redundant_header(&repaired_lines[0])
         {
-            processed_cr_lines.push(IECLine {    // temp, should be final CR lines
+            final_cr_lines.push(IECLine {    // temp, should be final CR lines
             seq_num: 1,
             type_id: tv.no_sep,
             tag_type: "none".to_string(),
@@ -81,9 +80,16 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 
         // multiple lines
 
-        processed_cr_lines = process_initial_lines( &repaired_lines, &tv);
+        let mut tagged_lines = tag_lines(&repaired_lines);
 
-        final_cr_lines = repair_split_lines(&mut processed_cr_lines, &tv);
+        let mut joined_lines = repair_split_lines(&mut tagged_lines, &tv);
+              
+        if has_none_or_very_few_tags(&joined_lines)
+        {
+            joined_lines = process_no_tags_situations(&mut joined_lines)
+        }
+        
+        final_cr_lines = sequence_lines(&joined_lines, &tv);
         
         //final_cr_lines = processed_cr_lines;
     }
@@ -107,15 +113,14 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
 }
 
 
-fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECLine> {
+fn tag_lines(initial_lines:&Vec<String>) ->  Vec<CLine> {
 
-    let mut tagged_lines: Vec<IECLine> = Vec::new();
+    let mut tagged_lines: Vec<CLine> = Vec::new();
 
     // Consumes the intiial lines, as split by CR, to create
     // an IECLine struct for each, returning a vector of those IECLines.
 
     let max_i = initial_lines.len() - 1;  
-    let mut num_no_tag = 0;
     let mut previous_tag_type = "none".to_string();
     let mut previous_level = 0;
     let mut levels: Vec<String> = vec!["none".to_string(), "Hdr".to_string()];    // Initialise the level vector
@@ -125,7 +130,7 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
     
     for (i, ln) in initial_lines.into_iter().enumerate() {
 
-        let mut iec: Option<IECLine> = None;    // re-initialise as None
+        let mut iec: Option<CLine> = None;    // re-initialise as None
                
         // What tag character(s), if any, are starting this line?
 
@@ -139,15 +144,12 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 && !previous_tag_type.starts_with("numdot"){
 
             if let Some(rr) = test_re(&previous_tag_type,&ln) {
-                iec = Some(IECLine {
+                iec = Some(CLine {
                     seq_num: (i + 1) as i32,
                     tag: rr.tag,
-                    type_id: tv.type_id,
                     tag_type: rr.tag_type,
                     indent_level: previous_level,
                     text: rr.text,
-                    indent_seq_num: 0,
-                    sequence_string:"".to_string(),
                 });
             }
         }
@@ -168,17 +170,17 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
                 let third_char = &ln.nth_char(2);
 
                 if *second_char == '.' || (second_char.is_digit(10) && *third_char == '.') {
-                    iec = test_against_numdot_res(tv.type_id, i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
+                    iec = test_against_numdot_res(i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
                 }
                 else {
-                    iec = test_against_numeric_res(tv.type_id, i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
+                    iec = test_against_numeric_res(i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
                 }
             }
             else if first_char.is_alphabetic() {
-                iec = test_against_alpha_res(tv.type_id, i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
+                iec = test_against_alpha_res(i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
             }
             else {
-                iec = test_against_other_res(tv.type_id, i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
+                iec = test_against_other_res(i, ln, &previous_tag_type, previous_level, &tagged_lines, &mut levels);
             }
 
         }
@@ -188,24 +190,18 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
 
             Some(l) => l,   // found a tag
             None => {                // no tag - construct a 'header' IECLine
-                    num_no_tag += 1;
                     let mut tag = "Hdr".to_string();
-                    let mut type_id = tv.grp_hdr;
 
                     if i == max_i       // initially, make this final line without a tag a 'supplement'
                     {
                         tag = "Spp".to_string();
-                        type_id = tv.post_crit;
                     }
 
-                    IECLine {
+                    CLine {
                         seq_num: (i + 1) as i32,
-                        type_id: type_id,
                         tag_type: "none".to_string(),
                         tag: tag,
                         indent_level: 1,
-                        indent_seq_num: 0,
-                        sequence_string: "".to_string(),
                         text: ln.to_string(),
                     }
              },
@@ -219,207 +215,21 @@ fn process_initial_lines(initial_lines:&Vec<String>, tv: &TypePars) ->  Vec<IECL
         tagged_lines.push(iec_line);
 
     }
-    
-    /*  
-
-        // Construct the IECLine fields from the tag (if any)
-        // found, the derived indent and sequence numbers, and the line text. 
-
-        //  let in_hdr_seq: bool;
-        //  let num_in_seq: i32;
-       
-        // if a tag
-        //    in_hdr_seq = false;
-
-        }
-      else
-        {
-            // If no tag, store the line as a sub-header, unless it is the last 
-            // line of the set when it will be classified as a supplementary statement.
-
-            //     in_hdr_seq = true;
-          
-
-        // Sequence numbers and strings constructed differently
-        // for header lines (though these will be over written later).
-        // This code may therefore probably go.
-
-        if in_hdr_seq {
-            hdr_seq_num += 1;
-            num_in_seq = hdr_seq_num;
-        }
-        else {
-            levels[level].current_seq_num += 1;
-            num_in_seq = levels[level].current_seq_num;
-        }
-
-        let seq_string = match tag.as_str() {
-            "Hdr" => format!("{}.H{:0>2}", tv.sequence_start, num_in_seq),
-            "Spp" => format!("{}.S{:0>2}", tv.sequence_start, num_in_seq),
-            _ => format!("{}.{:0>2}", tv.sequence_start, num_in_seq),
-        };
-*/
-
-    // At moment possibility of a preformed IEC for some tags, e.g. *
-    // Need to investigate new best way of handling this
-    
-    // Finally, again check all lines have a length of at least 1, i.e. are not empty, 
-    // before proceeding further. Empty lines may occur - very rarely - if a line is 'just tag'
+  
+    // Finally, again check all lines are not empty before proceeding further. 
+    // Empty lines may occur - very rarely - if a line is 'just tag'
     // (though most of these should have been eliminated at the beginning)
     // or if, for example, the original split in CTG left a tag before the 'Exclusion Criteria' statement
     
-    let processed_lines: Vec<IECLine> = tagged_lines
+    let processed_lines: Vec<CLine> = tagged_lines
                                        .into_iter()
                                        .filter(|t| t.text != "")
                                        .collect();
-
-    // Check the 'all without a tag' possibility - allowing a single exception
-
-    if  (processed_lines.len() > 4 && num_no_tag >= processed_lines.len() - 1) ||
-        (processed_lines.len() > 2 && num_no_tag == processed_lines.len())
-        {
-            // None (or very few) of the lines have a tag character. If they (or most of them) had proper 
-            // termination, or consistent line starting, then it is possible that they are
-            // simply differentiated by the CRs alone...
-
-            let mut assume_crs_only = check_if_all_lines_end_consistently(&processed_lines, 1)
-                                   || check_if_all_lines_start_with_caps(&processed_lines, 1)
-                                   || check_if_all_lines_start_with_lower_case(&processed_lines, 0);
-
-            // otherwise check for a consistent bullet type character
-
-            let mut possible_tag = "".to_string();
-
-            if !assume_crs_only
-            {
-                // a chance that an unknown bullet character has been used to start each line
-                // start with the second line (as the first may be different) and see if they are all the same
-                // Don't test letters as some people use formulaic criteria all starting with the same word
-
-                let test_char = &processed_lines[1].text.first_char();  // should always be at least one character in each line
-                if !test_char.is_alphabetic()
-                {
-                    let mut valid_start_chars = 0;
-                    
-                    for k in 1..processed_lines.len()
-                    {
-                        // May be no termination applied but each line starts with a capital letter
-
-                        let start_char = &processed_lines[k].text.chars().next().unwrap();
-                        if start_char == test_char
-                        {
-                            valid_start_chars += 1;
-                        }
-                    }
-
-                    if valid_start_chars == processed_lines.len() - 1
-                    {
-                        assume_crs_only = true;
-                        possible_tag = test_char.to_string();
-                    }
-                }
-            }
-
-            if assume_crs_only
-            {
-                // for these records (assumed split on crs only) the fields in the IEC objects need to be changed
-                // which means constructing yet another vector over these criteria
-
-                let mut revised_lines: Vec<IECLine> = Vec::new();
-
-                let mut line_num = 0;
-                let tag_string = if possible_tag == "" { "@".to_string() } else { possible_tag.clone() };
-
-                let mut crit_seq_num = 0;
-                //hdr_seq_num = 0;
-                let mut hdr_seq_num = 0;
-                for ln in processed_lines {
-                    
-                    let mut rev_text  = ln.text.clone();  // as a default
-                    if possible_tag != "".to_string() // single character only
-                    {
-                        if line_num == 0
-                        {
-                            if ln.text.chars().next().unwrap().to_string() == possible_tag
-                            {
-                                rev_text = ln.text[1..].to_string();
-                            }
-                        }
-                        else
-                        {
-                            if ln.text.len() >= 2
-                            {
-                                rev_text = ln.text[1..].to_string();
-                            }
-                        }
-                    }
-
-                    // Identify what appear to be headers 
-                    // Otherwise treat all lines as being 'normal' criteria
-                    
-                    let type_id: i32;
-                    let indent_level: i32;
-                    let indent_seq_num: i32;
-                    let tag:String;
-
-
-                    if ln.text.ends_with(':') || ln.text == ln.text.to_uppercase()
-                    {
-                        tag = tag_string.clone() + "Hdr";
-                        type_id = tv.grp_hdr;
-                        indent_level = 1;
-                        hdr_seq_num += 1;
-                        indent_seq_num = hdr_seq_num
-                    }
-                    else
-                    {
-                        tag = tag_string.clone();
-                        indent_level = 2;
-                        type_id = tv.type_id;
-                        crit_seq_num += 1;
-                        indent_seq_num = crit_seq_num
-                    }
-
-                    let seq_string = if tag.contains("Hdr") {
-                       format!("{}.H{:0>2}", tv.sequence_start, indent_seq_num)
-                    }
-                    else {
-                        format!("{}.{:0>2}", tv.sequence_start, indent_seq_num)
-                    };
-                    
-                    revised_lines.push(IECLine {
-                        seq_num: ln.seq_num,
-                        type_id: type_id,
-                        tag_type: "cr assumed".to_string(),
-                        tag: tag,
-                        indent_level: indent_level,
-                        indent_seq_num: indent_seq_num,
-                        sequence_string: seq_string,
-                        text: rev_text,
-                    });
-
-                    line_num +=1;
-
-                }
-
-                revised_lines
-            }
-
-            else {
-                processed_lines   // return the lines as modified before the 'assume cr' processing above
-            }
-
-        }
-        else {
-            processed_lines    // return the originally derived IEC lines
-        }
-
+    processed_lines
 }
 
 
-
-
-fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
+fn repair_split_lines(plines:&mut Vec<CLine>, tv: &TypePars) ->  Vec<CLine>{
 
     // Repair some of the more obvious mis-interpretations
     
@@ -427,21 +237,15 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
     // Add the first line (no previous line for it to merge into).
     // Then loop through the rest.
 
-    let mut reversed_lines: Vec<IECLine> = Vec::new();
-    let max_i = plines.len();
+    let mut reversed_lines: Vec<CLine> = Vec::new();
+    let max_i = plines.len() - 1;
 
-    //plines[0].clone()
-
-    for i in (0..max_i).rev() {
+    for i in (0..=max_i).rev() {
         
-        let mut transfer_line = true;  
-        if i > 0 {
-
-            // by default
+        let mut transfer_line = true;   // therefore first line added automatically
+        if i > 0 {                            // but others need to be examined
 
             let this_text = plines[i].text.clone();
-            let prev_text = plines[i - 1].text.clone();
-            let init_char = &this_text.chars().next().unwrap_or('?'); 
 
             // Remove (i.e. don't transfer) simple header lines or headings with no information
 
@@ -450,16 +254,19 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
             }
             else {
 
+                let prev_text = plines[i - 1].text.clone();
+                let init_char = &this_text.chars().next().unwrap_or('?'); 
+
                 // Try and identify spurious 'headers', i.e. lines without leaders, caused by spurious CRs.
                 // Following recent revisions spurious CRs no longer seem to exist within CGT IEC data. 
                 // Lines without headers (usually 1., 2., *, *) are therefore normally genuine header
-                // statements for this source. The next two routines therefore do not apply for CTG data.
+                // statements for this source. The routines below therefore do not apply for CTG data.
 
                 if !tv.sd_sid.starts_with("NCT")
                 {
                     // Consider lines originally specified as headers (leave out last line)  
 
-                    if plines[i].type_id == tv.grp_hdr && i < plines.len() - 1
+                    if plines[i].indent_level == 1 && i < max_i   // a header line
                     {
                         // Ignore line starting with 'Note'- very likely to be a true 'header'. 
                         // Also ignore lines where preceding line ends with ':' (unless both lines end with :)
@@ -475,7 +282,7 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                                 // add the line to the preceding line.
 
                                 if !(prev_text.ends_with('.') || prev_text.ends_with(';') || prev_text.ends_with(':'))
-                                            && (init_char.is_lowercase() || init_char.is_digit(10)) {
+                                            && (init_char.is_lowercase() || init_char.is_digit(10)) {  
                                         
                                     plines[i - 1].text = format!("{} {}", prev_text, this_text)
                                                         .replace("  ", " ");
@@ -500,31 +307,35 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                                     if *prev_lchar == ':'{   // both lines end in ':'
 
                                         // Merge, changing the first colon to a period.
+
                                         plines[i - 1].text = format!("{}. {}", prev_text[..(prev_text.len() - 1)].to_string(), this_text)
                                     }
                                     else {
                                         plines[i - 1].text = format!("{} {}", prev_text, this_text)
                                                         .replace("  ", " ");
-                                        plines[i - 1].type_id = tv.grp_hdr;
                                     }
                                     transfer_line = false;
                                 }
 
                             }
+
+                            // Othewrwise lines that end with a colon are seen as 'true' headers.
+
                         }
                     }
 
                     // Consider lines originally specified as 'supplementary' final lines
                     
-                    if plines[i].type_id == tv.post_crit {
+                    if plines[i].indent_level == 1 && i == max_i {    // Final line with no tag = 'supplementary' line
 
                         let low_line = this_text.to_lowercase();
                         if !this_text.ends_with(':') && !this_text.starts_with('*')
                             && !low_line.starts_with("note") && !low_line.starts_with("other ")
                             && !low_line.starts_with("for further ") && !low_line.starts_with("further") 
-                            && !low_line.starts_with("for more ") && !low_line.starts_with("more ") {
+                            && !low_line.starts_with("for more ") && !low_line.starts_with("more ")
+                            && !low_line.contains("exclusion") && !low_line.contains("excluded") {
 
-                            // Almost always is a spurious supplement, better considerd as a normal criterion.
+                            // Almost always is a spurious supplement, better considered as a normal criterion.
                             // Whether should be joined depends on whether there is an initial
                             // lower case or upper case letter... 
 
@@ -536,11 +347,19 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                             }
                             else
                             {
-                                // Reset the indent level and seq number to be follow those 
-                                // of the preceding criterion line.
+                                // Reset the indent level and tag  - 
+                                // Normally indent should follow those 
+                                // of the preceding criterion line; as no tag was found 
+                                // type should be 'cr_assumed' but tag remains as 'Spp'
+
+                                // but always?
 
                                 plines[i].indent_level = plines[i - 1].indent_level;
-                                plines[i].indent_seq_num = plines[i - 1].indent_seq_num + 1;
+                               // if plines[i].indent_level == 1 {
+                               //     plines[i].indent_level = 2;  // Ensure no longer a 'Spp'
+                               // }
+                                plines[i].tag_type = "cr assumed".to_string();
+                                //plines[i].tag = "@Spp".to_string();
                             }
                         }
                     }
@@ -554,97 +373,183 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
         }
     }
 
-    // Put things back in correct order    
-
-    // Add in sequence numbers and strings to try to 
-    // ensure numbering is continuous and reflects indent levels
-
-    // Need to establish yet another collection as the 
-    // iteration process consumes the original items.
-    // There does not seem to be any easy way around this!
-
-    // First do a reversal in place of the existing reversed records
-    // so that they are in the correct order.
-    // Then create yet another blank vector.
-
+    // Put things back in correct order and return the vector   
+   
     reversed_lines.reverse();
+    reversed_lines              
+ 
+}
+
+
+fn process_no_tags_situations(processed_lines: &mut Vec<CLine>) -> Vec<CLine> {
+
+    // Processed lines include at least 3 lines.
+    // First check for an unidentified consistent bullet type character
+
+    if let Some(c) = check_if_lines_all_start_with_same_bullet(&processed_lines) {
+               
+        for i in 0..processed_lines.len() {   // new bullet chharacter found!
+
+            let orig_text = processed_lines[i].text.clone();
+            let mut rev_text  = orig_text.clone();  // as a default
+
+            if i == 0 || i == processed_lines.len() - 1
+            {
+                if processed_lines[i].text.first_char()== c
+                {
+                    rev_text = orig_text[1..].to_string();  // remove bullet if it appears on first or last lines
+                }
+            }
+            else 
+            {
+                if orig_text.len() >= 2
+                {
+                    rev_text = orig_text[1..].to_string();
+                }
+            }
+
+            if rev_text.ends_with(':') || rev_text == rev_text.to_uppercase()
+            {
+                processed_lines[i].tag = format!("{}Hdr", c);
+                processed_lines[i].indent_level = 1;
+            }
+            else
+            {
+                processed_lines[i].tag = c.to_string();
+                processed_lines[i].indent_level = 2;
+            }
+
+            processed_lines[i].text = rev_text;
+            processed_lines[i].tag_type = "found bullet".to_string();
+
+        }
+
+    }
+
+    // May be lines are similar enough to suggest that they are criteria split on CRs only
+
+    
+    if check_if_all_lines_end_consistently(&processed_lines, 1)
+                  || check_if_all_lines_start_with_caps(&processed_lines, 1)
+                  || check_if_all_lines_start_with_lower_case(&processed_lines, 0)
+    {
+        // May be lines are similar enough to suggest that they are criteria split on CRs only
+
+        for i in 0..processed_lines.len() {
+            
+            let ptext = processed_lines[i].text.clone();
+
+            // Identify what appear to be headers 
+            // Otherwise treat all lines as being 'normal' criteria
+
+            processed_lines[i].tag_type = "cr assumed".to_string();
+            if ptext.ends_with(':') || ptext == ptext.to_uppercase()
+            {
+                processed_lines[i].tag = "@Hdr".to_string();
+                processed_lines[i].indent_level = 1;
+            }
+            else
+            {
+                processed_lines[i].tag = "@".to_string();
+                processed_lines[i].indent_level = 2;
+            }
+        }
+
+    }
+
+    processed_lines.to_owned()
+
+}
+
+
+fn sequence_lines(joined_lines: &Vec<CLine>, tv: &TypePars) -> Vec<IECLine> {
 
     let mut sequenced_lines: Vec<IECLine> = Vec::new();
 
     // Clarify situation with one or two criteria only.
 
-    if reversed_lines.len() == 1
-    { 
+    if joined_lines.len() == 1 { 
         let single_iec = IECLine {
             seq_num: 1,
-            tag_type:"none".to_string(),
             type_id: tv.no_sep,
+            tag_type:"none".to_string(),
             tag: "All".to_string(),
             indent_level: 0,
-            indent_seq_num:1,
-            sequence_string:tv.sequence_start.clone() + ".A00",
-            text: reversed_lines[0].text.clone()
+            text: joined_lines[0].text.clone(),
+            indent_seq_num: 1,
+            sequence_string: format!("{}.A00", tv.sequence_start),
         };
         sequenced_lines.push(single_iec);
     }
 
-    if reversed_lines.len() == 2 && reversed_lines[0].type_id == tv.grp_hdr {
+    if joined_lines.len() == 2 {
 
-        let top_text = reversed_lines[0].text.clone();
-        let bottom_text = reversed_lines[1].text.clone();
+        let top_text = joined_lines[0].text.clone();
+        let bottom_text = joined_lines[1].text.clone();
+
         if top_text.ends_with(":") && top_text.to_lowercase().contains("criteria")
         {
             // Probably a genuine header (unusual). Make the second line a criterion
 
-            reversed_lines[1].type_id = tv.type_id;
-            reversed_lines[1].tag = "-1-".to_string();
-            reversed_lines[1].indent_level = 2;
-            reversed_lines[1].indent_seq_num = 1;
+            let iec0 = IECLine {
+                seq_num: 1,
+                type_id: tv.grp_hdr,
+                tag_type: joined_lines[0].tag_type.clone(),
+                tag: joined_lines[0].tag.clone(),
+                indent_level: 1,
+                text: top_text,
+                indent_seq_num: 1,
+                sequence_string: format!("{}.H01", tv.sequence_start),
+            };
 
-            reversed_lines[0].sequence_string = format!("{}.H01", tv.sequence_start);
-            reversed_lines[1].sequence_string = format!("{}.01", tv.sequence_start);
+            let iec1 = IECLine {
+                seq_num: 2,
+                type_id: tv.type_id,
+                tag_type:joined_lines[1].tag_type.clone(),
+                tag: "-1-".to_string(),
+                indent_level: 2,
+                text: bottom_text,
+                indent_seq_num: 1,
+                sequence_string: format!("{}.01", tv.sequence_start),
+            };
 
-            sequenced_lines.push(reversed_lines[0].clone());
-            sequenced_lines.push(reversed_lines[1].clone());
+            sequenced_lines.push(iec0);
+            sequenced_lines.push(iec1);
 
-          //  info!("Pushing pair0 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
         }
         else
         {
-            if check_if_all_lines_end_consistently(&reversed_lines, 0)
-                || check_if_all_lines_start_with_caps(&reversed_lines, 0)
+            if check_if_all_lines_end_consistently(&joined_lines, 0)
+                || check_if_all_lines_start_with_caps(&joined_lines, 0)
             {
                 // More likely that these are a pair of criteria statements 
-                // (or multiple criteria statements)
+                // (or multi-criteria statements)
 
-                reversed_lines[0].seq_num = 1;
-                reversed_lines[1].seq_num = 2;
-                reversed_lines[0].tag_type = "cr pair".to_string();
-                reversed_lines[1].tag_type = "cr pair".to_string();
-                
-                reversed_lines[0].type_id = tv.type_id;
-                reversed_lines[0].tag = "-1-".to_string();
-                reversed_lines[0].indent_level = 2;
-                reversed_lines[0].indent_seq_num = 1;
-                
-                reversed_lines[1].type_id = tv.type_id;
-                reversed_lines[1].tag = "-2-".to_string();
-                reversed_lines[1].indent_level = 2;
-                reversed_lines[1].indent_seq_num = 2;
+                let iec0 = IECLine {
+                    seq_num: 1,
+                    type_id: tv.type_id,
+                    tag_type: "cr pair".to_string(),
+                    tag: "-1-".to_string(),
+                    indent_level: 2,
+                    text: top_text,
+                    indent_seq_num: 1,
+                    sequence_string: format!("{}.01", tv.sequence_start),
+                };
 
-                reversed_lines[0].sequence_string = format!("{}.01", tv.sequence_start);
-                reversed_lines[1].sequence_string = format!("{}.02", tv.sequence_start);
-                
-                // In case they include them strip lines of headers.
-                // Are not removed beforehand as first and last lines are not processed
-                
-                reversed_lines[0].text = top_text;  
-                reversed_lines[1].text = bottom_text; 
+                let iec1 = IECLine {
+                    seq_num: 2,
+                    type_id: tv.type_id,
+                    tag_type:"cr pair".to_string(),
+                    tag: "-2-".to_string(),
+                    indent_level: 2,
+                    text: bottom_text,
+                    indent_seq_num: 1,
+                    sequence_string: format!("{}.02", tv.sequence_start),
+                };
 
-                sequenced_lines.push(reversed_lines[0].clone());
-                sequenced_lines.push(reversed_lines[1].clone());
-                
-                //info!("Pushing pair1 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
+                sequenced_lines.push(iec0);
+                sequenced_lines.push(iec1);
+            
             }
 
             else if !(top_text.ends_with('.') || top_text.ends_with(';') || top_text.ends_with(':'))
@@ -652,66 +557,58 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
             {
                 // More likely they are a single statement split for some reason
 
-                reversed_lines[0].text = format!("{} {}", reversed_lines[0].text, reversed_lines[1].text)
+                let combined_text =  format!("{} {}", top_text, bottom_text)
                                             .replace("  ", " ");
-                reversed_lines[0].seq_num = 1;
-                reversed_lines[0].tag_type = "none".to_string();
-                reversed_lines[0].type_id = tv.no_sep;
-                reversed_lines[0].tag = "All".to_string();
-                reversed_lines[0].indent_level = 0;
-                reversed_lines[0].indent_seq_num = 1;
-                reversed_lines[0].sequence_string = tv.sequence_start.clone() + ".A00";
 
-                sequenced_lines.push(reversed_lines[0].clone());
-               
+                let single_iec = IECLine {
+                    seq_num: 1,
+                    type_id: tv.no_sep,
+                    tag_type:"none".to_string(),
+                    tag: "All".to_string(),
+                    indent_level: 0,
+                    text: combined_text,
+                    indent_seq_num: 1,
+                    sequence_string: format!("{}.A00", tv.sequence_start),
+                };
+                sequenced_lines.push(single_iec);
             }
             else
             {
                 // leave as a hdr / spp pair...
 
-                reversed_lines[0].sequence_string = format!("{}.{}01", tv.sequence_start, &reversed_lines[0].tag.chars().next().unwrap());
-                reversed_lines[1].sequence_string = format!("{}.{}02", tv.sequence_start, &reversed_lines[1].tag.chars().next().unwrap() );
+                sequenced_lines.push(IECLine::from_cline(&joined_lines[0],
+                                     tv.grp_hdr, 1, format!("{}.H01", tv.sequence_start)));
+                sequenced_lines.push(IECLine::from_cline(&joined_lines[1], 
+                                     tv.post_crit,2,format!("{}.S01", tv.sequence_start)));
 
-                sequenced_lines.push(reversed_lines[0].clone());
-                sequenced_lines.push(reversed_lines[1].clone());
-
-                //info!("Pushing pair2 {} ::: {}", reversed_lines[0].text, reversed_lines[1].text);
             }
-
         }
     }
 
-
-    if reversed_lines.len() > 2
+    if joined_lines.len() > 2
     {
         // Add in sequence numbers and strings to try to 
         // ensure numbering is continuous and reflects indent levels
-
-        // Need to establish yet another collection as the 
-        // iteration process consumes the original items.
-        // There does not seem to be any easy way around this!
-
-        // Assumed (for now) lines are in the correct order.
-        // Otherwise would need Ord, Cmp traits to be defined
-        // Try to get away without this sort of thing:
-        // reversed_lines = reversed_lines.OrderBy(c => c.seq_num).ThenBy(c => c.indent_seq_num).ToList();
-
+        // Assumed lines are in the correct order. 
+     
         let seq_start = format!("{}.", &tv.sequence_start);    //starts with e. or i. (or g.)
-        let mut seq_base = seq_start.clone();  
+        let mut seq_base = seq_start.clone();    // to begin with
 
         let mut old_level = -1;
         let mut level_pos_store = vec![0; 8];  // up to 8 levels possible
         let mut current_level_pos = 0;
+        let max_i = joined_lines.len() - 1;
 
-        for i in 0..reversed_lines.len(){    // reversed lines now in normal order
+        for i in 0..=max_i {    
 
             let seq_string: String;
-            let mut new_iecline = reversed_lines[i].clone();
-            let level = reversed_lines[i].indent_level; //  assumed always non-null
+            let level = joined_lines[i].indent_level;  //  assumed always non-null
+            let mut type_id = tv.type_id;    // by default
 
             if level != old_level  
             {   
-                // A change of level so reset the sequence string    
+                // A change of level so reset the sequence string   
+
                 let lu = level as usize;
                 let olu = old_level as usize;
 
@@ -721,7 +618,8 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                 }
 
                 if level == 0 {
-                    seq_string = reversed_lines[i].sequence_string.clone();
+                    seq_string = "A0.00".to_string();
+                    type_id = tv.no_sep;
                 }
 
                 else if level == 1  {   // Hdr or Spp
@@ -729,14 +627,16 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                     level_pos_store[1] += 1;
                     current_level_pos = level_pos_store[1];
 
-                    let tag2 = reversed_lines[i].tag.clone();
+                    let tag2 = joined_lines[i].tag.clone();
                     let mut level1_prefix = tag2.chars().next().unwrap();
 
                     if level1_prefix == '@' {
-                        level1_prefix = tag2.chars().nth(1).unwrap();
+                        level1_prefix = tag2.chars().nth(1).unwrap();   // H or S
                     }
                     seq_base = seq_start.clone();
                     seq_string = format!("{}{}{:02}", seq_base, level1_prefix, level_pos_store[1]);
+
+                    type_id = if tag2 == "Spp".to_string() {tv.post_crit} else {tv.grp_hdr}
                 }
 
                 else if level == 2  {
@@ -787,7 +687,7 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                     level_pos_store[1] += 1;
                     current_level_pos = level_pos_store[1];
 
-                    let tag2 = new_iecline.tag.clone();
+                    let tag2 = joined_lines[i].tag.clone();
                     let mut level1_prefix = tag2.chars().next().unwrap();
 
                     if level1_prefix == '@' {
@@ -806,14 +706,20 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
                 }
             }
 
-            new_iecline.indent_seq_num = current_level_pos; //seq_string.to_string();
-            new_iecline.sequence_string = seq_string; //seq_string.to_string();
+            let new_iecline = IECLine {
+                seq_num: joined_lines[i].seq_num,
+                type_id: type_id,
+                tag_type: joined_lines[i].tag_type.clone(),
+                tag: joined_lines[i].tag.clone(),
+                indent_level: joined_lines[i].indent_level,
+                text: joined_lines[i].text.clone(),
+                indent_seq_num: current_level_pos,
+                sequence_string: seq_string,
+            };
+
             sequenced_lines.push(new_iecline);
 
         }
-
-        
-
     }
 
 
@@ -821,59 +727,3 @@ fn repair_split_lines(plines:&mut Vec<IECLine>, tv: &TypePars) ->  Vec<IECLine>{
 
 
 }
-
-    /*
-           
-                    if (level != old_level)
-                    {
-                        // a change of level so reset parameters to construct the sequence string
-
-                        if (old_level != -1)
-                        {
-                            level_pos[old_level] = current_level_pos; // store the most recently used value
-                        }
-
-                        if (level == 1)
-                        {
-                            sequence_base = sequence_start;
-                            current_level_pos = level_pos[1];
-                        }
-                        else
-                        {
-                            if (level > old_level)
-                            {
-                                sequence_base = seq_string + "."; // current string plus dot separator
-                                current_level_pos = 0;
-                            }
-                            else
-                            {
-                                // level less than old level
-                                // use current set of values to construct the base
-                                sequence_base = sequence_start;
-                                for (int b = 1; b < level; b++)
-                                {
-                                    sequence_base += level_pos[b].ToString("0#") + ".";
-                                }
-
-                                current_level_pos = level_pos[level]; // restore the previous value
-                            }
-                        }
-
-                        old_level = level;
-                    }
-
-                    seq_string = sequence_base + (++current_level_pos).ToString("0#");
-                }
-
-                t.sequence_string = seq_string;
-            }
-        }
-
-        return revised_lines;
-    }
-     */
-
-
-
-
-    

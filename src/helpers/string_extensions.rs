@@ -377,9 +377,10 @@ impl OptionStringExtensions for Option<String> {
                             
                         }
 
-                        tr = tr.replace("â??", "");  // replace combination sometimes used to denote an 'unprintable character'
-                        tr = tr.replace(r"\\", "");  // replace 'double escape' sequence now found in some CTG text
-    
+                        tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
+                        tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
+                        tr = tr.replace('\u{0081}', "");   // remove control character that can (very rarely) appear in string
+
                         Some(tr)
    
                     }
@@ -464,9 +465,10 @@ impl OptionStringExtensions for Option<String> {
                             
                         }
 
-                        tr = tr.replace("â??", "");  // replace combination sometimes used to denote an 'unprintable character'
-                        tr = tr.replace(r"\\", "");  // replace 'double escape' sequence now found in some CTG text
-    
+                        tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
+                        tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
+                        tr = tr.replace('\u{0081}', "");  // remove control character that can (very rarely) appear in string
+
                         // Now (!) do the replace apostrophes part
 
                         if tr.contains('\'') {

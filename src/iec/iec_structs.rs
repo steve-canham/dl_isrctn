@@ -1,4 +1,16 @@
 
+
+#[derive(Debug, Clone)]
+pub struct CLine
+{
+    pub seq_num: i32,
+    pub tag_type: String,
+    pub tag: String,
+    pub indent_level: i32,
+    pub text: String,
+}
+
+
 #[derive(Debug, Clone)]
 pub struct IECLine
 {
@@ -12,25 +24,25 @@ pub struct IECLine
     pub text: String,
 }
 
-/* 
+
 impl IECLine {
 
-    pub fn new(seq_num: i32, type_id: i32, text: &String) -> Self {
+    pub fn from_cline(cline: &CLine, type_id: i32, indent_seq_num: i32, sequence_string: String) -> Self {
 
         IECLine { 
-            seq_num: seq_num,
+            seq_num: cline.seq_num,
             type_id: type_id,
-            split_type: "".to_string(),
-            tag: "".to_string(),
-            indent_level: 0,
-            indent_seq_num: 0,
-            sequence_string: "".to_string(),
-            text: text.to_string(),
+            tag_type: cline.tag_type.clone(),
+            tag: cline.tag.clone(),
+            indent_level: cline.indent_level,
+            indent_seq_num: indent_seq_num,
+            sequence_string: sequence_string,
+            text: cline.text.clone(),
         }
     }
 
 }
-*/
+
 
 
 #[allow(dead_code)]

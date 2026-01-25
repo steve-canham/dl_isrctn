@@ -172,7 +172,10 @@ pub fn is_redundant_header(s: &String) -> bool {
         s_low = s_low.replace("inclusion", "").replace("included", "");
         s_low = s_low.replace("exclusion", "").replace("excluded", "");
         s_low = s_low.replace("key", "").replace("criteria", "");
-        s_low = s_low.replace("include", "");
+        s_low = s_low.replace("include", "").replace("with", "");
+        s_low = s_low.replace("the", "").replace("above", "");
+        s_low = s_low.replace("does not", "").replace("comply", "");
+        s_low = s_low.replace("match", "").replace("meet", "");
         s_low = s_low.trim_matches(&[':', ' ']).to_string();
         if s_low.is_empty() {
             true
@@ -184,9 +187,65 @@ pub fn is_redundant_header(s: &String) -> bool {
 }
 
 
+pub fn has_none_or_very_few_tags(in_lines: &Vec<CLine>)  -> bool {
+
+    let num_lines = in_lines.len();
+    if num_lines <= 2 {
+        false
+    }
+    else {
+        let num_lines_without_tags = in_lines.into_iter()
+                                            .filter(|ln| ln.indent_level < 2)
+                                            .count();
+
+        if (num_lines > 4 && num_lines_without_tags >= num_lines - 1) ||
+           (num_lines > 2 && num_lines_without_tags == num_lines) {
+            true
+        }
+        else {
+            false
+        }
+    }
+}
 
 
-pub fn check_if_all_lines_end_consistently(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+pub fn check_if_lines_all_start_with_same_bullet(in_lines: &Vec<CLine>) -> Option<char> {
+
+    // a chance that an unknown bullet character has been used to start each line
+    // start with the second line (as the first may be a header, and without the bullett) and see if they all 
+    // have the same starting character.
+    // Don't test letters as some people use formulaic criteria all starting with the same word (e.g. "Patient will...")
+    // Numbers should not appear as should have been identified as a tag.
+
+    let test_char = in_lines[1].text.first_char();  // should always be at least one character in each line
+    
+    if !test_char.is_alphabetic()
+    {
+        let mut valid_start_chars = 1;
+        for k in 2..in_lines.len()
+        {
+            let start_char = in_lines[k].text.first_char();
+            if start_char == test_char
+            {
+                valid_start_chars += 1;
+            }
+        }
+
+        if valid_start_chars >= in_lines.len() - 2 // final line may be differnt as well
+        {
+            Some(test_char)  // test character present in all lies, with possible exception of first and last
+        }
+        else {
+            None  // first character inconsistent
+        }
+    }
+    else {
+        None  // alphabetic first character
+    }
+}
+
+
+pub fn check_if_all_lines_end_consistently(in_lines: &Vec<CLine>, allowance: usize)  -> bool {
 
     let mut valid_end_chars = 0;
     for ln in in_lines
@@ -200,7 +259,7 @@ pub fn check_if_all_lines_end_consistently(in_lines: &Vec<IECLine>, allowance: u
     valid_end_chars >= in_lines.len() - allowance
 }
 
-pub fn check_if_all_lines_start_with_caps(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+pub fn check_if_all_lines_start_with_caps(in_lines: &Vec<CLine>, allowance: usize)  -> bool {
 
     let mut valid_start_chars = 0;
     for ln in in_lines
@@ -214,7 +273,8 @@ pub fn check_if_all_lines_start_with_caps(in_lines: &Vec<IECLine>, allowance: us
     valid_start_chars >= in_lines.len() - allowance
 }
 
-pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<IECLine>, allowance: usize)  -> bool {
+
+pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<CLine>, allowance: usize)  -> bool {
 
     let mut valid_start_chars = 0;
     for ln in in_lines
@@ -228,40 +288,9 @@ pub fn check_if_all_lines_start_with_lower_case(in_lines: &Vec<IECLine>, allowan
     valid_start_chars >= in_lines.len() - allowance
 }
 
-/* 
-pub fn is_spurious_line(input_line: &String) -> bool {
 
-    if input_line.is_empty()
-    {
-        true;
-    }
 
-    else {
 
-        string line = input_line.Trim().ToLower();
-        if (line is "inclusion:" or "included:" or "exclusion:" or "excluded:")
-        {
-            return true;;
-        }
-
-        input_line = input_line.Replace("key inclusion criteria", "", true, CultureInfo.CurrentCulture);
-        input_line = input_line.Replace("inclusion criteria include", "", true, CultureInfo.CurrentCulture);
-        input_line = input_line.Replace("key exclusion criteria", "", true, CultureInfo.CurrentCulture);
-        ;
-        input_line = input_line.Replace("exclusion criteria include", "", true, CultureInfo.CurrentCulture);
-        input_line = input_line.Replace("key criteria", "", true, CultureInfo.CurrentCulture);
-        input_line = input_line.Replace("inclusion criteria", "", true, CultureInfo.CurrentCulture);
-        input_line = input_line.Replace("exclusion criteria", "", true, CultureInfo.CurrentCulture);
-        
-        if (string.IsNullOrEmpty(input_line) || input_line.Length < 4)
-        {
-            return true;;
-        }
-        
-        return false;  // the default if the line passes the tests below
-    }
-}
-*/
 
 #[cfg(test)]
 mod tests {
