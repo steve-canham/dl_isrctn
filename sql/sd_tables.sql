@@ -2,7 +2,6 @@
 SET client_min_messages TO WARNING; 
 create schema if not exists sd;
 
-
 DROP TABLE IF EXISTS sd.studies;
 CREATE TABLE sd.studies(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
