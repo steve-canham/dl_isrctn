@@ -1,14 +1,11 @@
-
 use crate::data_models::json_models::Study;
 use crate::data_models::db_models::*;
-
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
 use crate::iec::iec_fns::*;
 use crate::iec::iec_structs::IECLine;
 
 use super::support_fns::*;
-
 use chrono::{NaiveDate, NaiveDateTime, Local}; 
 //use log::info;
 
@@ -43,57 +40,50 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // Set up the possible DBTitle instances and
     // the associated strings
 
-    for t in &s.titles {
+    let pub_title = s.public_title.clone().clean();  
+    if let Some(p) = pub_title {
+        pub_title_string = p.clone().to_lowercase();
 
-        if t.title_type_id == 15 { 
-            let pub_title = Some(t.title_value.clone()).clean();  
-            if let Some(p) = pub_title {
-                pub_title_string = p.clone().to_lowercase();
-
-                pub_title_db = Some(DBTitle {
-                    title_text: p,
-                    is_default: true,
-                    is_public: true,
-                    is_scientific: false,
-                    is_acronym: false,
-                    comment: Some("From ISRCTN".to_string()),
-                });
-            }
-        }
-
-        if t.title_type_id == 16 { 
-            let sci_title = Some(t.title_value.clone()).clean(); 
-            if let Some(s) = sci_title {
-                sci_title_string = s.clone().to_lowercase();
-
-                sci_title_db = Some(DBTitle {
-                    title_text: s,
-                    is_default: false,
-                    is_public: false,
-                    is_scientific: true,
-                    is_acronym: false,
-                    comment: Some("From ISRCTN".to_string()),
-                });
-            }
-        }
-
-        if t.title_type_id == 14 { 
-            let acronym = Some(t.title_value.clone()).clean(); 
-            if let Some(a) = acronym {
-                acronym_string = a.clone().to_lowercase();
-
-                acronym_db = Some(DBTitle {
-                    title_text: a,
-                    is_default: false,
-                    is_public: false,
-                    is_scientific: false,
-                    is_acronym: true,
-                    comment: Some("From ISRCTN".to_string()),
-                });
-            }
-        }
-
+        pub_title_db = Some(DBTitle {
+            title_text: p,
+            is_public: true,
+            is_scientific: false,
+            is_acronym: false,
+            is_display: true,
+            comment: Some("From ISRCTN".to_string()),
+        });
     }
+
+    let sci_title = s.scientific_title.clone().clean(); 
+    if let Some(s) = sci_title {
+        sci_title_string = s.clone().to_lowercase();
+
+        sci_title_db = Some(DBTitle {
+            title_text: s,
+            is_public: false,
+            is_scientific: true,
+            is_acronym: false,
+            is_display: false,
+            comment: Some("From ISRCTN".to_string()),
+        });
+    }
+
+
+    let acronym = s.acronym.clone().clean(); 
+    if let Some(a) = acronym {
+        acronym_string = a.clone().to_lowercase();
+
+        acronym_db = Some(DBTitle {
+            title_text: a,
+            is_public: false,
+            is_scientific: false,
+            is_acronym: true,
+            is_display: false,
+            comment: Some("From ISRCTN".to_string()),
+        });
+    }
+
+
 
     // Check for presence and duplication, and allocate 
     // default status and display string
@@ -150,7 +140,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             // Make the scientific title the default and set 
             // the display text.
 
-            sdb.is_default = true;
+            sdb.is_display = true;
             display_title = sdb.title_text.clone();
 
             // is the acronym title the same as the scientific title, if so
@@ -175,7 +165,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 // Very odd but just in case, set 
                 // is default and display title accordingly
                 
-                adb.is_default = true;
+                adb.is_display = true;
                 display_title = adb.title_text.clone();
                 db_ts.push(adb);
             }
@@ -325,8 +315,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
     let type_id = get_study_type(&s.design.primary_study_design);
 
-    let mut _iec_flag = 0;   // for now
-
     let date_last_revised = match &s.registration.last_updated {
         Some(ds) => {
             if ds.len() > 10 {
@@ -350,7 +338,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
         start_status_override: s.recruitment.recruitment_start_status_override.clone(),
-        iec_flag: _iec_flag,
         ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 
         date_last_revised: date_last_revised,
@@ -382,7 +369,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // participants
 
     let gender_flag = Some("a".to_string());
-    let age_group_flag = Some(4);
+    let age_group_flag = 0;
 
     let mut enrolment = None;
     let mut enrolment_type = None;
@@ -396,6 +383,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             enrolment_type = Some("e".to_string());
         } 
     }
+
+   let mut _iec_flag = 0;   // for now
 
     let participants = DBStudyPartics {
 
@@ -413,6 +402,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         max_age: s.participants.u_age_limit_num,  
         max_age_units_id: get_age_units(&s.participants.u_age_limit_units),
         age_group_flag: age_group_flag, 
+        iec_flag: _iec_flag,
     };
 
     // Identifiers
@@ -454,12 +444,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             if s.organisation.appears_plausible_org_name() {
                 let sname = s.organisation.clean().tidy_org_name(&sd_sid);
                 db_orgs.push(DBOrganisation { 
-                    contrib_type: "sponsor".to_string(), 
                     org_name: sname, 
-                    country: s.country.clone(),
+                    org_country: s.country.clone(),
                     org_ror_id: s.ror_id.clone(), 
                     org_cref_id: None, 
-                    sponsor_type: s.sponsor_type.clone(),
+                    is_sponsor: Some(true),   
+                    is_funder: None,  
+                    is_collaborator: None,  
                 });
             }
         }
@@ -477,10 +468,9 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 let mut duplicated = false;
                 for dbo in &mut db_orgs {
 
-                    if dbo.contrib_type == "sponsor".to_string() {
+                    if let Some(true) = dbo.is_sponsor {
                         if dbo.org_name == fname {  // Change contribution type and try to combine information
-
-                            dbo.contrib_type = "sponsor & funder".to_string();
+                            dbo.is_funder = Some(true);
                             dbo.org_cref_id = f.fund_ref.clone();
                             duplicated = true;
                             break;
@@ -491,12 +481,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 if !duplicated   // Add as a separate funder.
                 {
                     db_funds.push(DBOrganisation { 
-                    contrib_type: "funder".to_string(), 
                     org_name: fname,
-                    country: None,
+                    org_country: None,
                     org_ror_id: None,
                     org_cref_id: f.fund_ref.clone(),
-                    sponsor_type: None, 
+                    is_sponsor: None,   
+                    is_funder: Some(true),   
+                    is_collaborator: None,  
                     });
                 }
             }
@@ -516,15 +507,31 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     if let Some(contacts) = &s.contacts {
         for c in contacts {
             if c.surname.appears_plausible_person_name() {
-                if let Some(v) = &c.contact_types {
-                    db_peop.push(DBPerson {
-                        contrib_type: v.join(","),
-                        given_name: c.forename.clone(),
-                        family_name: c.surname.clone(),
-                        orcid_id: c.orcid.tidy_orcid(),
-                        affiliation: c.address.clone(),
-                        email_domain: c.email.extract_domain(),
-                    });
+                if let Some(cts) = &c.contact_types {
+                    let roles = cts.join(" ").to_lowercase();
+                    if roles.contains("principal investigator") || roles.contains("scientific") {
+                        let mut person = DBPerson {
+                                full_name: get_full_name(c.forename.clone(), c.surname.clone()),
+                                is_sponsor: None,   
+                                is_study_lead: None,  
+                                is_oth_sci_contact: None, 
+                                orcid_id: c.orcid.tidy_orcid(), 
+                                affiliation: c.address.clone(),
+                                email_domain: c.email.extract_domain(),
+                            };
+
+                        if roles.contains("principal investigator") && roles.contains("scientific") {
+                            person.is_study_lead = Some(true);
+                            person.is_oth_sci_contact = Some(true);
+                        }
+                        else if roles.contains("principal investigator") {
+                            person.is_study_lead = Some(true);
+                        }
+                        else if roles.contains("scientific") {
+                            person.is_oth_sci_contact = Some(true);
+                        }
+                        db_peop.push(person);
+                    }
                 }
             }
             else {
@@ -541,8 +548,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     if let Some(locs) = &s.centres {
         for loc in locs {
             db_locs.push(DBLocation { 
-                facility: loc.name.clone(), 
-                address: loc.address.clone(), 
+                fac_name: loc.name.clone(), 
+                fac_address: loc.address.clone(), 
                 city_name: loc.city.clone(), 
                 disamb_name: loc.state.clone(), 
                 country_name: loc.country.clone(),
@@ -762,7 +769,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             
             // problem remains of commas in brackets
             // square brackets should be parentheses
-            // text in brackets should beb appended to the text before
+            // text in brackets should be appended to the text before
             
             if let Some(dn) = &int.drug_names.clean() {
                 if !dn.to_lowercase().starts_with("the sponsor has confirmed")
@@ -778,7 +785,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
                     if drug_names.len() < 250 {
 
-                        // very long entries in this field often ;mini-essays' and cannot be split
+                        // very long entries in this field often 'mini-essays' and cannot be split
                     
                         if drug_names.contains("1.") && drug_names.contains("\n2.")
                         {
@@ -808,7 +815,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                             
                             // if there are commas split on the commas (does not work for devices).
 
-                            if int_type== "Drug" || int_type == "Supplement" {
+                            if int_type == "Drug" || int_type == "Supplement" {
                                 
                                 let sns = get_comma_delim_strings(&drug_names, 4); 
                                 for sn in sns {
@@ -843,7 +850,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // IE Criteria
 
-    let mut db_iec: Vec<IECLine>= Vec::new();
+    let mut db_iec: Vec<IECLine> = Vec::new();
 
     let mut inc_result = 0;
     let mut exc_result = 0;
@@ -872,6 +879,69 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
+    // Outputs
+
+    let mut db_outputs: Vec<DBOutput> = Vec::new();
+
+    if let Some(outputs) = &s.outputs{
+        for op in outputs {
+
+            let creation_dt = match op.date_created.clone() {
+                Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
+                    Ok(d) => Some(d),
+                    Err(_) => None,
+                }
+                None => None,
+            };
+
+            let upload_dt = match op.date_uploaded.clone() {
+                Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
+                    Ok(d) => Some(d),
+                    Err(_) => None,
+                }
+                None => None,
+            };
+
+            db_outputs.push(DBOutput { 
+                artefact_type: op.artefact_type.clone(),
+                output_type: op.output_type.clone(), 
+                date_created: creation_dt, 
+                date_uploaded: upload_dt, 
+                peer_reviewed: op.peer_reviewed, 
+                patient_facing: op.patient_facing, 
+                created_by: op.created_by.clone(), 
+                production_notes: op.production_notes.clone(), 
+                external_link_url: op.external_link_url.clone(), 
+                gu_id: op.file_id.clone(), 
+                output_description: op.description.clone(), 
+                original_filename: op.original_filename.clone(), 
+                download_filename: op.download_filename.clone(), 
+                output_version: op.version.clone(),
+                mime_type: op.mime_type.clone(),
+            });
+        }
+    }
+
+
+
+    // Attached files
+
+    let mut db_files: Vec<DBAttachedFile> = Vec::new();
+
+    if let Some(files) = &s.attached_files{
+        for f in files {
+            db_files.push(DBAttachedFile {
+                gu_id: f.id.clone(),
+                file_name: f.name.clone(),
+                file_description: f.description.clone(),
+                is_public: f.is_public,
+                mime_type: f.mime_type.clone(),
+            })
+
+
+        }
+    }
+
     // process result codes to get overall iec status
 
     _iec_flag = inc_result + exc_result;  // to revisit!
@@ -892,7 +962,24 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         features: option_from_count(db_feats),
         topics: option_from_count(db_tops),
         ie_crit: option_from_count(db_iec),
+        outputs: option_from_count(db_outputs),
+        local_files: option_from_count(db_files),
     }
 
 }
 
+
+fn get_full_name(given_name: Option<String>, family_name: Option<String>) -> Option<String>{
+    
+    let giv_n = given_name.unwrap_or_else(||"".to_string());
+    let fam_n = family_name.unwrap_or_else(||"".to_string());
+
+    if giv_n == "" && fam_n == "" {
+        None
+    }
+    else {
+        Some(format!("{} {}", giv_n, fam_n).trim().to_string())
+    }
+
+
+}

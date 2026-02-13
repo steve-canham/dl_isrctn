@@ -54,7 +54,7 @@ pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgr
     // Create the new record (to be updated later).
 
     let now = Utc::now();
-    let sql = "Insert into evs.dl_events(id, source_id, dl_type, time_started) values ($1, $2, $3)";
+    let sql = "Insert into evs.dl_events(id, source_id, dl_type, time_started) values ($1, $2, $3, $4)";
     sqlx::query(sql).bind(new_id).bind(100126).bind(dl_type.to_string()).bind(now)
             .execute(mon_pool)
             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
@@ -67,7 +67,6 @@ pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params:
      
     let now = Utc::now();
     let sql = r#"Update evs.dl_events set 
-             num_records_checked = $1,
              time_ended = $2,
              num_records_checked = $3,
              num_records_downloaded = $4,

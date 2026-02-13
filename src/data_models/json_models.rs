@@ -5,9 +5,12 @@ pub struct Study
 {
     pub sd_sid: String, 
     pub downloaded: String,
-    pub registration: Registration,
 
-    pub titles: Vec<Title>,
+    pub public_title: Option<String>,
+    pub scientific_title: Option<String>,
+    pub acronym: Option<String>,
+    
+    pub registration: Registration,
     pub identifiers: Option<Vec<Identifier>>,
     
     pub summary: Summary,
@@ -56,24 +59,6 @@ pub struct Registration
 // as trhey are only created when the source data exists,
 // and therefore do not need to be 'Options',
 // and are created most easily using the new() function
-
-#[derive(Serialize, Deserialize)]
-pub struct Title
-{
-    pub title_type_id: i32,
-    pub title_type: String,
-    pub title_value: String,
-}
-
-impl Title {
-    pub fn new(title_type_id: i32, title_type: String, title_value: String) -> Self {
-        Title {
-            title_type_id,
-            title_type,
-            title_value,
-        }
-   }
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct Identifier

@@ -65,17 +65,26 @@ pub fn coalesce_very_short_lines(input_lines: &Vec<&str>) -> Vec<String>
 
         while !first_line_done {
 
-            let s = input_lines[i];
-            let slen = s.len();
-            first_line = format!("{} {}", first_line.clone(), s);
-            
-            if slen >= 4 {
-                checked_lines.push(first_line.trim().to_string());  
+            if i > input_lines.len() - 1 {
 
-                first_line_done = true;
-                start_pos = i + 1;
+                // have got to the end of the lines before the first line has reached 4 characters!
+
+                checked_lines.push(first_line.trim().to_string());
+                first_line_done = true;  
             }
-            i += 1;
+            else {
+                let s = input_lines[i];
+                let slen = s.len();
+                first_line = format!("{} {}", first_line.clone(), s);
+                
+                if slen >= 4 {
+                    checked_lines.push(first_line.trim().to_string());  
+
+                    first_line_done = true;
+                    start_pos = i + 1;
+                }
+                i += 1;
+            }
         }
     }    
 

@@ -40,7 +40,6 @@ impl IECLine {
             text: cline.text.clone(),
         }
     }
-
 }
 
 

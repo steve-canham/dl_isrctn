@@ -22,7 +22,9 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     let mut d_flag = parse_result.get_flag("d_flag");
     let b_flag = parse_result.get_flag("b_flag");
     let w_flag = parse_result.get_flag("w_flag");
+
     let today = Local::now().date_naive();
+    let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
 
     // if no flags set a d_flag is assumed
     // this still requires a start date but that requirement
@@ -65,7 +67,6 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
                 return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()))},
         };
 
-        let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
         if start_date < isrctn_start_date {
             start_date = isrctn_start_date;
         }
@@ -105,8 +106,20 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
             return Result::Err(AppError::MissingProgramParameter("year for type w download".to_string()));
         }
         else {
-            let start_date =  NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-            let end_date =  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
+            let mut start_date =  NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+            let mut end_date =  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
+
+            if start_date < isrctn_start_date {
+                start_date = isrctn_start_date;
+            }
+
+            if start_date >= today {   // invalid
+                return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+            }
+
+            if end_date > today {
+                end_date = today;
+            }
 
             Ok(CliPars {
             import_type: ImportType::None,
@@ -140,7 +153,7 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .short('d')
            .long("download")
            .required(false)
-           .help("A flag signifying import files downloade since the last import")
+           .help("")
            .action(clap::ArgAction::SetTrue)
         )
         .arg(
@@ -148,7 +161,7 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .short('b')
            .long("between")
            .required(false)
-           .help("A flag signifying import files downloade since the last import")
+           .help("")
            .action(clap::ArgAction::SetTrue)
         )
         .arg(
@@ -156,7 +169,7 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .short('w')
            .long("whole_year")
            .required(false)
-           .help("A flag signifying import files downloade since the last import")
+           .help("")
            .action(clap::ArgAction::SetTrue)
         )
         .arg(

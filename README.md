@@ -8,12 +8,13 @@ internal ISRCTN identifiers, but with a structure more easily assimilated into a
 processing of saecondarty identifiers also takes place, to improve the characterisation of these identifiers.
 
 <h2>Using the program</h2>
- There are three types of download: <br/>
-Type 111 (-t 111 in the CLI) identifies and downloads studies edited since a cut-off date, 
+There are three types of download: <br/>
+
+identifies and downloads studies edited since a cut-off date, 
 usually from the previous week (i.e., the date of the most recent download). It must be 
 accompanied by a date parameter in ISO format (e.g. -s "2025-10-18")
 <br/><br/>
-Type 115 (-t 115 in the CLI) downloads all records that were last edited
+ downloads all records that were last edited
 between two dates. Running against this type in batches allows all ISRCTN records to be
 re-downloaded, if and when necessary. Calling -t 115 requires two date
 parmameters, for the start and end dates respectively, e.g. -s "2023-10-01" -e "2023-10-31"
@@ -21,7 +22,8 @@ parmameters, for the start and end dates respectively, e.g. -s "2023-10-01" -e "
 Both procedures use a start and end date internally, but in the case of type 111 the
 end date is taken as the current date.
 <br/><br/>
-Type 117 (-t 117 in the CLI) can be used to download all records for a specified year,
+
+can be used to download all records for a specified year,
 and is designed for bulk download scenarios. It takes a single parameter (e.g. -y 2009),
 and constructs start and end dates for that year, calling the -t 115 routine with those dates.
 It therefore wraps the -t 115 download type.

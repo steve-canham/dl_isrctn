@@ -2,6 +2,7 @@
 SET client_min_messages TO WARNING; 
 create schema if not exists sd;
 
+
 DROP TABLE IF EXISTS sd.studies;
 CREATE TABLE sd.studies(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
@@ -12,7 +13,6 @@ CREATE TABLE sd.studies(
 , status_id        	     INT             NOT NULL default 0
 , status_override        VARCHAR         NULL
 , start_status_override  VARCHAR         NULL
-, iec_flag               INT             NOT NULL default 0 
 , ipd_sharing            VARCHAR         NULL
 , ipd_sharing_plan       VARCHAR         NULL
 , date_last_revised      Date            NULL
@@ -43,8 +43,8 @@ CREATE TABLE sd.study_dates(
 CREATE INDEX study_dates_sid ON sd.study_dates(sd_sid);
 
 
-DROP TABLE IF EXISTS sd.study_partics;
-CREATE TABLE sd.study_partics(
+DROP TABLE IF EXISTS sd.study_participants;
+CREATE TABLE sd.study_participants(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY  (start with 1000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , enrolment_target       VARCHAR         NULL
@@ -60,21 +60,22 @@ CREATE TABLE sd.study_partics(
 , max_age                INT             NULL
 , max_age_units_id       INT             NULL
 , age_group_flag         INT             NOT NULL default 0
+, iec_flag               INT             NOT NULL default 0 
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_partics_sid ON sd.study_partics(sd_sid);
+CREATE INDEX study_participants_sid ON sd.study_participants(sd_sid);
 
 
 DROP TABLE IF EXISTS sd.study_titles;
 CREATE TABLE sd.study_titles(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, title_text             VARCHAR
-, is_default             BOOL
-, is_public              BOOL
-, is_scientific          BOOL
-, is_acronym             BOOL
-, comments               VARCHAR
+, title_text             VARCHAR         NOT NULL
+, is_public              BOOL            NULL
+, is_scientific          BOOL            NULL
+, is_acronym             BOOL            NULL
+, is_display             BOOL            NULL
+, comments               VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_titles_sid ON sd.study_titles(sd_sid);
@@ -96,12 +97,13 @@ DROP TABLE IF EXISTS sd.study_orgs;
 CREATE TABLE sd.study_orgs(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, contrib_type           VARCHAR         NULL
-, name                   VARCHAR         NULL
-, country                VARCHAR         NULL
-, ror_id                 VARCHAR         NULL
-, cross_ref_id           VARCHAR         NULL
-, sponsor_type           VARCHAR         NULL
+, org_name               VARCHAR         NULL
+, is_sponsor             BOOL            NULL
+, is_funder              BOOL            NULL
+, is_collaborator        BOOL            NULL
+, org_country            VARCHAR         NULL
+, org_ror_id             VARCHAR         NULL
+, org_cref_id            VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_orgs_sid ON sd.study_orgs(sd_sid);
@@ -111,9 +113,10 @@ DROP TABLE IF EXISTS sd.study_people;
 CREATE TABLE sd.study_people(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, contrib_type           VARCHAR         NULL
-, given_name             VARCHAR         NULL
-, family_name            VARCHAR         NULL
+, full_name              VARCHAR         NULL
+, is_sponsor             BOOL            NULL
+, is_study_lead          BOOL            NULL
+, is_oth_sci_contact     BOOL            NULL
 , orcid_id               VARCHAR         NULL
 , affiliation            VARCHAR         NULL
 , email_domain           VARCHAR         NULL
@@ -132,21 +135,20 @@ CREATE TABLE sd.study_iec(
 , tag                    VARCHAR         NULL  
 , indent_level           INT             NULL
 , indent_seq_num         INT             NULL
-, sequence_string         VARCHAR         NULL
+, sequence_string        VARCHAR         NULL
 , criterion              VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_iec_sid ON sd.study_iec(sd_sid);
 
-
-
+-- change of names to facility and address
 
 DROP TABLE IF EXISTS sd.study_locations;
 CREATE TABLE sd.study_locations(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, facility               VARCHAR         NULL
-, address                VARCHAR         NULL
+, fac_name               VARCHAR         NULL
+, fac_address            VARCHAR         NULL
 , city_name              VARCHAR         NULL
 , disamb_name            VARCHAR         NULL
 , country_name           VARCHAR         NULL
@@ -201,120 +203,42 @@ CREATE TABLE sd.study_features(
 CREATE INDEX study_features_sid ON sd.study_features(sd_sid);
 
 
-DROP TABLE IF EXISTS sd.study_references;
-CREATE TABLE sd.study_references(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, pmid                   VARCHAR         NULL
-, citation               VARCHAR         NULL
-, doi                    VARCHAR         NULL	
-, type_id                INT             NULL
-, comments               VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_references_sid ON sd.study_references(sd_sid);
-
-
-DROP TABLE IF EXISTS sd.study_ipd_available;
-CREATE TABLE sd.study_ipd_available(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, ipd_name               VARCHAR         NULL
-, ipd_type               VARCHAR         NULL
-, ipd_url                VARCHAR         NULL
-, ipd_comment            VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_ipd_available_sid ON sd.study_ipd_available(sd_sid);
-
-
-DROP TABLE IF EXISTS sd.data_objects;
-CREATE TABLE sd.data_objects(
+DROP TABLE IF EXISTS sd.study_outputs;
+CREATE TABLE sd.study_outputs(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_oid                 VARCHAR         NOT NULL
 , sd_sid                 VARCHAR         NULL
-, title                  VARCHAR         NULL
-, version                VARCHAR         NULL
-, display_title          VARCHAR         NULL
-, doi                    VARCHAR         NULL 
-, publication_year       INT             NULL
-, object_class_id        INT             NULL
-, object_type_id         INT             NULL
-, managing_org           VARCHAR         NULL
-, lang_code              VARCHAR         NULL
-, access_type_id         INT             NULL
-, access_details         VARCHAR         NULL
-, access_details_url     VARCHAR         NULL
-, eosc_category          INT             NULL
-, datetime_of_data_fetch TIMESTAMPTZ     NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);    
-CREATE INDEX data_objects_oid ON sd.data_objects(sd_oid);
-CREATE INDEX data_objects_sid ON sd.data_objects(sd_sid);
-
-
-DROP TABLE IF EXISTS sd.object_datasets;
-CREATE TABLE sd.object_datasets(
-  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_oid                 VARCHAR         NULL
-, record_keys_type_id    INT             NULL 
-, record_keys_details    VARCHAR         NULL    
-, deident_type_id        INT             NULL  
-, deident_details        VARCHAR         NULL    
-, consent_type_id        INT             NULL  
-, consent_details        VARCHAR         NULL 
+, artefact_type          VARCHAR         NULL
+, output_type            VARCHAR         NULL
+, date_created           DATE            NULL
+, date_uploaded          DATE            NULL
+, peer_reviewed          BOOLEAN         NULL
+, patient_facing         BOOLEAN         NULL
+, created_by             VARCHAR         NULL
+, production_notes       VARCHAR         NULL
+, external_link_url      VARCHAR         NULL
+, gu_id                  VARCHAR         NULL
+, file_name              VARCHAR         NULL
+, output_description     VARCHAR         NULL
+, original_filename      VARCHAR         NULL
+, download_filename      VARCHAR         NULL
+, output_version         VARCHAR         NULL
+, mime_type              VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX object_datasets_oid ON sd.object_datasets(sd_oid);
+CREATE INDEX study_outputs_sid ON sd.study_outputs(sd_sid);
 
 
-DROP TABLE IF EXISTS sd.object_dates;
-CREATE TABLE sd.object_dates(
+DROP TABLE IF EXISTS sd.study_attached_files;
+CREATE TABLE sd.study_attached_files(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_oid                 VARCHAR         NULL
-, date_type_id           INT             NULL
-, date_is_range          BOOLEAN         NULL default false
-, date_as_string         VARCHAR         NULL
-, start_year             INT             NULL
-, start_month            INT             NULL
-, start_day              INT             NULL
-, end_year               INT             NULL
-, end_month              INT             NULL
-, end_day                INT             NULL
-, details                VARCHAR         NULL
+, sd_sid                 VARCHAR         NULL
+, gu_id                  VARCHAR         NULL
+, file_name              VARCHAR         NULL
+, file_description       VARCHAR         NULL
+, is_public              BOOLEAN         NULL
+, mime_type              VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX object_dates_oid ON sd.object_dates(sd_oid);
-
-
-DROP TABLE IF EXISTS sd.object_instances;
-CREATE TABLE sd.object_instances(
-  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_oid                 VARCHAR         NULL
-, system                 VARCHAR         NULL
-, url                    VARCHAR         NULL
-, url_accessible         BOOLEAN         NULL
-, resource_type_id       INT             NULL
-, resource_size          VARCHAR         NULL
-, resource_size_units    VARCHAR         NULL
-, resource_comments      VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX object_instances_oid ON sd.object_instances(sd_oid);
-
-
-DROP TABLE IF EXISTS sd.object_titles;
-CREATE TABLE sd.object_titles(
-  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_oid                 VARCHAR         NULL
-, title_type_id          INT             NULL
-, title_text             VARCHAR         NULL
-, is_default             BOOLEAN         NULL
-, comments               VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX object_titles_oid ON sd.object_titles(sd_oid);
+CREATE INDEX study_files_sid ON sd.study_attached_files(sd_sid);
 
 SET client_min_messages TO NOTICE; 
-
-

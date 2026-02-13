@@ -268,6 +268,7 @@ impl OptionStringExtensions for Option<String> {
                     None
                 }
                 else {
+                    st = st.replace("\u{00AD}", "");  // soft hyphen
                     st = st.replace("\u{2010}", "-"); 
                     st = st.replace("\u{2011}", "-"); 
                     st = st.replace("\u{2012}", "-"); 
@@ -394,7 +395,6 @@ impl OptionStringExtensions for Option<String> {
     }
 
 
-
     fn replace_apostrophes(&self) -> Option<String> {
     
           match self {
@@ -468,6 +468,7 @@ impl OptionStringExtensions for Option<String> {
                         tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
                         tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
                         tr = tr.replace('\u{0081}', "");  // remove control character that can (very rarely) appear in string
+                        tr = tr.replace("\u{00AD}", "");  // remove soft hyphen
 
                         // Now (!) do the replace apostrophes part
 

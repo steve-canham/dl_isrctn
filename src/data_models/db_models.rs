@@ -1,55 +1,25 @@
-use crate::iec::iec_structs
-::IECLine;
+use crate::iec::iec_structs::IECLine;
 use chrono::{NaiveDate, NaiveDateTime};
 
 
 pub struct DBStudy {
 
     pub sd_sid: String,
-
     pub summary: DBSummary,
     pub dates: DBStudyDates,
     pub participants: DBStudyPartics,
-
     pub titles: Option<Vec<DBTitle>>, 
     pub identifiers: Option<Vec<DBIdentifier>>,
-
     pub orgs: Option<Vec<DBOrganisation>>, 
     pub people: Option<Vec<DBPerson>>, 
-
     pub locations: Option<Vec<DBLocation>>, 
     pub countries: Option<Vec<DBCountry>>, 
-
     pub conditions: Option<Vec<DBCondition>>, 
     pub features: Option<Vec<DBFeature>>, 
     pub topics: Option<Vec<DBTopic>>, 
     pub ie_crit: Option<Vec<IECLine>>, 
-
-    
-    /*
-
-    pub ie_crit: Option<Vec<DBIECriterion>>, 
-
-    pub relationships: Option<Vec<DBRelationship>>, 
-    pub references: Option<Vec<DBReference>>, 
-    pub available_material: Option<Vec<DBIPDAvail>>, 
-
-    pub data_objects: Option<Vec<DBDataObject>>, 
-*/
-}
-#[allow(dead_code)]
-pub struct DBDataObject {
-
-    pub sd_sid: String,
-    pub sd_oid: String,
-
-    pub summary: DBDataObjectSummary,
-    pub dataset: Option<DBObjDataSet>,
-
-    pub obj_titles: Option<Vec<DBObjTitle>>,
-    pub obj_instances: Option<Vec<DBObjInstance>>,
-    pub obj_dates: Option<Vec<DBObjDate>>,
-
+    pub outputs: Option<Vec<DBOutput>>,
+    pub local_files: Option<Vec<DBAttachedFile>>,
 }
 
 pub struct DBSummary {
@@ -62,7 +32,6 @@ pub struct DBSummary {
     pub status_override: Option<String>,
     pub start_status_override: Option<String>,
 
-    pub iec_flag: i32,
     pub ipd_sharing: bool,
 	pub ipd_sharing_plan: Option<String>,
     pub date_last_revised: Option<NaiveDate>,
@@ -100,15 +69,16 @@ pub struct DBStudyPartics {
     pub max_age_as_string: Option<String>,
 	pub max_age: Option<f32>,  
 	pub max_age_units_id: Option<i32>, 
-	pub age_group_flag: Option<i32>, 
+	pub age_group_flag: i32, 
+    pub iec_flag: i32,
 }
 
 pub struct DBTitle {
     pub title_text: String,
-    pub is_default: bool,
     pub is_public: bool,
     pub is_scientific: bool,
     pub is_acronym: bool,
+    pub is_display: bool,
     pub comment: Option<String>,
 }
 
@@ -119,39 +89,28 @@ pub struct DBIdentifier {
 }
 
 pub struct DBOrganisation {
-    pub contrib_type: String,
     pub org_name: Option<String>,
-    pub country: Option<String>,
+    pub is_sponsor: Option<bool>,   
+    pub is_funder: Option<bool>,  
+    pub is_collaborator: Option<bool>,  
+    pub org_country: Option<String>,
     pub org_ror_id: Option<String>,
     pub org_cref_id: Option<String>,
-    pub sponsor_type: Option<String>,
 }
 
 pub struct DBPerson {
-    pub contrib_type: String,
-    pub given_name: Option<String>,
-    pub family_name: Option<String>,
+    pub full_name: Option<String>,
+    pub is_sponsor: Option<bool>,   
+    pub is_study_lead: Option<bool>,  
+    pub is_oth_sci_contact: Option<bool>,  
     pub orcid_id: Option<String>,
     pub affiliation: Option<String>,
     pub email_domain: Option<String>,
 }
-
-/* 
-pub struct DBIECriterion {
-    pub seq_num:  i32,
-    pub ie_type_id:  i32,
-    pub split_type: String,
-    pub leader: String,
-    pub indent_level: i32,
-    pub indent_seq_num: i32,
-    pub sequence_string: String,
-    pub criterion: String,
-}
-*/
-            
+    
 pub struct DBLocation {
-    pub facility: Option<String>,
-    pub address: Option<String>,
+    pub fac_name: Option<String>,
+    pub fac_address: Option<String>,
     pub city_name: Option<String>,
     pub disamb_name: Option<String>,
     pub country_name: Option<String>,
@@ -179,92 +138,30 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
-/*
-#[allow(dead_code)]
-pub struct DBRelationship {
-    pub relationship_type_id: i32,
-    pub target_sd_sid: String,
-}
-*/
-
-#[allow(dead_code)]
-pub struct DBReference {
-    pub pmid: Option<String>,
-    pub citation: Option<String>,
-    pub doi: Option<String>,
-    pub type_id: Option<i32>,
-    pub comments: Option<String>,
-}
-
-#[allow(dead_code)]
-pub struct DBIPDAvail {
-    pub ipd_name: String,
-    pub ipd_type:Option<String>,
-    pub ipd_url: Option<String>,
-    pub ipd_comment: Option<String>,
+pub struct DBOutput {
+    pub artefact_type: Option<String>,
+    pub output_type: Option<String>,
+    pub date_created: Option<NaiveDate>,
+    pub date_uploaded: Option<NaiveDate>,
+    pub peer_reviewed: Option<bool>,
+    pub patient_facing: Option<bool>,
+    pub created_by: Option<String>,
+    pub production_notes: Option<String>,
+    pub external_link_url: Option<String>,
+    pub gu_id: Option<String>,    
+    pub output_description: Option<String>,
+    pub original_filename: Option<String>,
+    pub download_filename: Option<String>,
+    pub output_version: Option<String>,
+    pub mime_type: Option<String>,
 }
 
-#[allow(dead_code)]
-pub struct DBDataObjectSummary {
-    pub title: String,
-    pub version: Option<i32>,
-    pub display_title: String,
 
-    pub doi: Option<String>,
-    pub publication_year:Option<String>,
-    pub object_class_id: Option<i32>,
-    pub object_type_id: Option<i32>,
+pub struct DBAttachedFile {
+    pub gu_id: Option<String>,
+    pub file_name: Option<String>,
+    pub file_description: Option<String>,
+    pub is_public: Option<bool>,
+    pub mime_type: Option<String>,
 
-    pub managing_org: Option<String>,
-    pub lang_code: Option<String>,
-    pub access_type_id: Option<String>,
-    pub access_details: Option<String>,
-    pub access_details_url: Option<String>,
-
-    pub eosc_category: Option<i32>,
-    pub dt_of_data: NaiveDateTime,
-}
-
-#[allow(dead_code)]
-pub struct DBObjDataSet {
-    pub record_keys_type_id: Option<i32>,
-    pub record_keys_details: Option<String>,
-    pub deident_type_id: Option<i32>,
-    pub deident_details: Option<String>,
-    pub consent_type_id: Option<i32>,
-    pub consent_details: Option<String>,
-}
-
-#[allow(dead_code)]
-pub struct DBObjTitle {
-    pub title_type_id: String,
-    pub title_text: String,
-    pub is_default: bool,
-    pub comments: Option<String>,
-}
-
-#[allow(dead_code)]
-
-pub struct DBObjInstance {
-    pub system: String,
-    pub url: Option<String>,
-    pub url_accessible: bool,
-    pub resource_type_id: Option<i32>,
-    pub resource_size: Option<i32>,
-    pub resource_size_units: Option<String>,
-    pub resource_comments: Option<String>,
-}
-
-#[allow(dead_code)]
-pub struct DBObjDate {
-    pub date_type_id: i32,
-    pub date_is_range: bool,
-    pub date_as_string: String,
-    pub start_year: i32,
-    pub start_month: i32,
-    pub start_day: i32,
-    pub end_year: Option<i32>,
-    pub end_month: Option<i32>,
-    pub end_day: Option<i32>, 
-    pub details: Option<String>,
 }

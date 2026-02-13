@@ -18,7 +18,13 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     let study = s.trial;
 
     let sd_sid = format!("ISRCTN{}", study.isrctn.value);
-    let downloaded = Utc::now().to_rfc3339()[0..19].to_string(); // current date time as ISO 8601
+    let downloaded = Utc::now().to_rfc3339()[0..19].to_string(); // current date time as ISO 8601  
+
+    let d = study.trial_description;
+
+    let public_title = d.title.as_text_opt();
+    let scientific_title = d.scientific_title.as_text_opt();
+    let acronym = d.acronym.as_text_opt();
 
     // Registration data block.
     
@@ -28,32 +34,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
          version: study.version.as_text_opt(),
          doi: study.external_refs.doi.as_filtered_ident_opt()
     };
-
-    // Set up titles.
-
-    let d = study.trial_description;
-
-    let mut titles: Vec<Title> = Vec::new();
-    let mut pt: String = "".to_string();
-    let mut st: String = "".to_string();
-
-    // change to include import code
-    // also include plauible title check (though perhaps not needed for ISRCTN)
-
-    if let Some(title) = d.title.as_text_opt() {
-        pt = title.clone();
-        titles.push(Title::new(15, "Public_title".to_string(), title));
-    }
-
-    if let Some(title) = d.scientific_title.as_text_opt() && title != pt {
-        st = title.clone();
-        titles.push(Title::new(16, "Scientific title".to_string(), title));
-    }
-
-    if let Some(title) = d.acronym.as_text_opt() && title != pt && title != st {
-        titles.push(Title::new(14, "Acronym".to_string(), title));
-    }
-
+   
     // Identifiers
 
     // Processing identifiers involves the array of secondary identifiers only.
@@ -210,8 +191,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         }
     }
     
-
-
     let identifiers = count_option(s_identifiers);
     
     // Summary block
@@ -430,7 +409,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     }
     let funders = count_option(s_funders);
 
-    // Participanmt Types
+    // Participant Types
 
     let p = study.participants;
 
@@ -671,7 +650,9 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         sd_sid, 
         downloaded,
         registration, 
-        titles, 
+        public_title,
+        scientific_title,
+        acronym,
         identifiers,
         summary,
         primary_outcomes,

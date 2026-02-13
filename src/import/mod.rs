@@ -70,6 +70,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_feats_dv = FeatureVecs::new(4*batch_size);
         let mut study_tops_dv = TopicVecs::new(3*batch_size);
         let mut study_iec_dv = IECVecs::new(20*batch_size);
+        let mut study_ops_dv = OutputVecs::new(5*batch_size);
+        let mut study_files_dv = AttachedFileVecs::new(3*batch_size);
 
         // get the list of json files relevant to this pass
 
@@ -123,6 +125,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(feats) = dbs.features { study_feats_dv.add(sd_sid, &feats); }
             if let Some(tops) = dbs.topics { study_tops_dv.add(sd_sid, &tops); }
             if let Some(iecs) = dbs.ie_crit { study_iec_dv.add(sd_sid, &iecs); }
+            if let Some(outs) = dbs.outputs { study_ops_dv.add(sd_sid, &outs); }
+            if let Some(files) = dbs.local_files { study_files_dv.add(sd_sid, &files); }
                     
             //i += 1;
             //if i > 40 { break;}
@@ -140,6 +144,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_feats_dv.shrink_to_fit();
         study_tops_dv.shrink_to_fit();
         study_iec_dv.shrink_to_fit();
+        study_ops_dv.shrink_to_fit();
+        study_files_dv.shrink_to_fit();
 
 
         studies_dv.store_data(src_pool).await?;
@@ -155,14 +161,12 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_feats_dv.store_data(src_pool).await?;
         study_tops_dv.store_data(src_pool).await?;
         study_iec_dv.store_data(src_pool).await?;
+        study_ops_dv.store_data(src_pool).await?;
+        study_files_dv.store_data(src_pool).await?;
 
 
-        if n % 50 == 0 {
+        if n % 250 == 0 {
             info!("number of files processed: {}",  n);
-        }
-
-        if n > 500 {
-            break;
         }
 
     }
