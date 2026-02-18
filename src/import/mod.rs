@@ -169,6 +169,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             info!("number of files processed: {}",  n);
         }
 
+        if n > 1750 {
+            break;
+        }
+
     }
 
     info!("total number of files found: {}",  num_files);

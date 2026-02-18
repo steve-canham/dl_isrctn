@@ -161,13 +161,14 @@ pub struct StudyParticsVecs {
     pub enrolment_totals: Vec<Option<String>>, 
     pub enrolments: Vec<Option<String>>, 
 	pub enrolment_types: Vec<Option<String>>,
+    pub gender_strings: Vec<Option<String>>,
 	pub gender_flags: Vec<Option<String>>,
-    pub min_age_as_strings: Vec<Option<String>>,
-	pub min_ages: Vec<Option<f32>>,  
-	pub min_age_units_ids: Vec<Option<i32>>,
-    pub max_age_as_strings: Vec<Option<String>>,
-	pub max_ages: Vec<Option<f32>>,  
-	pub max_age_units_ids: Vec<Option<i32>>, 
+    pub min_age_strings: Vec<Option<String>>,
+	pub min_ages: Vec<Option<f64>>,  
+	pub min_age_units_ids: Vec<Option<String>>,
+    pub max_age_strings: Vec<Option<String>>,
+	pub max_ages: Vec<Option<f64>>,  
+	pub max_age_units_ids: Vec<Option<String>>, 
 	pub age_group_flags: Vec<i32>, 
     pub iec_flags: Vec<i32>,
 }
@@ -181,11 +182,12 @@ impl StudyParticsVecs{
             enrolment_totals: Vec::with_capacity(vsize),
             enrolments: Vec::with_capacity(vsize),
             enrolment_types: Vec::with_capacity(vsize),
+            gender_strings: Vec::with_capacity(vsize),
             gender_flags: Vec::with_capacity(vsize),
-            min_age_as_strings: Vec::with_capacity(vsize),
+            min_age_strings: Vec::with_capacity(vsize),
             min_ages: Vec::with_capacity(vsize), 
             min_age_units_ids: Vec::with_capacity(vsize),
-            max_age_as_strings: Vec::with_capacity(vsize),
+            max_age_strings: Vec::with_capacity(vsize),
             max_ages: Vec::with_capacity(vsize),  
             max_age_units_ids: Vec::with_capacity(vsize), 
             age_group_flags: Vec::with_capacity(vsize),
@@ -201,11 +203,12 @@ impl StudyParticsVecs{
         self.enrolment_totals.push(r.enrolment_total.clone());
         self.enrolments.push(r.enrolment.clone());
         self.enrolment_types.push(r.enrolment_type.clone());
+        self.gender_strings.push(r.gender_string.clone());
         self.gender_flags.push(r.gender_flag.clone());
-        self.min_age_as_strings.push(r.min_age_as_string.clone());
+        self.min_age_strings.push(r.min_age_string.clone());
         self.min_ages.push(r.min_age);
-        self.min_age_units_ids.push(r.min_age_units_id);
-        self.max_age_as_strings.push(r.max_age_as_string.clone());
+        self.min_age_units_ids.push(r.min_age_units_id.clone());
+        self.max_age_strings.push(r.max_age_string.clone());
         self.max_ages.push(r.max_age);
         self.max_age_units_ids.push(r.max_age_units_id.clone());
         self.age_group_flags.push(r.age_group_flag);
@@ -216,11 +219,13 @@ impl StudyParticsVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.study_participants (sd_sid, enrolment_target, enrolment_final,
-                enrolment_total, enrolment, enrolment_type, gender_flag,  
-                min_age_as_string, min_age, min_age_units_id, 
-                max_age_as_string, max_age, max_age_units_id, age_group_flag, iec_flag) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], 
-                    $8::text[], $9::float[], $10::int[], $11::text[], $12::float[], $13::int[], $14::int[], $15::int[])"#;
+                enrolment_total, enrolment, enrolment_type, gender_string, gender_flag,  
+                min_age_string, min_age, min_age_units_id, 
+                max_age_string, max_age, max_age_units_id, age_group_flag, iec_flag) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], 
+                    $7::text[], $8::text[], $9::text[], 
+                    $10::float[], $11::text[], $12::text[], $13::float[], $14::text[], 
+                    $15::int[], $16::int[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
@@ -229,11 +234,12 @@ impl StudyParticsVecs{
         .bind(&self.enrolment_totals)
         .bind(&self.enrolments)
         .bind(&self.enrolment_types)
+        .bind(&self.gender_strings)
         .bind(&self.gender_flags)
-        .bind(&self.min_age_as_strings)
+        .bind(&self.min_age_strings)
         .bind(&self.min_ages)
         .bind(&self.min_age_units_ids)
-        .bind(&self.max_age_as_strings)
+        .bind(&self.max_age_strings)
         .bind(&self.max_ages)
         .bind(&self.max_age_units_ids)
         .bind(&self.age_group_flags)

@@ -61,14 +61,14 @@ pub struct DBStudyPartics {
 
     pub enrolment: Option<String>, 
 	pub enrolment_type: Option<String>,
-
+    pub gender_string: Option<String>,  
 	pub gender_flag: Option<String>,
-    pub min_age_as_string: Option<String>,
-	pub min_age: Option<f32>,  
-	pub min_age_units_id: Option<i32>,
-    pub max_age_as_string: Option<String>,
-	pub max_age: Option<f32>,  
-	pub max_age_units_id: Option<i32>, 
+    pub min_age_string: Option<String>,  
+	pub min_age: Option<f64>,  
+	pub min_age_units_id: Option<String>,
+    pub max_age_string: Option<String>,  
+	pub max_age: Option<f64>,  
+	pub max_age_units_id: Option<String>, 
 	pub age_group_flag: i32, 
     pub iec_flag: i32,
 }

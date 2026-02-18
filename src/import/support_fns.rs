@@ -116,21 +116,65 @@ pub fn get_study_status (st: &Option<String>) -> i32 {
 }
 
 
-pub fn get_age_units (au: &Option<String>) -> Option<i32> {
 
-    match au {
-        Some(d) => {
-              match d.to_ascii_lowercase().as_str() {
-                "years" => Some(17),
-                "months" => Some(16),
-                "weeks" => Some(15),
-                "days" => Some(14),
-                "hours" => Some(13),
-                "minutes" => Some(112),
-                _ => None,
-            }
-        }, 
-        None => None,
+pub fn split_age_string(age: &Option<String>) -> (Option<f64>, Option<String>, f64) {
+     
+    if let Some(a) = age {
+        let age_parts: Vec<&str> = a.split(' ').collect();
+
+        let num: Option<f64> = match age_parts[0].trim().parse() {
+            Ok(num) => Some(num),
+            Err(_) => None
+        };
+        let units:Option<&str> = match age_parts[1].to_lowercase().trim() {
+            "year" => Some("y"),
+            "years" => Some("y"),
+            "month" => Some("m"),
+            "months" => Some("m"),
+            "week" => Some("w"),
+            "weeks" => Some("w"),
+            "day" => Some("d"),
+            "days" => Some("d"),
+            "hour" => Some("h"),
+            "hours" => Some("h"),
+            _ => None,
+        };
+        let mut num_days: f64 = 0.0;
+        if let Some(n) = num {
+            num_days = match units {
+                Some("y") => n * 365.25,
+                Some("m") => n * 30.5,
+                Some("w") => n * 7.0,
+                Some("d") => n,
+                Some("h") => 1.0,
+                None => 0.0,
+                _ => 0.0,
+            };
+        }
+        let units_as_string: Option<String> = match units {
+            Some(u) => Some(u.to_string()),
+            None => None,
+        };
+        (num, units_as_string, num_days)
+    }
+    else {
+        (None, None, 0.0)
+    }
+
+}
+
+
+
+pub fn get_full_name(given_name: Option<String>, family_name: Option<String>) -> Option<String>{
+    
+    let giv_n = given_name.unwrap_or_else(||"".to_string());
+    let fam_n = family_name.unwrap_or_else(||"".to_string());
+
+    if giv_n == "" && fam_n == "" {
+        None
+    }
+    else {
+        Some(format!("{} {}", giv_n, fam_n).trim().to_string())
     }
 }
 
@@ -283,7 +327,28 @@ mod tests {
         let input = &"foo, Item 1, Item 2 (some stuff, some other stuff), Item 3, bar ".to_string();
         assert_eq!(get_comma_delim_strings(input, 4), vec!["foo, Item 1", "Item 2 (some stuff, some other stuff)", "Item 3, bar"]);
 
-
     }
 
+    #[test]
+    fn check_split_age_strings() {
+
+        let input = &Some("18 Years".to_string());
+        let num_days = 18.0 * 365.25;
+        assert_eq!(split_age_string(input), (Some(18.0), Some("y".to_string()), num_days));
+
+        let input = &Some("75 Years".to_string());
+        let num_days = 75.0 * 365.25;
+        assert_eq!(split_age_string(input), (Some(75.0), Some("y".to_string()), num_days));
+
+        let input = &Some("6 Month".to_string());
+        assert_eq!(split_age_string(input), (Some(6.0), Some("m".to_string()), 183.0));
+
+        let input = &Some("6.72 Month".to_string());
+        let num_days = 6.72 * 30.5;
+        assert_eq!(split_age_string(input), (Some(6.72), Some("m".to_string()), num_days));
+
+        let input = &Some("1 day".to_string());
+        assert_eq!(split_age_string(input), (Some(1.0), Some("d".to_string()), 1.0));
+
+    }
 }

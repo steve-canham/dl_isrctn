@@ -368,9 +368,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // participants
 
-    let gender_flag = Some("a".to_string());
-    let age_group_flag = 0;
-
     let mut enrolment = None;
     let mut enrolment_type = None;
     if let Some(f) = s.recruitment.total_final_enrolment.clone() {
@@ -384,25 +381,71 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         } 
     }
 
-   let mut _iec_flag = 0;   // for now
+    let mut gender_flag = None;
+    if let Some(g) = s.participants.gender.clone()  {
+        if g.to_lowercase().starts_with("not") {
+            gender_flag = None;
+        }
+        else {    // "a", "m" or "f"
+            gender_flag = Some(g.to_lowercase().chars().next().unwrap().to_string());
+        }
+    }
+ 
+    let min_age_as_string = s.participants.l_age_limit.clone();
+    let (min_age, min_age_units, min_num_days) = split_age_string(&min_age_as_string);
 
-    let participants = DBStudyPartics {
+    let max_age_as_string = s.participants.u_age_limit.clone();
+    let (max_age, max_age_units, max_num_days) = split_age_string(&max_age_as_string);
+
+    let mut age_group_flag = 0;
+    let adult_start = 18.0 * 365.25;
+    let adult_end = 65.0 * 365.25;
+    
+    if !(min_num_days == 0.0 && max_num_days == 0.0) {   // i.e. if at least one age limit is defined
+        if min_num_days < adult_start {    // starts in child (or just max age defined)
+            age_group_flag = 1;
+            if max_num_days == 0.0 || max_num_days > adult_end {
+                age_group_flag = 7;
+            }
+            if max_num_days > adult_start && max_num_days <= adult_end {
+                 age_group_flag = 3;
+            }
+        }
+        if min_num_days >= adult_start {
+            if max_num_days == 0.0 {
+                age_group_flag = 6;
+            }
+            else {
+                if max_num_days <= adult_end {
+                    age_group_flag = 2;
+                }
+                else {
+                    age_group_flag = 6;
+                }
+            }
+        }
+        if min_num_days >= adult_end  {
+            age_group_flag = 4;
+        }
+    }
+
+    let mut participants = DBStudyPartics {
 
         enrolment_target: s.recruitment.target_enrolment.clone(), 
         enrolment_final: s.recruitment.total_final_enrolment.clone(),
         enrolment_total: s.recruitment.total_target.clone(),
         enrolment: enrolment, 
         enrolment_type: enrolment_type,
-
+        gender_string: s.participants.gender.clone(),
         gender_flag: gender_flag,
-        min_age_as_string: s.participants.l_age_limit.clone(),
-        min_age: s.participants.l_age_limit_num,  
-        min_age_units_id: get_age_units(&s.participants.l_age_limit_units),
-        max_age_as_string: s.participants.u_age_limit.clone(),
-        max_age: s.participants.u_age_limit_num,  
-        max_age_units_id: get_age_units(&s.participants.u_age_limit_units),
+        min_age_string: min_age_as_string,
+        min_age: min_age,  
+        min_age_units_id: min_age_units,
+        max_age_string: max_age_as_string,
+        max_age: max_age,  
+        max_age_units_id: max_age_units,
         age_group_flag: age_group_flag, 
-        iec_flag: _iec_flag,
+        iec_flag: 0,   // for now
     };
 
     // Identifiers
@@ -879,6 +922,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
+    participants.iec_flag =  inc_result + exc_result;
+
     // Outputs
 
     let mut db_outputs: Vec<DBOutput> = Vec::new();
@@ -942,9 +987,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
-    // process result codes to get overall iec status
-
-    _iec_flag = inc_result + exc_result;  // to revisit!
    
     DBStudy {
 
@@ -968,18 +1010,3 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
 }
 
-
-fn get_full_name(given_name: Option<String>, family_name: Option<String>) -> Option<String>{
-    
-    let giv_n = given_name.unwrap_or_else(||"".to_string());
-    let fam_n = family_name.unwrap_or_else(||"".to_string());
-
-    if giv_n == "" && fam_n == "" {
-        None
-    }
-    else {
-        Some(format!("{} {}", giv_n, fam_n).trim().to_string())
-    }
-
-
-}

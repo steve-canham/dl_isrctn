@@ -105,7 +105,14 @@ pub fn original_process_iec(sd_sid: &String, in_string: &String, input_type: &st
         (0, crits)
     }
     else {
-        (2, final_cr_lines)
+        let return_code;
+        if final_cr_lines.len() == 1 {
+            return_code = if input_type == "inclusion" {4} else {16};
+        }
+        else {
+            return_code = if input_type == "inclusion" {8} else {32};
+        }
+        (return_code, final_cr_lines)
     }
 
     // to be continued...

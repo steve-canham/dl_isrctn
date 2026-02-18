@@ -52,13 +52,14 @@ CREATE TABLE sd.study_participants(
 , enrolment_total        VARCHAR         NULL
 , enrolment              VARCHAR         NULL
 , enrolment_type         CHAR(1)         NULL
+, gender_string          VARCHAR         NULL
 , gender_flag            CHAR(1)         NULL
-, min_age_as_string      VARCHAR         NULL
-, min_age                INT             NULL
-, min_age_units_id       INT             NULL
-, max_age_as_string      VARCHAR         NULL
-, max_age                INT             NULL
-, max_age_units_id       INT             NULL
+, min_age_string         VARCHAR         NULL
+, min_age                float           NULL
+, min_age_units_id       CHAR(1)         NULL
+, max_age_string         VARCHAR         NULL
+, max_age                float           NULL
+, max_age_units_id       CHAR(1)         NULL
 , age_group_flag         INT             NOT NULL default 0
 , iec_flag               INT             NOT NULL default 0 
 , added_on               TIMESTAMPTZ     NOT NULL default now()
