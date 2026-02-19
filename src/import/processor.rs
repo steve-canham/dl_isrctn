@@ -68,7 +68,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         });
     }
 
-
     let acronym = s.acronym.clone().clean(); 
     if let Some(a) = acronym {
         acronym_string = a.clone().to_lowercase();
@@ -82,8 +81,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             comment: Some("From ISRCTN".to_string()),
         });
     }
-
-
 
     // Check for presence and duplication, and allocate 
     // default status and display string
@@ -369,15 +366,21 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // participants
 
     let mut enrolment = None;
-    let mut enrolment_type = None;
-    if let Some(f) = s.recruitment.total_final_enrolment.clone() {
+    let mut enrolment_type: Option<String> = None;
+    if let Some(f) = s.recruitment.total_final_enrolment.clone() && f != "0"{
         enrolment = Some(f);
         enrolment_type = Some("a".to_string());
     }
     else {
         if let Some(t) = s.recruitment.target_enrolment.clone() {
-            enrolment = Some(t);
-            enrolment_type = Some("e".to_string());
+            if t == "0" {
+                enrolment = None;
+                enrolment_type = None;
+            }
+            else {
+                enrolment = Some(t);
+                enrolment_type = Some("e".to_string());
+            }
         } 
     }
 
@@ -551,34 +554,30 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         for c in contacts {
             if c.surname.appears_plausible_person_name() {
                 if let Some(cts) = &c.contact_types {
-                    let roles = cts.join(" ").to_lowercase();
-                    if roles.contains("principal investigator") || roles.contains("scientific") {
-                        let mut person = DBPerson {
-                                full_name: get_full_name(c.forename.clone(), c.surname.clone()),
-                                is_sponsor: None,   
-                                is_study_lead: None,  
-                                is_oth_sci_contact: None, 
-                                orcid_id: c.orcid.tidy_orcid(), 
-                                affiliation: c.address.clone(),
-                                email_domain: c.email.extract_domain(),
-                            };
-
-                        if roles.contains("principal investigator") && roles.contains("scientific") {
-                            person.is_study_lead = Some(true);
-                            person.is_oth_sci_contact = Some(true);
+                    let mut role_list = "".to_string();
+                    for ct in cts {
+                        if ct.to_lowercase() == "scientific" {
+                            role_list = "Scientific contact".to_string();
                         }
-                        else if roles.contains("principal investigator") {
-                            person.is_study_lead = Some(true);
+                        if ct.to_lowercase()  == "principal investigator" {
+                            if role_list == "" {
+                                role_list = "Principal Investigator".to_string();
+                            }
+                            else {
+                                role_list = "Scientific contact, Principal Investigator".to_string()
+                            }
                         }
-                        else if roles.contains("scientific") {
-                            person.is_oth_sci_contact = Some(true);
-                        }
-                        db_peop.push(person);
+                    }
+                    if role_list != "" {
+                        db_peop.push(DBPerson {
+                            full_name: get_full_name(c.forename.clone(), c.surname.clone()),
+                            listed_as: Some(role_list.to_string()), 
+                            orcid_id: c.orcid.tidy_orcid(), 
+                            affiliation: c.address.clone(),
+                            email_domain: c.email.extract_domain(),
+                        });
                     }
                 }
-            }
-            else {
-                //info!("odd person name{:?}, for {}", c.surname.clone(), &sd_sid)
             }
         }
     }
@@ -837,7 +836,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                                     db_tops.push(DBTopic {
                                     source: source.clone(),
                                     topic_type: topic_type.clone(),
-                                    value: dn.to_string(),
+                                    topic_value: dn.to_string(),
                                     });
                                 }
                             }
@@ -849,7 +848,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                                     db_tops.push(DBTopic {
                                     source: source.clone(),
                                     topic_type: topic_type.clone(),
-                                    value: dn.to_string(),
+                                    topic_value: dn.to_string(),
                                     });
                                 }
                             }
@@ -865,7 +864,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                                     db_tops.push(DBTopic {
                                     source: source.clone(),
                                     topic_type: topic_type.clone(),
-                                    value: sn.to_string(),
+                                    topic_value: sn.to_string(),
                                     });
                                 }
                             }
@@ -875,7 +874,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                             db_tops.push(DBTopic {
                                 source: source,
                                 topic_type: topic_type,
-                                value: drug_names,
+                                topic_value: drug_names,
                             });
                         }
                     }
@@ -883,7 +882,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                         db_tops.push(DBTopic {
                                 source: source,
                                 topic_type: topic_type,
-                                value: drug_names,
+                                topic_value: drug_names,
                             });
                     }
                 }

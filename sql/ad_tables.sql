@@ -11,9 +11,8 @@ CREATE TABLE ad.studies(
 , brief_description      VARCHAR         NULL
 , type_id                INT             NOT NULL default 0
 , status_id        	     INT             NOT NULL default 0
-, summary_results        VARCHAR         NULL
-, ipd_intent             VARCHAR         NULL
-, ipd_statement          VARCHAR         NULL
+, ipd_sharing            VARCHAR         NULL
+, ipd_sharing_plan       VARCHAR         NULL
 , date_last_revised      Date            NULL
 , dt_of_data_fetch 	     TIMESTAMP       NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
@@ -48,9 +47,9 @@ CREATE TABLE ad.study_partics(
 , enrolment_type         CHAR(1)         NULL
 , gender_flag            CHAR(1)         NULL
 , min_age                INT             NULL
-, min_age_units_id       INT             NULL
+, min_age_units_id       CHAR(1)         NULL
 , max_age                INT             NULL
-, max_age_units_id       INT             NULL
+, max_age_units_id       CHAR(1)         NULL
 , age_group_flag         INT             NOT NULL default 0
 , iec_flag               INT             NOT NULL default 0 
 , added_on               TIMESTAMPTZ     NOT NULL default now()
@@ -102,8 +101,6 @@ CREATE TABLE ad.study_orgs(
 , is_sponsor             BOOL            NULL
 , is_funder              BOOL            NULL
 , is_collaborator        BOOL            NULL
-, is_ethics              BOOL            NULL
-, is_other               BOOL            NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 , coded_on               TIMESTAMPTZ     NULL    
 );
@@ -115,9 +112,7 @@ CREATE TABLE ad.study_people(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , full_name              VARCHAR         NULL
-, is_sponsor             BOOL            NULL
-, is_study_lead          BOOL            NULL
-, is_oth_sci_contact     BOOL            NULL
+, listed_as              VARCHAR         NULL
 , orcid_id               VARCHAR         NULL
 , affiliation            VARCHAR         NULL
 , affil_org_id           INT             NULL
@@ -227,39 +222,35 @@ DROP TABLE IF EXISTS ad.study_publications;
 CREATE TABLE ad.study_references(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
+, pub_type_id            VARCHAR         NULL
+, doi                    VARCHAR         NULL	
 , pmid                   VARCHAR         NULL
 , citation               VARCHAR         NULL
-, doi                    VARCHAR         NULL	
-, type_id                VARCHAR         NULL
-, comments               VARCHAR         NULL
+, date_created           DATE            NULL
+, date_last_updated      DATE            NULL
+, notes                  VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_references_sid ON ad.study_references(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_web_resources;
-CREATE TABLE ad.study_web_resources(
+DROP TABLE IF EXISTS ad.study_objects;
+CREATE TABLE ad.study_objects(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, ipd_name               VARCHAR         NULL
-, ipd_type               VARCHAR         NULL
-, ipd_url                VARCHAR         NULL
-, ipd_comment            VARCHAR         NULL
+, object_type            VARCHAR         NULL
+, object_name            VARCHAR         NULL
+, object_version         VARCHAR         NULL
+, output_description     VARCHAR         NULL
+, object_url             VARCHAR         NULL
+, url_type               VARCHAR         NULL
+, access_type            VARCHAR         NULL
+, file_name              VARCHAR         NULL
+, date_created           DATE            NULL
+, date_last_updated      DATE            NULL
+, object_notes           VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_web_resources_sid ON ad.study_web_resources(sd_sid);
-
-
-DROP TABLE IF EXISTS ad.study_docs;
-CREATE TABLE ad.study_docs(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, ipd_name               VARCHAR         NULL
-, ipd_type               VARCHAR         NULL
-, ipd_url                VARCHAR         NULL
-, ipd_comment            VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_docs_sid ON ad.study_docs(sd_sid);
+CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
 
 SET client_min_messages TO NOTICE; 

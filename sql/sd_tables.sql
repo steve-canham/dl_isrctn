@@ -115,9 +115,7 @@ CREATE TABLE sd.study_people(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , full_name              VARCHAR         NULL
-, is_sponsor             BOOL            NULL
-, is_study_lead          BOOL            NULL
-, is_oth_sci_contact     BOOL            NULL
+, listed_as              VARCHAR         NULL
 , orcid_id               VARCHAR         NULL
 , affiliation            VARCHAR         NULL
 , email_domain           VARCHAR         NULL
@@ -174,7 +172,7 @@ CREATE TABLE sd.study_topics(
 , sd_sid                 VARCHAR         NOT NULL
 , source                 VARCHAR         NULL    
 , topic_type             VARCHAR         NULL
-, value                  VARCHAR         NULL       
+, topic_value            VARCHAR         NULL       
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);

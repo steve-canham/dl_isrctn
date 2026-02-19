@@ -442,9 +442,7 @@ impl OrgVecs{
 pub struct PeopleVecs {
     pub sd_sids: Vec<String>,
     pub full_names: Vec<Option<String>>,
-    pub is_sponsors: Vec<Option<bool>>,   
-    pub is_study_leads: Vec<Option<bool>>,  
-    pub is_oth_sci_contacts: Vec<Option<bool>>,  
+    pub listed_ass: Vec<Option<String>>,
     pub orcid_ids: Vec<Option<String>>,
     pub affiliations: Vec<Option<String>>,
     pub email_domains: Vec<Option<String>>,
@@ -455,9 +453,7 @@ impl PeopleVecs{
         PeopleVecs { 
             sd_sids: Vec::with_capacity(vsize),
             full_names: Vec::with_capacity(vsize),
-            is_sponsors: Vec::with_capacity(vsize),  
-            is_study_leads: Vec::with_capacity(vsize),  
-            is_oth_sci_contacts: Vec::with_capacity(vsize), 
+            listed_ass: Vec::with_capacity(vsize),  
             orcid_ids: Vec::with_capacity(vsize),
             affiliations: Vec::with_capacity(vsize),
             email_domains: Vec::with_capacity(vsize),
@@ -469,9 +465,7 @@ impl PeopleVecs{
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.full_names.push(r.full_name.clone());
-            self.is_sponsors.push(r.is_sponsor); 
-            self.is_study_leads.push(r.is_study_lead);
-            self.is_oth_sci_contacts.push(r.is_oth_sci_contact);
+            self.listed_ass.push(r.listed_as.clone()); 
             self.orcid_ids.push(r.orcid_id.clone());
             self.affiliations.push(r.affiliation.clone());
             self.email_domains.push(r.email_domain.clone());
@@ -481,9 +475,7 @@ impl PeopleVecs{
     pub fn shrink_to_fit(&mut self) -> () {
         self.sd_sids.shrink_to_fit();
         self.full_names.shrink_to_fit();
-        self.is_sponsors.shrink_to_fit();
-        self.is_study_leads.shrink_to_fit();
-        self.is_oth_sci_contacts.shrink_to_fit();
+        self.listed_ass.shrink_to_fit();
         self.orcid_ids.shrink_to_fit();
         self.affiliations.shrink_to_fit();
         self.email_domains.shrink_to_fit();
@@ -491,17 +483,15 @@ impl PeopleVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_people (sd_sid, full_name, is_sponsor, is_study_lead,
-                        is_oth_sci_contact, orcid_id, affiliation, email_domain) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::bool[], $4::bool[], $5::bool[], 
-                        $6::text[], $7::text[], $8::text[])"#;
+        let sql = r#"INSERT INTO sd.study_people (sd_sid, full_name, listed_as,
+                        orcid_id, affiliation, email_domain) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], 
+                        $4::text[], $5::text[], $6::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.full_names)
-        .bind(&self.is_sponsors)
-        .bind(&self.is_study_leads)
-        .bind(&self.is_oth_sci_contacts)
+        .bind(&self.listed_ass)
         .bind(&self.orcid_ids)
         .bind(&self.affiliations)
         .bind(&self.email_domains)
@@ -712,7 +702,7 @@ pub struct TopicVecs {
     pub sd_sids: Vec<String>,
     pub sources: Vec<String>,  
     pub topic_types: Vec<String>,
-    pub values: Vec<String>,
+    pub topic_values: Vec<String>,
 }
 
 impl TopicVecs{
@@ -721,7 +711,7 @@ impl TopicVecs{
             sd_sids: Vec::with_capacity(vsize),
             sources: Vec::with_capacity(vsize),
             topic_types: Vec::with_capacity(vsize),
-            values: Vec::with_capacity(vsize),
+            topic_values: Vec::with_capacity(vsize),
         }
     }
 
@@ -731,7 +721,7 @@ impl TopicVecs{
             self.sd_sids.push(sd_sid.clone());
             self.sources.push(r.source.clone());
             self.topic_types.push(r.topic_type.clone());
-            self.values.push(r.value.clone());
+            self.topic_values.push(r.topic_value.clone());
         }
     }
 
@@ -739,19 +729,19 @@ impl TopicVecs{
         self.sd_sids.shrink_to_fit();
         self.sources.shrink_to_fit();
         self.topic_types.shrink_to_fit();
-        self.values.shrink_to_fit();
+        self.topic_values.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_topics (sd_sid, source, topic_type, value) 
+        let sql = r#"INSERT INTO sd.study_topics (sd_sid, source, topic_type, topic_value) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.sources)
         .bind(&self.topic_types)
-        .bind(&self.values)
+        .bind(&self.topic_values)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }

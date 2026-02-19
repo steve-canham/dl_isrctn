@@ -100,9 +100,7 @@ pub struct DBOrganisation {
 
 pub struct DBPerson {
     pub full_name: Option<String>,
-    pub is_sponsor: Option<bool>,   
-    pub is_study_lead: Option<bool>,  
-    pub is_oth_sci_contact: Option<bool>,  
+    pub listed_as: Option<String>,
     pub orcid_id: Option<String>,
     pub affiliation: Option<String>,
     pub email_domain: Option<String>,
@@ -123,7 +121,7 @@ pub struct DBCountry {
 pub struct DBTopic {
     pub source:  String,
     pub topic_type:  String,
-    pub value: String,
+    pub topic_value: String,
 }
 
 pub struct DBCondition {
