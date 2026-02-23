@@ -7,6 +7,8 @@ use crate::iec::iec_structs::IECLine;
 
 use super::support_fns::*;
 use chrono::{NaiveDate, NaiveDateTime, Local}; 
+use std::sync::LazyLock;
+use regex::Regex;
 //use log::info;
 
  
@@ -256,11 +258,12 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // Study status from overall study status or more commonly from dates.
     // 'StatusOverride' field will only have a value if status is 'Suspended' or 'Stopped'.
+    // 'StartStatusOverride' will only have a value if status is 'Anticipated' or ???
     // More commonly compare dates with today to get current status.
     // Means periodic full import or a separate mechanism to update statuses against dates.
     // It appears that all 4 dates are always available.
 
-    let mut status_string = "Unkown";
+    let mut status_string = "Unknown";
    
     if let Some(st) = &s.recruitment.recruitment_status_override {
         if st == "Stopped" {
@@ -268,6 +271,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
         else {
            status_string = st;  // Usually 'Suspended'
+        }
+    }
+    else if let Some(st) = &s.recruitment.recruitment_start_status_override {
+        if st == "Anticipated" {
+            status_string = "Not yet recruiting";
         }
     }
     else {
@@ -335,7 +343,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         status_id: get_study_status(&status_opt),
         status_override: s.recruitment.recruitment_status_override.clone(),
         start_status_override: s.recruitment.recruitment_start_status_override.clone(),
-        ipd_sharing: s.ipd.ipd_sharing_plan,
+        is_ipd_sharing: s.ipd.ipd_sharing_plan,
         ipd_sharing_plan: s.ipd.ipd_sharing_statement.clone(), 
         date_last_revised: date_last_revised,
         dt_of_data_fetch: dt_of_data_fetch, 
@@ -619,26 +627,54 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     if let Some(conds) = &s.conditions {
         for c in conds {
           
-            let mut specific = c.description.clone();
-            
-            // Move specific value into class 2 if class 2 empty
+            let mut desc: Option<String> = None;
+            let mut c2: Option<String> = None;
+           
+            // re-arrange these odd entries where all three field are put into the description
 
-            let c2 = match c.disease_class2.clone() {
-                Some(c) => Some(c),
-                None => specific.clone(),  
-            };
+            if let Some(ds) = c.description.clone() {
 
-            // Drop specific if the same as class 2, whether from above or from the start
+                if ds.starts_with("Topic:") {
+                    let ds_parts: Vec<&str> = ds.split(';').collect();
+                    if ds_parts.len() == 3 {
+                        let c2_section = ds_parts[1].trim();
+                        let desc_section = ds_parts[2].trim();
+                        if c2_section.starts_with("Subtopic:") {
+                            c2 = Some(c2_section[9..].trim().to_string());
+                        }
+                        if desc_section.starts_with("Disease:") {
+                            desc = Some(desc_section[8..].trim().to_string());
+                        }
+                    }
+                    if ds_parts.len() == 1 {
+                        let ds_parts2: Vec<&str> = ds.split('/').collect();
+                        if ds_parts2.len() == 2 {
+                            c2 = Some(ds_parts2[1].trim().to_string());
+                            desc = None;
+                        }
+                    }
+                }
+                else {   // A description present but 'normal', not 'Topic:...
 
-            if let Some(c) = &c2 && let Some(s) = &specific
-               && c.trim().to_lowercase() == s.trim().to_lowercase() {
-                specific = None;
+                    desc = Some(ds.clone());
+
+                    // May be the same as c2, if so make it None
+
+                     if let Some(c) = &c2 
+                        && c.trim().to_lowercase() == ds.trim().to_lowercase() {
+                        desc = None;
+                     }
+                }
             }
-
+            else  {    // No description present, just leave c2 'as is'
+                desc = None;
+                c2 = c.disease_class2.clone();
+            } 
+            
             db_conds.push ( DBCondition {
                 class1: c.disease_class1.clone(),
                 class2: c2,
-                specific: specific,
+                specific: desc,
 
             });
         }
@@ -925,7 +961,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // Outputs
 
-    let mut db_outputs: Vec<DBOutput> = Vec::new();
+    let mut db_objects: Vec<DBObject> = Vec::new();
+    let mut db_pubs: Vec<DBPublication> = Vec::new();
 
     if let Some(outputs) = &s.outputs{
         for op in outputs {
@@ -946,15 +983,107 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 None => None,
             };
 
-            db_outputs.push(DBOutput { 
-                artefact_type: op.artefact_type.clone(),
-                output_type: op.output_type.clone(), 
+            let output_type_string = op.output_type.clone().unwrap_or_default().to_lowercase();
+            let output_type = match output_type_string.as_str() {
+                "abstract" => "Abstract",
+                "hrasummary" => "HRA Summary",
+                "trialwebsite" => "Trial Website",
+                "protocolarticle" => "Protocol Article",
+                "protocolpreprint" => "Protocol Preprint",
+                "thesis" => "Thesis",
+                "protocolother" => "Protocol (other format)",
+                "sap" => "SAP",
+                "otherfiles" => "Other files",
+                "interimresults" => "Interim Results",
+                "otherunpublished" => "Other Unpublished",
+                "protocolfile" => "Protocol File",
+                "otherpublications" => "Other Publications",
+                "poster" => "Poster",
+                "dataset" => "Dataset",
+                "basicresults" => "Basic Results",
+                "resultsarticle" => "Results Article",
+                "preprint" => "Preprint",
+                "funderreport" => "Funder Report",
+                "plainenglishresults" => "Plain English Results",
+                "pis" => "PIS",
+                _ => "?",
+            };
+
+            let artefact_type_string = op.artefact_type.clone().unwrap_or_default();
+
+            let mut is_pub = false;
+
+            if artefact_type_string == "ExternalLink"
+                && (output_type_string.contains("article") 
+                || output_type_string.contains("preprint")
+                || output_type_string.contains("abstract")
+                || output_type_string == "interimresults" 
+                || output_type_string == "otherpublications" ) {
+
+                is_pub = true;
+            }
+            
+            if is_pub {
+                
+                // regularise to https (if not already changed)
+
+                let mut external_url = match op.external_link_url.clone() {
+                    Some(s) => Some(s.replace("http://", "https://")),
+                    None => None,
+                };
+                let low_url =  external_url.clone().unwrap_or_default().to_lowercase();
+                
+                let mut linking_id: Option<String> = None;
+                let mut doi: Option<String> = None;
+                let mut pmid: Option<String> = None;
+                let mut pmcid: Option<String> = None;
+
+                static RE_PM8: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{8}").unwrap());
+                static RE_PM7: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{7}").unwrap());
+                static RE_PMC7: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{7}").unwrap());
+                static RE_PMC6: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{6}").unwrap());
+
+                if low_url.contains("pubmed") {
+
+                    // extract pmid and redo the url to ensure in current form
+
+
+                }
+                else if low_url.contains("doi") {   // store doi
+                    
+                    // get position of doi, get substring from that point
+
+                    
+                }
+                else if low_url.contains("pmc") {
+
+                    // extract pmc id and redo the url to ensure in current form
+                    
+                }
+                else {  // probably a publisher's web site URL
+                    
+                    
+                }
+               
+                db_pubs.push(DBPublication { 
+                pub_type: Some(output_type.to_string()), 
+                details: op.description.clone(), 
+                external_url: external_url, 
+                linking_id: linking_id,
+                doi: doi,
+                pmid: pmid,
+                pmcid: pmcid,
                 date_created: creation_dt, 
                 date_uploaded: upload_dt, 
-                peer_reviewed: op.peer_reviewed, 
-                patient_facing: op.patient_facing, 
-                created_by: op.created_by.clone(), 
-                production_notes: op.production_notes.clone(), 
+                });
+            } 
+            else {
+
+                db_objects.push(DBObject { 
+                artefact_type: op.artefact_type.clone(),
+                output_type: Some(output_type.to_string()), 
+                date_created: creation_dt, 
+                date_uploaded: upload_dt, 
                 external_link_url: op.external_link_url.clone(), 
                 gu_id: op.file_id.clone(), 
                 output_description: op.description.clone(), 
@@ -962,7 +1091,9 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 download_filename: op.download_filename.clone(), 
                 output_version: op.version.clone(),
                 mime_type: op.mime_type.clone(),
-            });
+                });
+            }
+
         }
     }
 
@@ -1003,7 +1134,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         features: option_from_count(db_feats),
         topics: option_from_count(db_tops),
         ie_crit: option_from_count(db_iec),
-        outputs: option_from_count(db_outputs),
+        objects: option_from_count(db_objects),
+        publications: option_from_count(db_pubs),
         local_files: option_from_count(db_files),
     }
 

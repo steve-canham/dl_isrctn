@@ -13,7 +13,7 @@ CREATE TABLE sd.studies(
 , status_id        	     INT             NOT NULL default 0
 , status_override        VARCHAR         NULL
 , start_status_override  VARCHAR         NULL
-, ipd_sharing            VARCHAR         NULL
+, is_ipd_sharing         BOOLEAN         NULL
 , ipd_sharing_plan       VARCHAR         NULL
 , date_last_revised      Date            NULL
 , dt_of_data_fetch 	     TIMESTAMP       NULL
@@ -202,18 +202,32 @@ CREATE TABLE sd.study_features(
 CREATE INDEX study_features_sid ON sd.study_features(sd_sid);
 
 
-DROP TABLE IF EXISTS sd.study_outputs;
-CREATE TABLE sd.study_outputs(
+DROP TABLE IF EXISTS sd.study_pubs;
+CREATE TABLE sd.study_pubs(
+  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+, sd_sid                 VARCHAR         NULL
+, pub_type               VARCHAR         NULL
+, details                VARCHAR         NULL
+, external_url           VARCHAR         NULL
+, linking_id             VARCHAR         NULL
+, doi                    VARCHAR         NULL
+, pmid                   VARCHAR         NULL
+, pmcid                  VARCHAR         NULL
+, date_created           DATE            NULL
+, date_uploaded          DATE            NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+);
+CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
+
+
+DROP TABLE IF EXISTS sd.study_objects;
+CREATE TABLE sd.study_objects(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 , sd_sid                 VARCHAR         NULL
 , artefact_type          VARCHAR         NULL
 , output_type            VARCHAR         NULL
 , date_created           DATE            NULL
 , date_uploaded          DATE            NULL
-, peer_reviewed          BOOLEAN         NULL
-, patient_facing         BOOLEAN         NULL
-, created_by             VARCHAR         NULL
-, production_notes       VARCHAR         NULL
 , external_link_url      VARCHAR         NULL
 , gu_id                  VARCHAR         NULL
 , file_name              VARCHAR         NULL
@@ -224,7 +238,7 @@ CREATE TABLE sd.study_outputs(
 , mime_type              VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_outputs_sid ON sd.study_outputs(sd_sid);
+CREATE INDEX study_objects_sid ON sd.study_objects(sd_sid);
 
 
 DROP TABLE IF EXISTS sd.study_attached_files;

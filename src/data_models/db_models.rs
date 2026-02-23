@@ -18,7 +18,8 @@ pub struct DBStudy {
     pub features: Option<Vec<DBFeature>>, 
     pub topics: Option<Vec<DBTopic>>, 
     pub ie_crit: Option<Vec<IECLine>>, 
-    pub outputs: Option<Vec<DBOutput>>,
+    pub objects: Option<Vec<DBObject>>,
+    pub publications: Option<Vec<DBPublication>>,
     pub local_files: Option<Vec<DBAttachedFile>>,
 }
 
@@ -32,7 +33,7 @@ pub struct DBSummary {
     pub status_override: Option<String>,
     pub start_status_override: Option<String>,
 
-    pub ipd_sharing: bool,
+    pub is_ipd_sharing: bool,
 	pub ipd_sharing_plan: Option<String>,
     pub date_last_revised: Option<NaiveDate>,
 	pub dt_of_data_fetch: NaiveDateTime,
@@ -136,15 +137,11 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
-pub struct DBOutput {
+pub struct DBObject {
     pub artefact_type: Option<String>,
     pub output_type: Option<String>,
     pub date_created: Option<NaiveDate>,
     pub date_uploaded: Option<NaiveDate>,
-    pub peer_reviewed: Option<bool>,
-    pub patient_facing: Option<bool>,
-    pub created_by: Option<String>,
-    pub production_notes: Option<String>,
     pub external_link_url: Option<String>,
     pub gu_id: Option<String>,    
     pub output_description: Option<String>,
@@ -152,6 +149,19 @@ pub struct DBOutput {
     pub download_filename: Option<String>,
     pub output_version: Option<String>,
     pub mime_type: Option<String>,
+}
+
+
+pub struct DBPublication {
+    pub pub_type: Option<String>,
+    pub details: Option<String>,
+    pub external_url: Option<String>,
+    pub linking_id: Option<String>,
+    pub doi: Option<String>,
+    pub pmid: Option<String>,
+    pub pmcid: Option<String>,
+    pub date_created: Option<NaiveDate>,
+    pub date_uploaded: Option<NaiveDate>,
 }
 
 

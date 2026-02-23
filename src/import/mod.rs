@@ -1,11 +1,14 @@
 pub mod monitoring;
 mod processor;
 mod support_fns;
+mod transfers;
+
 use std::fs;
 use std::path::PathBuf;
 
 use crate::data_models::json_models::*;
 use crate::data_models::data_vecs::*;
+use transfers::*;
 
 use crate::AppError;
 use sqlx::{Pool, Postgres};
@@ -70,7 +73,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_feats_dv = FeatureVecs::new(4*batch_size);
         let mut study_tops_dv = TopicVecs::new(3*batch_size);
         let mut study_iec_dv = IECVecs::new(20*batch_size);
-        let mut study_ops_dv = OutputVecs::new(5*batch_size);
+        let mut study_obs_dv = ObjectVecs::new(3*batch_size);
+        let mut study_pubs_dv = PublicationVecs::new(3*batch_size);
         let mut study_files_dv = AttachedFileVecs::new(3*batch_size);
 
         // get the list of json files relevant to this pass
@@ -125,7 +129,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(feats) = dbs.features { study_feats_dv.add(sd_sid, &feats); }
             if let Some(tops) = dbs.topics { study_tops_dv.add(sd_sid, &tops); }
             if let Some(iecs) = dbs.ie_crit { study_iec_dv.add(sd_sid, &iecs); }
-            if let Some(outs) = dbs.outputs { study_ops_dv.add(sd_sid, &outs); }
+            if let Some(obs) = dbs.objects { study_obs_dv.add(sd_sid, &obs); }
+            if let Some(pubs) = dbs.publications { study_pubs_dv.add(sd_sid, &pubs); }
             if let Some(files) = dbs.local_files { study_files_dv.add(sd_sid, &files); }
                     
             //i += 1;
@@ -144,7 +149,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_feats_dv.shrink_to_fit();
         study_tops_dv.shrink_to_fit();
         study_iec_dv.shrink_to_fit();
-        study_ops_dv.shrink_to_fit();
+        study_obs_dv.shrink_to_fit();
+        study_pubs_dv.shrink_to_fit();
         study_files_dv.shrink_to_fit();
 
 
@@ -161,7 +167,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_feats_dv.store_data(src_pool).await?;
         study_tops_dv.store_data(src_pool).await?;
         study_iec_dv.store_data(src_pool).await?;
-        study_ops_dv.store_data(src_pool).await?;
+        study_obs_dv.store_data(src_pool).await?;
+        study_pubs_dv.store_data(src_pool).await?;
         study_files_dv.store_data(src_pool).await?;
 
 
@@ -169,13 +176,42 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             info!("number of files processed: {}",  n);
         }
 
-        if n > 1750 {
+        if n > 5000 {
             break;
         }
 
     }
 
     info!("total number of files found: {}",  num_files);
+
+    // Recreate the accumulated data ad schema tables - sqlscript in file (path is relative)
+
+    let sql = include_str!("../../sql/ad_tables.sql");
+    sqlx::raw_sql(sql).execute(src_pool)
+        .await
+        .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
+
+
+    // need to import some forreign tables to handle
+    // cross-ref org ids
+    // and domain names of people 
+
+    transfer_study_core_data(src_pool).await?;
+    transfer_study_date_data(src_pool).await?;
+    transfer_study_participants_data(src_pool).await?;
+    transfer_study_titles_data(src_pool).await?;
+    transfer_study_identifiers_data(src_pool).await?;
+    transfer_study_orgs_data(src_pool).await?;
+    transfer_study_people_data(src_pool).await?;
+    transfer_study_iec_data(src_pool).await?;
+    transfer_study_locations_data(src_pool).await?;
+    transfer_study_countries_data(src_pool).await?;
+    transfer_study_topics_data(src_pool).await?;
+    transfer_study_conditions_data2(src_pool).await?;
+    transfer_study_conditions_data3(src_pool).await?;
+    transfer_study_features_data(src_pool).await?;
+
+    
 
     Ok(ImportResult {
         num_available: num_files,

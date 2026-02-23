@@ -12,7 +12,7 @@ pub struct StudyVecs {
 	pub status_ids: Vec<i32>,
     pub status_overrides: Vec<Option<String>>,
     pub start_status_overrides: Vec<Option<String>>,
-    pub ipd_sharings: Vec<bool>,
+    pub is_ipd_sharings: Vec<bool>,
 	pub ipd_sharing_plans: Vec<Option<String>>,
     pub date_last_reviseds: Vec<Option<NaiveDate>>,
 	pub dt_of_datas: Vec<NaiveDateTime>,
@@ -29,7 +29,7 @@ impl StudyVecs{
             status_ids: Vec::with_capacity(vsize),
             status_overrides: Vec::with_capacity(vsize),
             start_status_overrides: Vec::with_capacity(vsize),
-            ipd_sharings: Vec::with_capacity(vsize),
+            is_ipd_sharings: Vec::with_capacity(vsize),
 	        ipd_sharing_plans: Vec::with_capacity(vsize),
             date_last_reviseds: Vec::with_capacity(vsize),
 	        dt_of_datas: Vec::with_capacity(vsize),
@@ -45,7 +45,7 @@ impl StudyVecs{
         self.status_ids.push(r.status_id);
         self.status_overrides.push(r.status_override.clone());
         self.start_status_overrides.push(r.start_status_override.clone());
-        self.ipd_sharings.push(r.ipd_sharing);
+        self.is_ipd_sharings.push(r.is_ipd_sharing);
         self.ipd_sharing_plans.push(r.ipd_sharing_plan.clone());
         self.date_last_reviseds.push(r.date_last_revised);
         self.dt_of_datas.push(r.dt_of_data_fetch);
@@ -54,9 +54,9 @@ impl StudyVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.studies (sd_sid, display_title, brief_description, type_id, status_id, status_override, start_status_override,
-                        ipd_sharing, ipd_sharing_plan, date_last_revised, dt_of_data_fetch) 
+                        is_ipd_sharing, ipd_sharing_plan, date_last_revised, dt_of_data_fetch) 
                         SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::int[], $5::int[], $6::text[], $7::text[], 
-                        $8::text[], $9::text[], $10::date[], $11::timestamp[])"#;
+                        $8::bool[], $9::text[], $10::date[], $11::timestamp[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
@@ -66,7 +66,7 @@ impl StudyVecs{
         .bind(&self.status_ids)
         .bind(&self.status_overrides)
         .bind(&self.start_status_overrides)
-        .bind(&self.ipd_sharings)
+        .bind(&self.is_ipd_sharings)
         .bind(&self.ipd_sharing_plans)
         .bind(&self.date_last_reviseds)
         .bind(&self.dt_of_datas)
@@ -824,16 +824,12 @@ impl IECVecs{
 }
 
 
-pub struct OutputVecs {
+pub struct ObjectVecs {
     pub sd_sids: Vec<String>,
     pub artefact_types: Vec<Option<String>>,
     pub output_types: Vec<Option<String>>,
     pub date_createds: Vec<Option<NaiveDate>>,
     pub date_uploadeds: Vec<Option<NaiveDate>>,
-    pub peer_revieweds: Vec<Option<bool>>,
-    pub patient_facings: Vec<Option<bool>>,
-    pub created_bys: Vec<Option<String>>,
-    pub production_notess: Vec<Option<String>>,
     pub external_link_urls: Vec<Option<String>>,
     pub gu_ids: Vec<Option<String>>,    
     pub output_descriptions: Vec<Option<String>>,
@@ -843,18 +839,14 @@ pub struct OutputVecs {
     pub mime_types: Vec<Option<String>>,
 }
 
-impl OutputVecs{
+impl ObjectVecs{
     pub fn new(vsize: usize) -> Self {
-        OutputVecs { 
+        ObjectVecs { 
             sd_sids: Vec::with_capacity(vsize),
             artefact_types: Vec::with_capacity(vsize),
             output_types: Vec::with_capacity(vsize),
             date_createds: Vec::with_capacity(vsize),
             date_uploadeds: Vec::with_capacity(vsize),
-            peer_revieweds: Vec::with_capacity(vsize),
-            patient_facings: Vec::with_capacity(vsize),
-            created_bys: Vec::with_capacity(vsize),
-            production_notess: Vec::with_capacity(vsize),
             external_link_urls: Vec::with_capacity(vsize),
             gu_ids: Vec::with_capacity(vsize),   
             output_descriptions: Vec::with_capacity(vsize),
@@ -865,7 +857,7 @@ impl OutputVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBOutput>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBObject>) 
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -873,10 +865,6 @@ impl OutputVecs{
             self.output_types.push(r.output_type.clone());
             self.date_createds.push(r.date_created.clone());
             self.date_uploadeds.push(r.date_uploaded.clone());
-            self.peer_revieweds.push(r.peer_reviewed);
-            self.patient_facings.push(r.patient_facing);
-            self.created_bys.push(r.created_by.clone());
-            self.production_notess.push(r.production_notes.clone());
             self.external_link_urls.push(r.external_link_url.clone());
             self.gu_ids.push(r.gu_id.clone());
             self.output_descriptions.push(r.output_description.clone());
@@ -894,10 +882,6 @@ impl OutputVecs{
             self.output_types.shrink_to_fit();
             self.date_createds.shrink_to_fit();
             self.date_uploadeds.shrink_to_fit();
-            self.peer_revieweds.shrink_to_fit();
-            self.patient_facings.shrink_to_fit();
-            self.created_bys.shrink_to_fit();
-            self.production_notess.shrink_to_fit();
             self.external_link_urls.shrink_to_fit();
             self.gu_ids.shrink_to_fit();
             self.output_descriptions.shrink_to_fit();
@@ -909,12 +893,11 @@ impl OutputVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_outputs (sd_sid, artefact_type, output_type, date_created, date_uploaded, 
-                         peer_reviewed, patient_facing, created_by, production_notes, external_link_url, gu_id, 
+        let sql = r#"INSERT INTO sd.study_objects (sd_sid, artefact_type, output_type, date_created, date_uploaded, 
+                         external_link_url, gu_id, 
                          output_description, original_filename, download_filename, output_version, mime_type) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::date[], $5::date[], 
-                         $6::bool[], $7::bool[], $8::text[], $9::text[], $10::text[], $11::text[], 
-                         $12::text[], $13::text[], $14::text[], $15::text[], $16::text[])"#;
+                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::text[], $12::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
@@ -922,10 +905,6 @@ impl OutputVecs{
         .bind(&self.output_types)
         .bind(&self.date_createds)
         .bind(&self.date_uploadeds)
-        .bind(&self.peer_revieweds)
-        .bind(&self.patient_facings)
-        .bind(&self.created_bys)
-        .bind(&self.production_notess)
         .bind(&self.external_link_urls)
         .bind(&self.gu_ids)
         .bind(&self.output_descriptions)
@@ -933,6 +912,93 @@ impl OutputVecs{
         .bind(&self.download_filenames)
         .bind(&self.output_versions)
         .bind(&self.mime_types)
+        .execute(pool)
+        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
+    }
+}
+
+pub struct PublicationVecs {
+    pub sd_sids: Vec<String>,
+    pub pub_types: Vec<Option<String>>,
+    pub detailss: Vec<Option<String>>,
+    pub external_urls: Vec<Option<String>>,
+    pub linking_ids: Vec<Option<String>>,
+    pub dois: Vec<Option<String>>,
+    pub pmids: Vec<Option<String>>,
+    pub pmcids: Vec<Option<String>>,
+    pub date_createds: Vec<Option<NaiveDate>>,
+    pub date_uploadeds: Vec<Option<NaiveDate>>,
+
+
+}
+
+
+impl PublicationVecs{
+    pub fn new(vsize: usize) -> Self {
+        PublicationVecs { 
+            sd_sids: Vec::with_capacity(vsize),
+            pub_types: Vec::with_capacity(vsize),
+            detailss: Vec::with_capacity(vsize),
+            external_urls: Vec::with_capacity(vsize),
+            linking_ids: Vec::with_capacity(vsize),
+            dois: Vec::with_capacity(vsize),
+            pmids: Vec::with_capacity(vsize),
+            pmcids: Vec::with_capacity(vsize),
+            date_createds: Vec::with_capacity(vsize),
+            date_uploadeds: Vec::with_capacity(vsize),
+        }
+    }
+
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPublication>) 
+    {
+        for r in v {
+            self.sd_sids.push(sd_sid.clone());
+            self.pub_types.push(r.pub_type.clone());
+            self.detailss.push(r.details.clone());
+            self.external_urls.push(r.external_url.clone());
+            self.linking_ids.push(r.linking_id.clone());
+            self.dois.push(r.doi.clone());
+            self.pmids.push(r.pmid.clone());
+            self.pmcids.push(r.pmcid.clone());
+            self.date_createds.push(r.date_created.clone());
+            self.date_uploadeds.push(r.date_uploaded.clone());
+        }
+    }
+
+    pub fn shrink_to_fit(&mut self) -> () {
+       
+            self.sd_sids.shrink_to_fit();
+            self.pub_types.shrink_to_fit();
+            self.detailss.shrink_to_fit();
+            self.external_urls.shrink_to_fit();
+            self.linking_ids.shrink_to_fit();
+            self.dois.shrink_to_fit();
+            self.pmids.shrink_to_fit();
+            self.pmcids.shrink_to_fit();
+            self.date_createds.shrink_to_fit();
+            self.date_uploadeds.shrink_to_fit();
+    }
+
+    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+
+        let sql = r#"INSERT INTO sd.study_pubs (sd_sid, pub_type, details, external_url,
+                         linking_id, doi, pmid, pmcid, date_created, date_uploaded) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], 
+                         $6::text[], $7::text[], $8::text[], $9::date[], $10::date[])"#;
+
+        sqlx::query(sql)
+        .bind(&self.sd_sids)
+        .bind(&self.pub_types)
+        .bind(&self.detailss)
+        .bind(&self.external_urls)
+        .bind(&self.linking_ids)
+        .bind(&self.dois)
+        .bind(&self.pmids)
+        .bind(&self.pmcids)
+        .bind(&self.date_createds)
+        .bind(&self.date_uploadeds)
+
+
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
