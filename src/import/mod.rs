@@ -211,8 +211,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
     transfer_study_conditions_data3(src_pool).await?;
     transfer_study_features_data(src_pool).await?;
 
-    
-
     Ok(ImportResult {
         num_available: num_files,
         num_imported: 0,

@@ -787,6 +787,28 @@ impl OptionStringExtensions for Option<String> {
 
 }
 
+
+pub fn capitalize_first(s: &str) -> String {
+    let mut c = s.chars();
+    let mut s = match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+    };
+
+    if s.starts_with("P") && s.len() > 1 {
+
+        // if second character is a number or a dot more likely to be a page reference
+
+        if s.chars().nth(1).unwrap_or_default() == '.' ||  s.chars().nth(1).unwrap_or_default().is_digit(10) {
+            s = format!("p{}", &s[1..]);
+        }
+    }
+    s
+
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

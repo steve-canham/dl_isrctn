@@ -1024,19 +1024,40 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             }
             
             if is_pub {
-                
-                // regularise to https (if not already changed)
 
-                let mut external_url = match op.external_link_url.clone() {
-                    Some(s) => Some(s.replace("http://", "https://")),
-                    None => None,
+                // Simplify output type and description
+
+                let output_type = match output_type {
+                    "Abstract" => "Abstract",
+                    "Protocol Article" => "Protocol", 
+                    "Protocol Preprint" => "Protocol", 
+                    "Protocol (other format)" => "Protocol", 
+                    "Interim Results" => "Interim Results", 
+                    "Protocol File" => "Protocol", 
+                    "Other Publications" => "Other", 
+                    "Results Article" => "Results", 
+                    "Preprint" => "Preprint", 
+                    _ => "?",
                 };
-                let low_url =  external_url.clone().unwrap_or_default().to_lowercase();
+
+                let mut details: Option<String> = None;
+                if let Some(mut d) = op.description.clone() {
+                    d = d.trim().trim_matches(':').to_string();
+                    if d.to_lowercase() != output_type.to_lowercase() {
+                        details = Some(capitalize_first(&d));
+                    }
+                }
+               
+                let mut external_url = op.external_link_url.clone().unwrap_or_default();
+                external_url = external_url.replace("http://", "https://");    // regularise url scheme
+                external_url = external_url.replace("doi.org10.", "doi.org/10.");  // repair needed rarely
+
+                let low_url =  external_url.to_lowercase();
                 
-                let mut linking_id: Option<String> = None;
-                let mut doi: Option<String> = None;
-                let mut pmid: Option<String> = None;
-                let mut pmcid: Option<String> = None;
+                let mut link_id = "".to_string();
+                let mut doi_as_str= "".to_string();
+                let mut pmid_as_str= "".to_string();
+                let mut pmcid_as_str= "".to_string();
 
                 static RE_PM8: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{8}").unwrap());
                 static RE_PM7: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{7}").unwrap());
@@ -1046,51 +1067,108 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 if low_url.contains("pubmed") {
 
                     // extract pmid and redo the url to ensure in current form
+                    // test for an 8 digit string first, then a 7 digit
 
-
+                    match RE_PM8.captures(&external_url.clone()) {
+                        Some(s) => {
+                            pmid_as_str = s[0].to_string();
+                            link_id = format!("PMID-{}", pmid_as_str);
+                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmid_as_str);
+                        },
+                        None => { 
+                            match RE_PM7.captures(&external_url.clone()) {
+                                Some(s) => {
+                                    pmid_as_str = s[0].to_string();
+                                    link_id = format!("PMID-{}", pmid_as_str);
+                                    external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmid_as_str);
+                                },
+                                None => {},
+                            }
+                        },
+                    }
                 }
-                else if low_url.contains("doi") {   // store doi
+
+                if low_url.contains("doi") && !low_url.ends_with("pdf") {   // store doi
                     
                     // get position of doi, get substring from that point
 
-                    
+                    if low_url.starts_with("https://dx.doi.org/10.") {
+                        let doi = &low_url[19..];
+                        link_id = format!("doi:{}", doi);
+                        external_url = format!("https://doi.org/{}", doi);  
+                        doi_as_str = external_url.clone();                     
+                    }
+                    if low_url.starts_with("https://doi.org/10.") {
+                        let doi= &low_url[16..].to_string();
+                        link_id = format!("doi:{}", doi);
+                        external_url = format!("https://doi.org/{}", doi);
+                        doi_as_str = external_url.clone();
+                    }
+                    if low_url.starts_with("https://www.doi.org/10.") {
+                        let doi= &low_url[20..].to_string();
+                        link_id = format!("doi:{}", doi);
+                        external_url = format!("https://doi.org/{}", doi);
+                        doi_as_str = external_url.clone();  
+                    }
                 }
-                else if low_url.contains("pmc") {
+                
+                if low_url.contains("pmc") && link_id == "".to_string() 
+                && !low_url.ends_with("pdf") {
 
                     // extract pmc id and redo the url to ensure in current form
-                    
+
+                    match RE_PMC7.captures(&external_url.clone()) {
+                        Some(s) => {
+                            pmcid_as_str = s[0].to_string();
+                            link_id = format!("PMCID-{}", pmcid_as_str);
+                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmcid_as_str);
+                        },
+                        None => { 
+                            match RE_PMC6.captures(&external_url.clone()) {
+                                Some(s) => {
+                                    pmcid_as_str = s[0].to_string();
+                                    link_id = format!("PMCID-{}", pmcid_as_str);
+                                    external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmcid_as_str);
+                                },
+                                None => {},
+                            }
+                        },
+                    }
                 }
-                else {  // probably a publisher's web site URL
-                    
-                    
+
+                if link_id == "".to_string() {  // probably a publisher's web site URL
+                    link_id = external_url.clone();
                 }
                
                 db_pubs.push(DBPublication { 
-                pub_type: Some(output_type.to_string()), 
-                details: op.description.clone(), 
-                external_url: external_url, 
-                linking_id: linking_id,
-                doi: doi,
-                pmid: pmid,
-                pmcid: pmcid,
-                date_created: creation_dt, 
-                date_uploaded: upload_dt, 
+                    pub_type: Some(output_type.to_string()), 
+                    details: details, 
+                    external_url: Some(external_url), 
+                    linking_id: if link_id == "".to_string() {None} else {Some(link_id)},
+                    doi: if doi_as_str == "".to_string() {None} else {Some(doi_as_str)},
+                    pmid: if pmid_as_str == "".to_string() {None} else {Some(pmid_as_str)},
+                    pmcid: if pmcid_as_str == "".to_string() {None} else {Some(pmcid_as_str)},
+                    date_created: creation_dt, 
+                    date_uploaded: upload_dt, 
                 });
             } 
             else {
 
+
+                
+
                 db_objects.push(DBObject { 
-                artefact_type: op.artefact_type.clone(),
-                output_type: Some(output_type.to_string()), 
-                date_created: creation_dt, 
-                date_uploaded: upload_dt, 
-                external_link_url: op.external_link_url.clone(), 
-                gu_id: op.file_id.clone(), 
-                output_description: op.description.clone(), 
-                original_filename: op.original_filename.clone(), 
-                download_filename: op.download_filename.clone(), 
-                output_version: op.version.clone(),
-                mime_type: op.mime_type.clone(),
+                    artefact_type: op.artefact_type.clone(),
+                    output_type: Some(output_type.to_string()), 
+                    date_created: creation_dt, 
+                    date_uploaded: upload_dt, 
+                    external_link_url: op.external_link_url.clone(), 
+                    gu_id: op.file_id.clone(), 
+                    output_description: op.description.clone(), 
+                    original_filename: op.original_filename.clone(), 
+                    download_filename: op.download_filename.clone(), 
+                    output_version: op.version.clone(),
+                    mime_type: op.mime_type.clone(),
                 });
             }
 

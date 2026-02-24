@@ -567,6 +567,11 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     
     // Outputs
 
+    // Split into external links and local files...
+    // As two sets within the json file -  s_links, s_files
+    // Combine some of the s_file data with the attached file data
+    // sets up the import processing much more clearly...
+
     let mut s_outputs: Vec<StudyOutput> = Vec::new();
     let ops = study.output_list.outputs;
     if let Some(output_list) = ops {
@@ -618,6 +623,9 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
 
     // Attached Files
     
+    // Need downloadURL!!!
+    // Integrate with 
+
     let mut s_attached_files: Vec<AttachedFile> = Vec::new();
     let afs = study.attached_file_list.attached_files;
     if let Some(file_list) = afs {
@@ -632,6 +640,11 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         }
     }
     let attached_files = count_option(s_attached_files);
+
+
+
+
+
 
     let mut has_sharing_plan = false;
     if let Some(b) = study.miscellaneous.ipd_sharing_plan {
