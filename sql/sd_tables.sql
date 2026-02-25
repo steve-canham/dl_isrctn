@@ -225,16 +225,17 @@ CREATE TABLE sd.study_objects(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 , sd_sid                 VARCHAR         NULL
 , artefact_type          VARCHAR         NULL
-, output_type            VARCHAR         NULL
+, object_type            VARCHAR         NULL
 , date_created           DATE            NULL
 , date_uploaded          DATE            NULL
-, external_link_url      VARCHAR         NULL
+, link_url               VARCHAR         NULL
 , gu_id                  VARCHAR         NULL
 , file_name              VARCHAR         NULL
-, output_description     VARCHAR         NULL
-, original_filename      VARCHAR         NULL
+, object_description     VARCHAR         NULL
+, object_filename        VARCHAR         NULL
 , download_filename      VARCHAR         NULL
 , output_version         VARCHAR         NULL
+, object_length          INT             NULL
 , mime_type              VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );

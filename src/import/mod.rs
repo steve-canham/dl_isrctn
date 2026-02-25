@@ -75,8 +75,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_iec_dv = IECVecs::new(20*batch_size);
         let mut study_obs_dv = ObjectVecs::new(3*batch_size);
         let mut study_pubs_dv = PublicationVecs::new(3*batch_size);
-        let mut study_files_dv = AttachedFileVecs::new(3*batch_size);
-
+   
         // get the list of json files relevant to this pass
 
         let file_sql = match import_type {
@@ -97,7 +96,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
         let file_list: Vec<FilePath> = sqlx::query_as(&file_sql).fetch_all(src_pool).await
                         .map_err(|e| AppError::SqlxError(e, file_sql))?;      
-        //let mut i = 0;
 
         for path in file_list {
             
@@ -131,7 +129,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(iecs) = dbs.ie_crit { study_iec_dv.add(sd_sid, &iecs); }
             if let Some(obs) = dbs.objects { study_obs_dv.add(sd_sid, &obs); }
             if let Some(pubs) = dbs.publications { study_pubs_dv.add(sd_sid, &pubs); }
-            if let Some(files) = dbs.local_files { study_files_dv.add(sd_sid, &files); }
                     
             //i += 1;
             //if i > 40 { break;}
@@ -151,7 +148,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.shrink_to_fit();
         study_obs_dv.shrink_to_fit();
         study_pubs_dv.shrink_to_fit();
-        study_files_dv.shrink_to_fit();
 
 
         studies_dv.store_data(src_pool).await?;
@@ -169,8 +165,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.store_data(src_pool).await?;
         study_obs_dv.store_data(src_pool).await?;
         study_pubs_dv.store_data(src_pool).await?;
-        study_files_dv.store_data(src_pool).await?;
-
 
         if n % 250 == 0 {
             info!("number of files processed: {}",  n);
@@ -192,7 +186,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
 
 
-    // need to import some forreign tables to handle
+    // need to import some foreign tables to handle
     // cross-ref org ids
     // and domain names of people 
 
@@ -210,6 +204,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
     transfer_study_conditions_data2(src_pool).await?;
     transfer_study_conditions_data3(src_pool).await?;
     transfer_study_features_data(src_pool).await?;
+
+    // Need a bulk update of import data in the mn table as well...
 
     Ok(ImportResult {
         num_available: num_files,

@@ -40,8 +40,8 @@ pub struct Study
 
     pub data_policies: Option<Vec<String>>,
     pub results: Results,
-    pub outputs: Option<Vec<StudyOutput>>,
-    pub attached_files: Option<Vec<AttachedFile>>,
+    pub links: Option<Vec<StudyLink>>,
+    pub files: Option<Vec<StudyFile>>,
     pub ipd: IPD,
 
 }
@@ -238,31 +238,43 @@ pub struct IPD
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct StudyOutput
+pub struct StudyLink
 {
-    pub output_type: Option<String>,
-    pub artefact_type: Option<String>,
+    pub link_type: Option<String>,
+    pub link_url: Option<String>,
+    pub description: Option<String>,
     pub date_created: Option<String>,
     pub date_uploaded: Option<String>,
-    pub peer_reviewed: Option<bool>,  
-    pub patient_facing: Option<bool>, 
-    pub created_by: Option<String>,
-    pub description: Option<String>,
-    pub production_notes: Option<String>,
-    pub external_link_url: Option<String>,
-    pub file_id: Option<String>,
-    pub original_filename: Option<String>,
-    pub download_filename: Option<String>,
-    pub version: Option<String>,
-    pub mime_type: Option<String>,
 }  
 
-#[derive(Serialize, Deserialize)]
-pub struct AttachedFile
+
+pub struct LocalFile
 {
+    pub file_type: Option<String>,
+    pub file_id: Option<String>,
     pub description: Option<String>,
-    pub name: Option<String>,
-    pub id: Option<String>,
-    pub is_public: Option<bool>, 
+    pub download_filename: Option<String>,
+    pub version: Option<String>,
+    pub length: Option<i32>,
     pub mime_type: Option<String>,
+    pub date_created: Option<String>,
+    pub date_uploaded: Option<String>,
+}
+
+
+#[derive(Serialize, Deserialize)]
+pub struct StudyFile
+{
+    pub file_type: Option<String>,
+    pub file_id: Option<String>,
+    pub description: Option<String>,
+    pub download_url: Option<String>,
+    pub download_filename: Option<String>,
+    pub name: Option<String>,
+    pub version: Option<String>,
+    pub length: Option<i32>,
+    pub mime_type: Option<String>,
+    pub is_public: Option<bool>, 
+    pub date_created: Option<String>,
+    pub date_uploaded: Option<String>,
 }

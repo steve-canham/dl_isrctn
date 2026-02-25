@@ -959,15 +959,17 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     participants.iec_flag =  inc_result + exc_result;
 
+
+
     // Outputs
 
-    let mut db_objects: Vec<DBObject> = Vec::new();
     let mut db_pubs: Vec<DBPublication> = Vec::new();
+    let mut db_objects: Vec<DBObject> = Vec::new();
 
-    if let Some(outputs) = &s.outputs{
-        for op in outputs {
+    if let Some(links) = &s.links{
+        for lk in links {
 
-            let creation_dt = match op.date_created.clone() {
+            let creation_dt = match lk.date_created.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
@@ -975,16 +977,16 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 None => None,
             };
 
-            let upload_dt = match op.date_uploaded.clone() {
+            let upload_dt = match lk.date_uploaded.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
                 }
                 None => None,
             };
-
-            let output_type_string = op.output_type.clone().unwrap_or_default().to_lowercase();
-            let output_type = match output_type_string.as_str() {
+            
+            let link_type_string = lk.link_type.clone().unwrap_or_default().to_lowercase();
+            let link_type = match link_type_string.as_str() {
                 "abstract" => "Abstract",
                 "hrasummary" => "HRA Summary",
                 "trialwebsite" => "Trial Website",
@@ -1009,16 +1011,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 _ => "?",
             };
 
-            let artefact_type_string = op.artefact_type.clone().unwrap_or_default();
-
             let mut is_pub = false;
 
-            if artefact_type_string == "ExternalLink"
-                && (output_type_string.contains("article") 
-                || output_type_string.contains("preprint")
-                || output_type_string.contains("abstract")
-                || output_type_string == "interimresults" 
-                || output_type_string == "otherpublications" ) {
+            if link_type_string.contains("article") 
+                || link_type_string.contains("preprint")
+                || link_type_string.contains("abstract")
+                || link_type_string == "interimresults" 
+                || link_type_string == "otherpublications"  {
 
                 is_pub = true;
             }
@@ -1027,7 +1026,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
                 // Simplify output type and description
 
-                let output_type = match output_type {
+                let link_type = match link_type {
                     "Abstract" => "Abstract",
                     "Protocol Article" => "Protocol", 
                     "Protocol Preprint" => "Protocol", 
@@ -1041,14 +1040,14 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 };
 
                 let mut details: Option<String> = None;
-                if let Some(mut d) = op.description.clone() {
+                if let Some(mut d) = lk.description.clone() {
                     d = d.trim().trim_matches(':').to_string();
-                    if d.to_lowercase() != output_type.to_lowercase() {
+                    if d.to_lowercase() != link_type.to_lowercase() {
                         details = Some(capitalize_first(&d));
                     }
                 }
-               
-                let mut external_url = op.external_link_url.clone().unwrap_or_default();
+
+                let mut external_url = lk.link_url.clone().unwrap_or_default();
                 external_url = external_url.replace("http://", "https://");    // regularise url scheme
                 external_url = external_url.replace("doi.org10.", "doi.org/10.");  // repair needed rarely
 
@@ -1141,7 +1140,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 }
                
                 db_pubs.push(DBPublication { 
-                    pub_type: Some(output_type.to_string()), 
+                    pub_type: Some(link_type.to_string()), 
                     details: details, 
                     external_url: Some(external_url), 
                     linking_id: if link_id == "".to_string() {None} else {Some(link_id)},
@@ -1151,46 +1150,108 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
                 });
-            } 
+            }
             else {
 
+                // a non publication link
 
-                
+                let mut details: Option<String> = None;
+                    if let Some(mut d) = lk.description.clone() {
+                    d = d.trim().trim_matches(':').to_string();
+                    if d.to_lowercase() != link_type.to_lowercase() {
+                        details = Some(capitalize_first(&d));
+                    }
+                }
 
                 db_objects.push(DBObject { 
-                    artefact_type: op.artefact_type.clone(),
-                    output_type: Some(output_type.to_string()), 
+                    artefact_type: Some("External Object".to_string()),
+                    object_type: Some(link_type.to_string()), 
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
-                    external_link_url: op.external_link_url.clone(), 
-                    gu_id: op.file_id.clone(), 
-                    output_description: op.description.clone(), 
-                    original_filename: op.original_filename.clone(), 
-                    download_filename: op.download_filename.clone(), 
-                    output_version: op.version.clone(),
-                    mime_type: op.mime_type.clone(),
+                    link_url: lk.link_url.clone(), 
+                    gu_id: None, 
+                    description: details.clone(), 
+                    object_name: None,
+                    download_filename: None,  
+                    object_version: None, 
+                    object_length: None,
+                    mime_type: None, 
                 });
             }
-
         }
     }
+    
 
-
-
-    // Attached files
-
-    let mut db_files: Vec<DBAttachedFile> = Vec::new();
-
-    if let Some(files) = &s.attached_files{
+    if let Some(files) = &s.files{
         for f in files {
-            db_files.push(DBAttachedFile {
-                gu_id: f.id.clone(),
-                file_name: f.name.clone(),
-                file_description: f.description.clone(),
-                is_public: f.is_public,
-                mime_type: f.mime_type.clone(),
-            })
 
+            let creation_dt = match f.date_created.clone() {
+                Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
+                    Ok(d) => Some(d),
+                    Err(_) => None,
+                }
+                None => None,
+            };
+
+            let upload_dt = match f.date_uploaded.clone() {
+                Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
+                    Ok(d) => Some(d),
+                    Err(_) => None,
+                }
+                None => None,
+            };
+            
+
+            let file_type_string = f.file_type.clone().unwrap_or_default().to_lowercase();
+            let file_type = match file_type_string.as_str() {
+                "abstract" => "Abstract",
+                "hrasummary" => "HRA Summary",
+                "trialwebsite" => "Trial Website",
+                "protocolarticle" => "Protocol Article",
+                "protocolpreprint" => "Protocol Preprint",
+                "thesis" => "Thesis",
+                "protocolother" => "Protocol (other format)",
+                "sap" => "SAP",
+                "otherfiles" => "Other files",
+                "interimresults" => "Interim Results",
+                "otherunpublished" => "Other Unpublished",
+                "protocolfile" => "Protocol File",
+                "otherpublications" => "Other Publications",
+                "poster" => "Poster",
+                "dataset" => "Dataset",
+                "basicresults" => "Basic Results",
+                "resultsarticle" => "Results Article",
+                "preprint" => "Preprint",
+                "funderreport" => "Funder Report",
+                "plainenglishresults" => "Plain English Results",
+                "pis" => "PIS",
+                _ => "?",
+            };
+
+            let mut details: Option<String> = None;
+            if let Some(mut d) = f.description.clone() {
+                d = d.trim().trim_matches(':').to_string();
+                if d.to_lowercase() != file_type.to_lowercase() {
+                    details = Some(capitalize_first(&d));
+                }
+            }
+
+            
+            
+            db_objects.push(DBObject { 
+                artefact_type: Some("Local File".to_string()),
+                object_type: Some(file_type.to_string()), 
+                date_created: creation_dt, 
+                date_uploaded: upload_dt, 
+                link_url: f.download_url.clone(), 
+                gu_id: f.file_id.clone(), 
+                description: details.clone(), 
+                object_name: f.name.clone(),
+                download_filename: f.download_filename.clone(),  
+                object_version: f.version.clone(), 
+                object_length: f.length,
+                mime_type: f.mime_type.clone(), 
+            });
 
         }
     }
@@ -1212,9 +1273,8 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         features: option_from_count(db_feats),
         topics: option_from_count(db_tops),
         ie_crit: option_from_count(db_iec),
-        objects: option_from_count(db_objects),
         publications: option_from_count(db_pubs),
-        local_files: option_from_count(db_files),
+        objects: option_from_count(db_objects),
     }
 
 }

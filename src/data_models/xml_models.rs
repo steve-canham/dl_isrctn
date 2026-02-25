@@ -141,7 +141,7 @@ pub struct EthicsCommittee
     #[serde(rename = "committeeName")]
     pub committee_name: Option<String>,
     #[serde(rename = "contactDetails")]
-    pub contact_details: ContactDetails,
+    pub contact_details: Option<ContactDetails>,
     #[serde(rename = "committeeReference")]
     pub committee_reference: Option<String>,
 }
@@ -213,12 +213,13 @@ pub struct Design
     #[serde(rename = "secondaryStudyDesign")]
     pub secondary_study_design: Option<String>,
     #[serde(rename = "trialSettings")]
-    pub trial_setting_list: TrialSettingList,
+    pub trial_setting_list: Option<TrialSettingList>,
     #[serde(rename = "trialTypes")]
-    pub trial_type_list: TrialTypeList,
+    pub trial_type_list: Option<TrialTypeList>,
     #[serde(rename = "overallEndDate")]
     pub overall_end_date: Option<String>,
 }
+
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct TrialSettingList
@@ -233,6 +234,7 @@ pub struct TrialSetting
     #[serde(rename = "$value")]
     pub trial_setting: Option<String>,
 }
+
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct TrialTypeList
@@ -451,7 +453,6 @@ pub struct Output
     pub patient_facing: Option<String>,  // actually a bool
     #[serde(rename = "@createdBy")]
     pub created_by: Option<String>,
-
     #[serde(rename = "externalLink")]
     pub external_link: Option<ExternalLink>,
     #[serde(rename = "localFile")]
@@ -547,7 +548,7 @@ pub struct Contact
     pub contact_type_list:ContactTypeList,
 
     #[serde(rename = "contactDetails")]
-    pub contact_details: ContactDetails,
+    pub contact_details: Option<ContactDetails>,
     pub privacy:  Option<String>,
 }
 
@@ -578,7 +579,7 @@ pub struct Sponsor
     pub sponsor_type:  Option<String>,
 
     #[serde(rename = "contactDetails")]
-    pub contact_details: ContactDetails,
+    pub contact_details: Option<ContactDetails>,
     pub privacy:  Option<String>,
 
     #[serde(rename = "rorId")]
@@ -609,6 +610,8 @@ pub struct Funder
     #[serde(rename = "fundRef")]
     pub fund_ref: Option<String>,
 }
+
+
 
 #[cfg(test)]
 mod tests {
@@ -789,7 +792,7 @@ mod tests {
             approval_status: Some("approved".to_string()),
             status_date: Some("2022-03-10T00:00:00.000Z".to_string()),
             committee_name: Some("Haikou Municipal People's Hospital Biomedical Ethics Committee".to_string()),
-            contact_details: cdets,
+            contact_details: Some(cdets),
             committee_reference: Some("2023-055".to_string()),
         };
 
@@ -902,7 +905,7 @@ mod tests {
             approval_status: Some("approved".to_string()),
             status_date: Some("2022-03-10T00:00:00.000Z".to_string()),
             committee_name: Some("Haikou Municipal People's Hospital Biomedical Ethics Committee".to_string()),
-            contact_details: cdets,
+            contact_details: Some(cdets),
             committee_reference: Some("2023-055".to_string()),
         };
 
@@ -1007,8 +1010,8 @@ mod tests {
             study_design: Some("Observational cohort study".to_string()),
             primary_study_design: Some("Observational".to_string()),
             secondary_study_design: Some("Cohort study".to_string()),
-            trial_type_list: tt_list,
-            trial_setting_list: ts_list,
+            trial_type_list: Some(tt_list),
+            trial_setting_list: Some(ts_list),
             overall_end_date: Some("2024-06-12T00:00:00.000Z".to_string()),
         };
         
@@ -1450,6 +1453,7 @@ mod tests {
         let der_struct: OutputList = quick_xml::de::from_str(xml_string).unwrap();
         assert_eq!(outs, der_struct);
     }
+       
 
     #[test]
     fn check_can_parse_parties1() {
@@ -1574,6 +1578,366 @@ mod tests {
 
     }
      
+
+    #[test]
+    fn check_can_parse_trial() {
+
+    let xml_string = r#"
+<trial lastUpdated="2020-06-03T12:48:55.219Z" version="89">
+    <isrctn dateAssigned="2020-05-24T15:56:15.693Z">14757012</isrctn>
+    <trialDescription thirdPartyFilesAcknowledgement="false">
+        <acknowledgment>true</acknowledgment>
+        <title>Is surgical treatment of recurrent eye styes more or less effective when...</title>
+        <scientificTitle>Comparing surgical treatment alone vs surgical treatment...</scientificTitle>
+        <acronym/>
+        <studyHypothesis>A study on the combined effectiveness of surgical intervention...</studyHypothesis>
+        <plainEnglishSummary>Background and study aims Based on clinical observations made...</plainEnglishSummary>
+        <primaryOutcomes/>
+        <primaryOutcome>Stye recurrence was determined by interview</primaryOutcome>
+        <secondaryOutcomes/>
+        <secondaryOutcome>1. Swelling was measured using the Vernier calliper</secondaryOutcome>
+        <trialWebsite/>
+        <ethicsApprovalRequired>Old ethics approval format</ethicsApprovalRequired>
+        <ethicsCommittees/>
+        <ethicsApproval>Approved 22/04/2013, Institutional Ethical Committee</ethicsApproval>
+    </trialDescription>
+    <externalRefs>
+        <doi>10.1186/ISRCTN14757012</doi>
+        <eudraCTNumber>Nil known</eudraCTNumber>
+        <irasNumber/>
+        <clinicalTrialsGovNumber>Nil known</clinicalTrialsGovNumber>
+        <protocolSerialNumber>0422.12/2013</protocolSerialNumber>
+        <secondaryNumbers>
+            <secondaryNumber id="7341a875-44c4-497c-990f-28ad9c7a7a05" numberType="ctis">Nil known</secondaryNumber>
+        </secondaryNumbers>
+    </externalRefs>
+    <trialDesign>
+        <studyDesign>Randomised control parallel open trial</studyDesign>
+        <primaryStudyDesign>Interventional</primaryStudyDesign>
+        <secondaryStudyDesign>Randomised controlled trial</secondaryStudyDesign>
+        <trialSettings/>
+        <trialTypes>
+            <trialType>Treatment</trialType>
+        </trialTypes>
+        <overallEndDate>2015-05-07T00:00:00.000Z</overallEndDate>
+    </trialDesign>
+    <participants>
+        <recruitmentCountries>
+            <country>India</country>
+        </recruitmentCountries>
+        <trialCentres>
+            <trialCentre id="1da42984-9eec-43cf-9246-401eeb8c7447">
+                <name>Government Ayurveda College Hospital</name>
+                <address>Department of Shalakyatantra</address>
+                <city>Kerala</city>
+                <state/>
+                <country>India</country>
+                <zip>695001</zip>
+            </trialCentre>
+        </trialCentres>
+        <participantTypes>
+            <participantType>Patient</participantType>
+        </participantTypes>
+        <inclusion>1. Aged 10 - 50 years</inclusion>
+        <ageRange>Mixed</ageRange>
+        <gender>All</gender>
+        <targetEnrolment>40</targetEnrolment>
+        <totalFinalEnrolment>40</totalFinalEnrolment>
+        <totalTarget/>
+        <exclusion>1. Bleeding disorders</exclusion>
+        <patientInfoSheet/>
+        <recruitmentStart>2013-05-20T00:00:00.000Z</recruitmentStart>
+        <recruitmentEnd>2015-01-10T00:00:00.000Z</recruitmentEnd>
+        <recruitmentStartStatusOverride/>
+        <recruitmentStatusOverride/>
+    </participants>
+    <conditions>
+        <condition>
+            <description>Eye stye</description>
+            <diseaseClass1>Eye Diseases</diseaseClass1>
+            <diseaseClass2>Hordeolum and other deep inflammation of eyelid</diseaseClass2>
+        </condition>
+    </conditions>
+    <interventions>
+        <intervention>
+            <description>Patients diagnosed as having recurrent</description>
+            <interventionType>Procedure/Surgery</interventionType>
+            <pharmaceuticalStudyTypes/>
+            <phase/>
+            <drugNames/>
+        </intervention>
+    </interventions>
+    <results>
+        <publicationPlan/>
+        <ipdSharingStatement>The data sharing plans for the current study are unknown</ipdSharingStatement>
+        <dataPolicies>
+            <dataPolicy>Data sharing statement to be made available at a later date</dataPolicy>
+        </dataPolicies>
+        <publicationDetails/>
+        <publicationStage>Results</publicationStage>
+        <biomedRelated>false</biomedRelated>
+        <basicReport>Basic results see attached file ISRCTN14757012_BasicResults.pdf (added 03/06/2020)</basicReport>
+        <plainEnglishReport/>
+    </results>
+    <outputs>
+        <output id="ed8fc9fd-2d18-4527-94bd-33a79fd61604" outputType="basicresults" artefactType="LocalFile" dateCreated="" dateUploaded="2020-06-03T00:00:00.000Z" peerReviewed="false" patientFacing="false" createdBy="Data migration">
+            <localFile fileId="f7fcfe06-4622-4093-8319-bb92a0d4a8ba" originalFilename="ISRCTN14757012_BasicResults.pdf" downloadFilename="ISRCTN14757012_BasicResults.pdf" version="" mimeType="application/pdf" length="444124" md5sum="76f69f18c8418669d98448ff60e8afec"/>
+            <description/>
+            <productionNotes>Original line: 'See additional file ISRCTN14757012_BasicResults (added 03/06/2020)'</productionNotes>
+        </output>
+    </outputs>
+    <parties>
+        <funderId>02469fb2-be90-49ca-8025-fbb417745c5c</funderId>
+        <contactId>ca96dd54-38e5-44bc-b285-fc017488c425</contactId>
+        <sponsorId>05af7378-dcc4-4705-9ea4-2b4a3527ca33</sponsorId>
+    </parties>
+    <miscellaneous>
+        <ipdSharingPlan>No</ipdSharingPlan>
+    </miscellaneous>
+    <attachedFiles>
+        <attachedFile downloadUrl="https://www.isrctn.com/editorial/retrieveFile/f7fcfe06-4622-4093-8319-bb92a0d4a8ba/36177">
+            <description>Uploaded (03/06/2020)</description>
+            <name>ISRCTN14757012_BasicResults.pdf</name>
+            <id>f7fcfe06-4622-4093-8319-bb92a0d4a8ba</id>
+            <public>true</public>
+            <mimeType>application/pdf</mimeType>
+            <length>444124</length>
+            <md5sum>76f69f18c8418669d98448ff60e8afec</md5sum>
+        </attachedFile>
+    </attachedFiles>
+</trial>"#;
+
+    let isrctn = Isrctn {
+        date_assigned: Some("2020-05-24T15:56:15.693Z".to_string()),
+        value:"14757012".to_string(),
+    };
+
+    let eclist = EthicsCommitteeList { 
+            ethics_committees: vec![],
+        };
+
+    let po_list = PrimOutcomesList {
+            outcome_measures: vec![],
+        };
+
+    let so_list = SecOutcomesList {
+            outcome_measures: vec![],
+        };
+
+    let trial_desc = Description {
+        third_party_ack: Some("false".to_string()),
+        acknowledgment: Some("true".to_string()),
+        title: Some("Is surgical treatment of recurrent eye styes more or less effective when...".to_string()),
+        scientific_title: Some("Comparing surgical treatment alone vs surgical treatment...".to_string()), 
+        acronym: Some("".to_string()),  
+        study_hypothesis: Some("A study on the combined effectiveness of surgical intervention...".to_string()), 
+        plain_english_summary: Some("Background and study aims Based on clinical observations made...".to_string()), 
+        primary_outcome: Some("Stye recurrence was determined by interview".to_string()), 
+        primary_outcomes: po_list,
+        secondary_outcome: Some("1. Swelling was measured using the Vernier calliper".to_string()), 
+        secondary_outcomes: so_list,
+        trial_website: Some("".to_string()),   
+        ethics_approval_required: Some("Old ethics approval format".to_string()), 
+        ethics_committee_list: eclist,
+        ethics_approval: Some("Approved 22/04/2013, Institutional Ethical Committee".to_string()),
+    };
+
+    let sec_num = vec![SecondaryNumber {
+            id: Some("7341a875-44c4-497c-990f-28ad9c7a7a05".to_string()),
+            number_type: Some("ctis".to_string()),
+            value: Some("Nil known".to_string()),
+        }];
+
+    let secid_list = SecondaryNumberList {
+        secondary_numbers: Some(sec_num),
+    };
+   
+    let extrefs = ExternalRefs {
+        doi: Some("10.1186/ISRCTN14757012".to_string()),
+        eudra_ct_number: Some("Nil known".to_string()),
+        iras_number: Some("".to_string()), 
+        ctg_number: Some("Nil known".to_string()),
+        protocol_serial_number: Some("0422.12/2013".to_string()),
+        secondary_number_list: secid_list,
+    };
+
+    let setts: Vec<TrialSetting> = vec![];
+    let settings_list = TrialSettingList { 
+        trial_settings: setts,
+    };
+
+    let trial_types_list = TrialTypeList {
+        trial_types: vec![TrialType {
+            trial_type: Some("Treatment".to_string()),
+        }],
+    };
+
+    let des = Design {
+        study_design: Some("Randomised control parallel open trial".to_string()),
+        primary_study_design: Some("Interventional".to_string()),
+        secondary_study_design: Some("Randomised controlled trial".to_string()),
+        trial_setting_list: Some(settings_list), 
+        trial_type_list: Some(trial_types_list),
+        overall_end_date: Some("2015-05-07T00:00:00.000Z".to_string()),
+    };
+
+    let country_list = CountryList {
+        countries: vec![Country {
+            country: Some("India".to_string()),
+        }],
+    };
+
+    let centre_list = CentreList {
+        centres: vec![Centre{
+            id: Some("1da42984-9eec-43cf-9246-401eeb8c7447".to_string()),
+            name: Some("Government Ayurveda College Hospital".to_string()),
+            address: Some("Department of Shalakyatantra".to_string()),
+            city: Some("Kerala".to_string()),
+            state: Some("".to_string()),
+            country: Some("India".to_string()),
+            zip: Some("695001".to_string()),
+        }],
+    };
+
+    let partic_type_list = ParticipantTypeList {
+        participant_types: vec![ParticipantType{
+            participant_type: Some("Patient".to_string()),
+        }],
+    };
+
+
+    let partics = Participants {
+        country_list: country_list,
+        centre_list: centre_list,
+        participant_type_list: partic_type_list, 
+        inclusion: Some("1. Aged 10 - 50 years".to_string()),
+        age_range: Some("Mixed".to_string()),
+        lower_age_limit: None,
+        upper_age_limit: None,
+        gender: Some("All".to_string()),
+        target_enrolment: Some("40".to_string()),
+        total_final_enrolment: Some("40".to_string()),
+        total_target: Some("".to_string()),
+        exclusion: Some("1. Bleeding disorders".to_string()),
+        patient_info_sheet: Some("".to_string()),
+        recruitment_start: Some("2013-05-20T00:00:00.000Z".to_string()),
+        recruitment_end: Some("2015-01-10T00:00:00.000Z".to_string()),
+        recruitment_status_override: Some("".to_string()),
+        recruitment_start_status_override: Some("".to_string()),
+    };
+
+    let conds: Vec<Condition> = vec![Condition{
+        description: Some("Eye stye".to_string()),
+        disease_class1: Some("Eye Diseases".to_string()),
+        disease_class2: Some("Hordeolum and other deep inflammation of eyelid".to_string()),
+    }];
+
+    let cond_list = ConditionList {
+        conditions: conds,
+    };
+
+    let ints: Vec<Intervention> = vec![Intervention {
+        description:Some("Patients diagnosed as having recurrent".to_string()),
+        intervention_type: Some("Procedure/Surgery".to_string()),
+        pharmaceutical_study_types: Some("".to_string()),
+        phase: Some("".to_string()),
+        drug_names: Some("".to_string()),
+    }];
+
+    let int_list = InterventionList {
+        interventions: ints,
+    };
+
+    let res = Results {
+        publication_plan: Some("".to_string()),
+        ipd_sharing_statement: Some("The data sharing plans for the current study are unknown".to_string()),
+        intent_to_publish: None,
+        data_policy_list: DataPolicyList { 
+            data_policies: vec![DataPolicy {
+                data_policy: Some("Data sharing statement to be made available at a later date".to_string()),
+            }] 
+        },
+        publication_details: Some("".to_string()),
+        publication_stage: Some("Results".to_string()),
+        biomed_related: Some("false".to_string()),
+        basic_report: Some("Basic results see attached file ISRCTN14757012_BasicResults.pdf (added 03/06/2020)".to_string()),
+        plain_english_report: Some("".to_string()),
+    };
+
+    let local_file = LocalFile {
+        file_id: Some("f7fcfe06-4622-4093-8319-bb92a0d4a8ba".to_string()),
+        original_filename: Some("ISRCTN14757012_BasicResults.pdf".to_string()),
+        download_filename: Some("ISRCTN14757012_BasicResults.pdf".to_string()),
+        version: Some("".to_string()),
+        mime_type: Some("application/pdf".to_string()),
+        length: Some("444124".to_string()),
+        md5sum: Some("76f69f18c8418669d98448ff60e8afec".to_string()),
+    };
+
+    let out_list = OutputList {
+        outputs: Some(vec![Output {
+            id: Some("ed8fc9fd-2d18-4527-94bd-33a79fd61604".to_string()),
+            output_type: Some("basicresults".to_string()),
+            artefact_type: Some("LocalFile".to_string()),
+            external_link: None,
+            date_created: Some("".to_string()),
+            date_uploaded: Some("2020-06-03T00:00:00.000Z".to_string()),
+            peer_reviewed: Some("false".to_string()),
+            patient_facing: Some("false".to_string()),
+            created_by: Some("Data migration".to_string()),
+            local_file: Some(local_file),
+            description: Some("".to_string()),
+            production_notes: Some("Original line: 'See additional file ISRCTN14757012_BasicResults (added 03/06/2020)'".to_string()),
+        }]),
+    };
+
+    let parties = Parties {
+        funder_ids: Some(vec!["02469fb2-be90-49ca-8025-fbb417745c5c".to_string()]),
+        contact_ids: Some(vec!["ca96dd54-38e5-44bc-b285-fc017488c425".to_string()]),
+        sponsor_ids: Some(vec!["05af7378-dcc4-4705-9ea4-2b4a3527ca33".to_string()]),
+    };
+
+    let misc = Miscellaneous {
+        ipd_sharing_plan: Some("No".to_string()),
+    };
+
+    let files = AttachedFileList {
+        attached_files: Some(vec![ AttachedFile {
+            download_url: Some("https://www.isrctn.com/editorial/retrieveFile/f7fcfe06-4622-4093-8319-bb92a0d4a8ba/36177".to_string()),
+            description: Some("Uploaded (03/06/2020)".to_string()),
+            name: Some("ISRCTN14757012_BasicResults.pdf".to_string()),
+            id: Some("f7fcfe06-4622-4093-8319-bb92a0d4a8ba".to_string()),
+            public: Some("true".to_string()),
+            mime_type: Some("application/pdf".to_string()),
+            length: Some("444124".to_string()),
+            md5sum: Some("76f69f18c8418669d98448ff60e8afec".to_string()),
+        }]),
+    };
+
+    let trial = Trial {
+            last_updated: Some("2020-06-03T12:48:55.219Z".to_string()),
+            version:  Some("89".to_string()),
+            isrctn: isrctn,
+            trial_description: trial_desc,
+            external_refs: extrefs,
+            trial_design:des,
+            participants: partics,
+            condition_list: cond_list,
+            intervention_list: int_list,
+            results: res,
+            output_list: out_list,
+            parties: parties,
+            attached_file_list: files,
+            miscellaneous: misc,
+        };
+
+         let der_trial = quick_xml::de::from_str(xml_string).unwrap();
+         assert_eq!(trial, der_trial);
+
+    }  
+      
+
+
     #[test]
     fn check_can_parse_fund_ref1() {
 
@@ -1693,7 +2057,7 @@ mod tests {
             organisation: Some("\n            Federal Centre for Health Education (BZgA) (Germany)\n            ".to_string()),
             website: Some("".to_string()),
             sponsor_type: Some("Government".to_string()),
-            contact_details: cdets,
+            contact_details: Some(cdets),
             privacy: Some("".to_string()),
             ror_id: Some("https://ror.org/054c9y537".to_string()),
             commercial_status: Some("Non-commercial".to_string())
@@ -1754,7 +2118,7 @@ mod tests {
             surname: Some("Jonas".to_string()),
             orcid: Some("".to_string()),
             contact_type_list: ct_list,
-            contact_details: cdets,
+            contact_details: Some(cdets),
             privacy: Some("Public".to_string()),
         };
         let der_struct: Contact = quick_xml::de::from_str(xml_string).unwrap();
@@ -1859,7 +2223,7 @@ mod tests {
             surname: Some("Hutchison".to_string()),
             orcid: Some("".to_string()),
             contact_type_list: ct_list1,
-            contact_details: cdets1,
+            contact_details: Some(cdets1),
             privacy: Some("Protected".to_string()),
         };
 
@@ -1887,7 +2251,7 @@ mod tests {
             surname: Some("Jepson".to_string()),
             orcid: Some("".to_string()),
             contact_type_list: ct_list2,
-            contact_details: cdets2,
+            contact_details: Some(cdets2),
             privacy: Some("Protected".to_string()),
         };
         let cdets3 = ContactDetails {
@@ -1904,7 +2268,7 @@ mod tests {
             organisation: Some("ProsFit Technologies UK Ltd.".to_string()),
             website: Some("".to_string()),
             sponsor_type: Some("Industry".to_string()),
-            contact_details: cdets3,
+            contact_details: Some(cdets3),
             privacy: Some("".to_string()),
             ror_id: None,
             commercial_status: Some("Commercial".to_string())

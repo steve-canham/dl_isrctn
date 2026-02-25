@@ -280,10 +280,12 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     // Trial type list and trial settings list
 
     let mut t_types: Vec<String> = Vec::new();
-    if ds.trial_type_list.trial_types.len() > 0 {
-        for tt in ds.trial_type_list.trial_types {
-            if let Some(s) = tt.trial_type.as_text_opt(){
-                t_types.push(s);
+    if let Some(tts) = ds.trial_type_list {
+        if tts.trial_types.len() > 0 {
+            for tt in tts.trial_types {
+                if let Some(s) = tt.trial_type.as_text_opt(){
+                    t_types.push(s);
+                }
             }
         }
     }
@@ -291,10 +293,12 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
 
     
     let mut t_settings: Vec<String> = Vec::new();
-    if ds.trial_setting_list.trial_settings.len() > 0 {
-        for ts in ds.trial_setting_list.trial_settings {
-            if let Some(s) = ts.trial_setting.as_text_opt(){
-                t_settings.push(s);
+    if let Some(tss) = ds.trial_setting_list {
+        if tss.trial_settings.len() > 0 {
+            for ts in tss.trial_settings {
+                if let Some(s) = ts.trial_setting.as_text_opt(){
+                    t_settings.push(s);
+                }
             }
         }
     }
@@ -359,16 +363,29 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
             }
             let contact_types = count_option(s_contact_types);
 
+            // default values
+            let mut address: Option<String> = None;
+            let mut city: Option<String> = None;
+            let mut country: Option<String> = None;
+            let mut email: Option<String> = None;
+
+            if let Some(cd) = c.contact_details {
+                address = cd.address.as_text_opt();
+                city = cd.city.as_text_opt();
+                country = cd.country.as_text_opt();
+                email = cd.email.as_text_opt();
+            }
+
             s_contacts.push(StudyContact{
                 title: c.title.as_text_opt(),
                 forename: c.forename.as_text_opt(),
                 surname: c.surname.as_text_opt(),
                 orcid: c.orcid.as_text_opt(),
                 contact_types: contact_types,
-                address: c.contact_details.address.as_text_opt(),
-                city: c.contact_details.city.as_text_opt(),
-                country: c.contact_details.country.as_text_opt(),
-                email: c.contact_details.email.as_text_opt(),
+                address: address,
+                city: city,
+                country: country,
+                email: email,
                 privacy: c.privacy.as_text_opt(),
             });
         }
@@ -380,15 +397,29 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     let mut s_sponsors:Vec<StudySponsor> = Vec::new();
     if s.sponsors.len() > 0 {
         for sp in s.sponsors {
+
+            // default values
+            let mut address: Option<String> = None;
+            let mut city: Option<String> = None;
+            let mut country: Option<String> = None;
+            let mut email: Option<String> = None;
+
+            if let Some(cd) = sp.contact_details {
+                address = cd.address.as_text_opt();
+                city = cd.city.as_text_opt();
+                country = cd.country.as_text_opt();
+                email = cd.email.as_text_opt();
+            }
+                 
             s_sponsors.push (StudySponsor {
                 organisation: sp.organisation.as_text_opt(),
                 website: sp.website.as_text_opt(),
                 sponsor_type: sp.sponsor_type.as_text_opt(),
                 ror_id: sp.ror_id.as_text_opt(),
-                address: sp.contact_details.address.as_text_opt(),
-                city: sp.contact_details.city.as_text_opt(),
-                country: sp.contact_details.country.as_text_opt(),
-                email: sp.contact_details.email.as_text_opt(),
+                address: address,
+                city: city,
+                country: country,
+                email: email,
                 privacy: sp.privacy.as_text_opt(),
                 commercial_status: sp.commercial_status.as_text_opt(),
             });
@@ -564,86 +595,113 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
             basic_report: r.basic_report.as_text_opt(),
             plain_english_report: r.plain_english_report.as_text_opt(),
     };
+
     
     // Outputs
 
-    // Split into external links and local files...
-    // As two sets within the json file -  s_links, s_files
-    // Combine some of the s_file data with the attached file data
-    // sets up the import processing much more clearly...
+    let mut s_links: Vec<StudyLink> = Vec::new();
+    let mut local_files: Vec<LocalFile> = Vec::new();
+    let mut s_files: Vec<StudyFile> = Vec::new();
 
-    let mut s_outputs: Vec<StudyOutput> = Vec::new();
+ 
     let ops = study.output_list.outputs;
     if let Some(output_list) = ops {
         for op in output_list {
 
-            // defaults 
-            let mut external_link_url = None;
-            let mut file_id = None;
-            let mut original_filename = None;
-            let mut download_filename = None;
-            let mut version = None;
-            let mut mime_type = None;
+            let art_type = op.artefact_type.unwrap_or_default();  // should always be present
+            if art_type == "ExternalLink" {
+                
+                let external_link = op.external_link;
+                let external_link_url = match external_link {
+                    Some(el) => el.url.as_text_opt(),
+                    None => None,
+                };
 
-            let external_link = op.external_link;
-            if let Some(el) = external_link {
-                external_link_url = el.url.as_text_opt();
+                s_links.push(StudyLink {
+                    link_type: op.output_type.as_text_opt(),
+                    link_url: external_link_url,
+                    description: op.description.as_text_opt(),
+                    date_created: op.date_created.as_date_opt(),
+                    date_uploaded: op.date_uploaded.as_date_opt(),
+                });
+
             }
 
-            let local_file = op.local_file;
-            if let Some(lf) = local_file {
-                file_id = lf.file_id.as_text_opt();
-                original_filename = lf.original_filename.as_text_opt(); 
-                download_filename = lf.download_filename.as_text_opt();
-                version = lf.version.as_text_opt();
-                mime_type = lf.mime_type.as_text_opt();
+            if art_type == "LocalFile" {
+
+                // defaults 
+                let mut file_id = None;
+                let mut download_filename = None;
+                let mut version = None;
+                let mut length = None;
+                let mut mime_type = None;
+
+
+                let local_file = op.local_file;
+                if let Some(lf) = local_file {
+                    file_id = lf.file_id.as_text_opt();
+                    download_filename = lf.download_filename.as_text_opt();
+                    version = lf.version.as_text_opt();
+                    length = lf.length.as_i32_opt();
+                    mime_type = lf.mime_type.as_text_opt();
+                }
+
+                local_files.push(LocalFile {
+                    file_type: op.output_type.as_text_opt(),
+                    file_id: file_id,
+                    description: op.description.as_text_opt(),
+                    download_filename: download_filename,
+                    version: version,
+                    length: length,
+                    mime_type: mime_type,
+                    date_created: op.date_created.as_date_opt(),
+                    date_uploaded: op.date_uploaded.as_date_opt(),
+                });
+
             }
 
-            s_outputs.push(StudyOutput {
-                description: op.description.as_text_opt(),
-                production_notes: op.production_notes.as_text_opt(),
-                output_type: op.output_type.as_text_opt(),
-                artefact_type: op.artefact_type.as_text_opt(),
-                date_created: op.date_created.as_date_opt(),
-                date_uploaded: op.date_uploaded.as_date_opt(),
-                peer_reviewed: op.peer_reviewed.as_bool_opt(),
-                patient_facing: op.patient_facing.as_bool_opt(),
-                created_by: op.created_by.as_text_opt(),
-
-                external_link_url: external_link_url,
-                file_id: file_id,
-                original_filename: original_filename, 
-                download_filename: download_filename,
-                version: version,
-                mime_type: mime_type,
-            });
         }
     }
-    let outputs = count_option(s_outputs);
-
+   
     // Attached Files
-    
-    // Need downloadURL!!!
-    // Integrate with 
 
-    let mut s_attached_files: Vec<AttachedFile> = Vec::new();
+    // Always seem to match one of the file outputs
+    
     let afs = study.attached_file_list.attached_files;
     if let Some(file_list) = afs {
         for af in file_list {
-            s_attached_files.push( AttachedFile { 
-                description: af.description.as_text_opt(),
-                name: af.name.as_text_opt(),
-                id: af.id.as_text_opt(),
-                is_public: af.public.as_bool_opt(),
-                mime_type: af.mime_type.as_text_opt(),
-            });
+
+            let id_opt = af.id.as_text_opt();
+            if let Some(id) = id_opt {
+
+                // find the existing LocalFile with the same Id
+                // and use it and the attached file details to create a StudyFile record
+
+                for lf in &local_files {
+                    let lfid = lf.file_id.clone().unwrap_or_default();
+                    if lfid == id {
+                          s_files.push(StudyFile {
+                            file_type: lf.file_type.clone(),
+                            file_id: lf.file_id.clone(),
+                            description: lf.description.clone(),
+                            download_url: af.download_url.as_text_opt(),
+                            download_filename: lf.download_filename.clone(),
+                            name: af.name.as_text_opt(),
+                            version: lf.version.clone(),
+                            length: lf.length,
+                            mime_type: lf.mime_type.clone(),
+                            is_public: af.public.as_bool_opt(),
+                            date_created: lf.date_created.clone(),
+                            date_uploaded: lf.date_uploaded.clone(),
+                        });
+                    }
+                }
+            }
         }
     }
-    let attached_files = count_option(s_attached_files);
 
-
-
-
+    let links = count_option(s_links);
+    let files = count_option(s_files);
 
 
     let mut has_sharing_plan = false;
@@ -651,8 +709,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         if b.to_ascii_lowercase() == "yes" {
             has_sharing_plan = true;
         }
-
     }
+
     let ipd = IPD {
             ipd_sharing_plan: has_sharing_plan,
             ipd_sharing_statement: r.ipd_sharing_statement.as_text_opt(),
@@ -687,8 +745,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         countries,
         data_policies,
         results,
-        outputs,
-        attached_files,
+        links,
+        files,
         ipd,
     };
 

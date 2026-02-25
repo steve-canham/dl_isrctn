@@ -18,9 +18,8 @@ pub struct DBStudy {
     pub features: Option<Vec<DBFeature>>, 
     pub topics: Option<Vec<DBTopic>>, 
     pub ie_crit: Option<Vec<IECLine>>, 
-    pub objects: Option<Vec<DBObject>>,
     pub publications: Option<Vec<DBPublication>>,
-    pub local_files: Option<Vec<DBAttachedFile>>,
+    pub objects: Option<Vec<DBObject>>,
 }
 
 pub struct DBSummary {
@@ -139,15 +138,16 @@ pub struct DBFeature {
 
 pub struct DBObject {
     pub artefact_type: Option<String>,
-    pub output_type: Option<String>,
+    pub object_type: Option<String>,
     pub date_created: Option<NaiveDate>,
     pub date_uploaded: Option<NaiveDate>,
-    pub external_link_url: Option<String>,
+    pub link_url: Option<String>,
     pub gu_id: Option<String>,    
-    pub output_description: Option<String>,
-    pub original_filename: Option<String>,
+    pub description: Option<String>,
+    pub object_name: Option<String>,
     pub download_filename: Option<String>,
-    pub output_version: Option<String>,
+    pub object_version: Option<String>,
+    pub object_length: Option<i32>,
     pub mime_type: Option<String>,
 }
 
@@ -164,12 +164,3 @@ pub struct DBPublication {
     pub date_uploaded: Option<NaiveDate>,
 }
 
-
-pub struct DBAttachedFile {
-    pub gu_id: Option<String>,
-    pub file_name: Option<String>,
-    pub file_description: Option<String>,
-    pub is_public: Option<bool>,
-    pub mime_type: Option<String>,
-
-}

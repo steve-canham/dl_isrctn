@@ -827,15 +827,16 @@ impl IECVecs{
 pub struct ObjectVecs {
     pub sd_sids: Vec<String>,
     pub artefact_types: Vec<Option<String>>,
-    pub output_types: Vec<Option<String>>,
+    pub object_types: Vec<Option<String>>,
     pub date_createds: Vec<Option<NaiveDate>>,
     pub date_uploadeds: Vec<Option<NaiveDate>>,
-    pub external_link_urls: Vec<Option<String>>,
+    pub link_urls: Vec<Option<String>>,
     pub gu_ids: Vec<Option<String>>,    
-    pub output_descriptions: Vec<Option<String>>,
-    pub original_filenames: Vec<Option<String>>,
+    pub descriptions: Vec<Option<String>>,
+    pub object_names: Vec<Option<String>>,
     pub download_filenames: Vec<Option<String>>,
-    pub output_versions: Vec<Option<String>>,
+    pub object_versions: Vec<Option<String>>,
+    pub object_lengths: Vec<Option<i32>>,
     pub mime_types: Vec<Option<String>>,
 }
 
@@ -844,15 +845,16 @@ impl ObjectVecs{
         ObjectVecs { 
             sd_sids: Vec::with_capacity(vsize),
             artefact_types: Vec::with_capacity(vsize),
-            output_types: Vec::with_capacity(vsize),
+            object_types: Vec::with_capacity(vsize),
             date_createds: Vec::with_capacity(vsize),
             date_uploadeds: Vec::with_capacity(vsize),
-            external_link_urls: Vec::with_capacity(vsize),
+            link_urls: Vec::with_capacity(vsize),
             gu_ids: Vec::with_capacity(vsize),   
-            output_descriptions: Vec::with_capacity(vsize),
-            original_filenames: Vec::with_capacity(vsize),
+            descriptions: Vec::with_capacity(vsize),
+            object_names: Vec::with_capacity(vsize),
             download_filenames: Vec::with_capacity(vsize),
-            output_versions: Vec::with_capacity(vsize),
+            object_versions: Vec::with_capacity(vsize),
+            object_lengths:  Vec::with_capacity(vsize),
             mime_types: Vec::with_capacity(vsize),
         }
     }
@@ -862,15 +864,16 @@ impl ObjectVecs{
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.artefact_types.push(r.artefact_type.clone());
-            self.output_types.push(r.output_type.clone());
+            self.object_types.push(r.object_type.clone());
             self.date_createds.push(r.date_created.clone());
             self.date_uploadeds.push(r.date_uploaded.clone());
-            self.external_link_urls.push(r.external_link_url.clone());
+            self.link_urls.push(r.link_url.clone());
             self.gu_ids.push(r.gu_id.clone());
-            self.output_descriptions.push(r.output_description.clone());
-            self.original_filenames.push(r.original_filename.clone());
+            self.descriptions.push(r.description.clone());
+            self.object_names.push(r.object_name.clone());
             self.download_filenames.push(r.download_filename.clone());
-            self.output_versions.push(r.output_version.clone());
+            self.object_versions.push(r.object_version.clone());
+            self.object_lengths.push(r.object_length.clone());
             self.mime_types.push(r.mime_type.clone());
         }
     }
@@ -879,43 +882,48 @@ impl ObjectVecs{
        
             self.sd_sids.shrink_to_fit();
             self.artefact_types.shrink_to_fit();
-            self.output_types.shrink_to_fit();
+            self.object_types.shrink_to_fit();
             self.date_createds.shrink_to_fit();
             self.date_uploadeds.shrink_to_fit();
-            self.external_link_urls.shrink_to_fit();
+            self.link_urls.shrink_to_fit();
             self.gu_ids.shrink_to_fit();
-            self.output_descriptions.shrink_to_fit();
-            self.original_filenames.shrink_to_fit();
+            self.descriptions.shrink_to_fit();
+            self.object_names.shrink_to_fit();
             self.download_filenames.shrink_to_fit();
-            self.output_versions.shrink_to_fit();
+            self.object_versions.shrink_to_fit();
+            self.object_lengths.shrink_to_fit();
             self.mime_types.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_objects (sd_sid, artefact_type, output_type, date_created, date_uploaded, 
-                         external_link_url, gu_id, 
-                         output_description, original_filename, download_filename, output_version, mime_type) 
+        let sql = r#"INSERT INTO sd.study_objects (sd_sid, artefact_type, object_type, date_created, date_uploaded, 
+                         link_url, gu_id, object_description, object_filename, download_filename, 
+                         object_version, object_length, mime_type) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::date[], $5::date[], 
-                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::text[], $12::text[])"#;
+                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
+                         $11::text[], $12::text[], $13::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.artefact_types)
-        .bind(&self.output_types)
+        .bind(&self.object_types)
         .bind(&self.date_createds)
         .bind(&self.date_uploadeds)
-        .bind(&self.external_link_urls)
+        .bind(&self.link_urls)
         .bind(&self.gu_ids)
-        .bind(&self.output_descriptions)
-        .bind(&self.original_filenames)
+        .bind(&self.descriptions)
+        .bind(&self.object_names)
         .bind(&self.download_filenames)
-        .bind(&self.output_versions)
+        .bind(&self.object_versions)
+        .bind(&self.object_lengths)
         .bind(&self.mime_types)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
 }
+
+
 
 pub struct PublicationVecs {
     pub sd_sids: Vec<String>,
@@ -999,67 +1007,6 @@ impl PublicationVecs{
         .bind(&self.date_uploadeds)
 
 
-        .execute(pool)
-        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
-    }
-}
-
-
-pub struct AttachedFileVecs {
-    pub sd_sids: Vec<String>,
-    pub gu_ids:  Vec<Option<String>>,
-    pub file_names:  Vec<Option<String>>,
-    pub file_descriptions: Vec<Option<String>>,
-    pub is_publics: Vec<Option<bool>>,
-    pub mime_types: Vec<Option<String>>,
-}
-
-impl AttachedFileVecs{
-    pub fn new(vsize: usize) -> Self {
-        AttachedFileVecs { 
-            sd_sids: Vec::with_capacity(vsize),
-            gu_ids: Vec::with_capacity(vsize),
-            file_names: Vec::with_capacity(vsize),
-            file_descriptions: Vec::with_capacity(vsize),
-            is_publics: Vec::with_capacity(vsize),
-            mime_types: Vec::with_capacity(vsize),
-        }
-    }
-
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBAttachedFile>) 
-    {
-        for r in v {
-            self.sd_sids.push(sd_sid.clone());
-            self.gu_ids.push(r.gu_id.clone());
-            self.file_names.push(r.file_name.clone());
-            self.file_descriptions.push(r.file_description.clone());
-            self.is_publics.push(r.is_public);
-            self.mime_types.push(r.mime_type.clone());
-        }
-    }
-
-    pub fn shrink_to_fit(&mut self) -> () {
-       
-            self.sd_sids.shrink_to_fit();
-            self.gu_ids.shrink_to_fit();
-            self.file_names.shrink_to_fit();
-            self.file_descriptions.shrink_to_fit();
-            self.is_publics.shrink_to_fit();
-            self.mime_types.shrink_to_fit();
-    }
-
-    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
-
-        let sql = r#"INSERT INTO sd.study_attached_files (sd_sid, gu_id, file_name, file_description, is_public, mime_type) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::bool[], $6::text[])"#;
-
-        sqlx::query(sql)
-        .bind(&self.sd_sids)
-        .bind(&self.gu_ids)
-        .bind(&self.file_names)
-        .bind(&self.file_descriptions)
-        .bind(&self.is_publics)
-        .bind(&self.mime_types)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
