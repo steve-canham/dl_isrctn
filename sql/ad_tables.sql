@@ -217,69 +217,47 @@ CREATE TABLE ad.study_features(
 CREATE INDEX study_features_sid ON ad.study_features(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_objects;
-CREATE TABLE ad.study_objects(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, object_class           VARCHAR         NULL
-, object_type            VARCHAR         NULL	
-, object_name            VARCHAR         NULL
-, object_version         VARCHAR         NULL
-, date_created           DATE            NULL
-, date_updated           DATE            NULL
-, yr_of_pub              INT             NULL
-, notes                  VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
-
-
-DROP TABLE IF EXISTS ad.study_obj_instances;
-CREATE TABLE ad.study_obj_instances(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, object_id              INT             NOT NULL
-, access_type            VARCHAR         NULL
-, instance_id_type       VARCHAR         NULL
-, instance_url           VARCHAR         NULL
-, url_type               DATE            NULL
-, instance_type          VARCHAR         NULL
-, instance_file_name     VARCHAR         NULL
-, notes                  VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_obj_instances_oid ON ad.study_obj_instances(object_id);
-
-
 DROP TABLE IF EXISTS ad.study_pubs;
 CREATE TABLE ad.study_pubs(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , pub_type               VARCHAR         NULL
-, doi                    VARCHAR         NULL	
+, pub_id                 VARCHAR         NULL	
+, pub_id_type            VARCHAR         NULL	
 , citation               VARCHAR         NULL
+, pub_notes              VARCHAR         NULL
+, doi                    VARCHAR         NULL	
+, pmid                   VARCHAR         NULL
+, pmcid                  VARCHAR         NULL	
+, pubsite_url            VARCHAR         NULL
 , date_created           DATE            NULL
-, date_updated           DATE            NULL
 , date_published         DATE            NULL
-, yr_of_pub              INT             NULL
-, notes                  VARCHAR         NULL
+, date_updated           DATE            NULL
+, publication_year       INT             NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_pubs_sid ON ad.study_pubs(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_pub_instances;
-CREATE TABLE ad.study_pub_instances(
+DROP TABLE IF EXISTS ad.study_objects;
+CREATE TABLE ad.study_objects(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, pub_id                 INT             NOT NULL
-, pub_type               VARCHAR         NULL
-, instance_id            VARCHAR         NULL	
-, instance_id_type       VARCHAR         NULL
-, instance_url           VARCHAR         NULL
-, url_type               DATE            NULL
-, notes                  VARCHAR         NULL
+, sd_sid                 VARCHAR         NOT NULL
+, object_type            VARCHAR         NULL	
+, object_id              VARCHAR         NULL
+, object_id_type         VARCHAR         NULL
+, object_notes           VARCHAR         NULL	
+, display_name           VARCHAR         NULL	
+, access_url             VARCHAR         NULL	
+, access_type            VARCHAR         NULL	
+, instance_type          VARCHAR         NULL	
+, instance_notes         VARCHAR         NULL
+, date_created           DATE            NULL
+, date_published         DATE            NULL
+, date_updated           DATE            NULL
+, publication_year       INT             NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_pub_instances_pid ON ad.study_pub_instances(pub_id);
-
+CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
 
 SET client_min_messages TO NOTICE; 

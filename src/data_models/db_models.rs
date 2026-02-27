@@ -136,31 +136,34 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
-pub struct DBObject {
-    pub artefact_type: Option<String>,
-    pub object_type: Option<String>,
-    pub date_created: Option<NaiveDate>,
-    pub date_uploaded: Option<NaiveDate>,
-    pub link_url: Option<String>,
-    pub gu_id: Option<String>,    
-    pub description: Option<String>,
-    pub object_name: Option<String>,
-    pub download_filename: Option<String>,
-    pub object_version: Option<String>,
-    pub object_length: Option<i32>,
-    pub mime_type: Option<String>,
-}
-
-
 pub struct DBPublication {
-    pub pub_type: Option<String>,
-    pub details: Option<String>,
+    pub pub_type: String,
+    pub pub_id: String,
+    pub pub_id_type: String,
+    pub pub_notes: Option<String>,
     pub external_url: Option<String>,
-    pub linking_id: Option<String>,
     pub doi: Option<String>,
     pub pmid: Option<String>,
     pub pmcid: Option<String>,
+    pub pubsite_url: Option<String>,
     pub date_created: Option<NaiveDate>,
     pub date_uploaded: Option<NaiveDate>,
 }
+
+
+pub struct DBObject {
+    pub object_type: String,
+    pub object_id: String,
+    pub object_id_type: String,
+    pub object_notes: Option<String>,
+    pub display_name: Option<String>,
+    pub access_url: Option<String>,
+    pub access_type: Option<String>,
+    pub instance_type: Option<String>,
+    pub instance_notes: Option<String>,
+    pub date_created: Option<NaiveDate>,
+    pub date_uploaded: Option<NaiveDate>,
+}
+
+
 

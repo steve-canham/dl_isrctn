@@ -1012,13 +1012,21 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             };
 
             let mut is_pub = false;
+            let mut external_url = lk.link_url.clone().unwrap_or_default();
+            external_url = external_url.replace("http://", "https://");    // regularise url scheme
+            external_url = external_url.replace("doi.org10.", "doi.org/10.");  // repair needed rarely
 
             if link_type_string.contains("article") 
                 || link_type_string.contains("preprint")
                 || link_type_string.contains("abstract")
                 || link_type_string == "interimresults" 
-                || link_type_string == "otherpublications"  {
-
+                || link_type_string == "otherpublications" 
+            && !(external_url.ends_with("pdf")
+                || external_url.ends_with("zip")  
+                || external_url.ends_with("csv")  
+                || external_url.ends_with("xlsx")  
+                || external_url.ends_with("docx")) {
+                
                 is_pub = true;
             }
             
@@ -1039,114 +1047,100 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     _ => "?",
                 };
 
-                let mut details: Option<String> = None;
+                let mut notes: Option<String> = None;
                 if let Some(mut d) = lk.description.clone() {
                     d = d.trim().trim_matches(':').to_string();
                     if d.to_lowercase() != link_type.to_lowercase() {
-                        details = Some(capitalize_first(&d));
+                        notes = Some(capitalize_first(&d));
                     }
                 }
 
-                let mut external_url = lk.link_url.clone().unwrap_or_default();
-                external_url = external_url.replace("http://", "https://");    // regularise url scheme
-                external_url = external_url.replace("doi.org10.", "doi.org/10.");  // repair needed rarely
-
                 let low_url =  external_url.to_lowercase();
-                
-                let mut link_id = "".to_string();
+
+                let mut pub_id = "".to_string();
+                let mut pub_id_type = "".to_string();
+
                 let mut doi_as_str= "".to_string();
                 let mut pmid_as_str= "".to_string();
                 let mut pmcid_as_str= "".to_string();
+                let mut pubsite_url_as_str= "".to_string();
+                let mut categorised = false;
 
-                static RE_PM8: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{8}").unwrap());
-                static RE_PM7: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{7}").unwrap());
-                static RE_PMC7: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{7}").unwrap());
-                static RE_PMC6: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{6}").unwrap());
+                static RE_PM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{6,8}").unwrap());
+                static RE_PMC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{6,7}").unwrap());
 
                 if low_url.contains("pubmed") {
 
                     // extract pmid and redo the url to ensure in current form
                     // test for an 8 digit string first, then a 7 digit
 
-                    match RE_PM8.captures(&external_url.clone()) {
+                    match RE_PM.captures(&external_url.clone()) {
                         Some(s) => {
                             pmid_as_str = s[0].to_string();
-                            link_id = format!("PMID-{}", pmid_as_str);
                             external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmid_as_str);
+                            pub_id = pmid_as_str.clone();
+                            pub_id_type = "PMID".to_string();
+                            categorised =true;
                         },
-                        None => { 
-                            match RE_PM7.captures(&external_url.clone()) {
-                                Some(s) => {
-                                    pmid_as_str = s[0].to_string();
-                                    link_id = format!("PMID-{}", pmid_as_str);
-                                    external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmid_as_str);
-                                },
-                                None => {},
-                            }
-                        },
+                        None => {}, 
                     }
                 }
 
-                if low_url.contains("doi") && !low_url.ends_with("pdf") {   // store doi
+                if low_url.contains("doi") {   // store doi
                     
-                    // get position of doi, get substring from that point
+                    // get substring from the beginning of the 10.
 
+                    let mut doi = String::new();
                     if low_url.starts_with("https://dx.doi.org/10.") {
-                        let doi = &low_url[19..];
-                        link_id = format!("doi:{}", doi);
-                        external_url = format!("https://doi.org/{}", doi);  
-                        doi_as_str = external_url.clone();                     
+                        doi = (&low_url[19..]).to_string();
                     }
                     if low_url.starts_with("https://doi.org/10.") {
-                        let doi= &low_url[16..].to_string();
-                        link_id = format!("doi:{}", doi);
-                        external_url = format!("https://doi.org/{}", doi);
-                        doi_as_str = external_url.clone();
+                        doi= (&low_url[16..]).to_string();
                     }
                     if low_url.starts_with("https://www.doi.org/10.") {
-                        let doi= &low_url[20..].to_string();
-                        link_id = format!("doi:{}", doi);
-                        external_url = format!("https://doi.org/{}", doi);
-                        doi_as_str = external_url.clone();  
+                        doi= (&low_url[20..]).to_string();
                     }
+                    if ! doi.is_empty() {
+                        external_url = format!("https://doi.org/{}", doi);  
+                        doi_as_str = external_url.clone();  
+                        pub_id = doi_as_str.clone(); 
+                        pub_id_type = "doi".to_string();
+                        categorised =true;  
+                     }
                 }
                 
-                if low_url.contains("pmc") && link_id == "".to_string() 
-                && !low_url.ends_with("pdf") {
+                if low_url.contains("pmc") && !categorised {
 
                     // extract pmc id and redo the url to ensure in current form
 
-                    match RE_PMC7.captures(&external_url.clone()) {
+                    match RE_PMC.captures(&external_url.clone()) {
                         Some(s) => {
                             pmcid_as_str = s[0].to_string();
-                            link_id = format!("PMCID-{}", pmcid_as_str);
                             external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmcid_as_str);
+                            pub_id = pmcid_as_str.clone(); 
+                            pub_id_type = "PMC ID".to_string();
+                            categorised =true;
                         },
-                        None => { 
-                            match RE_PMC6.captures(&external_url.clone()) {
-                                Some(s) => {
-                                    pmcid_as_str = s[0].to_string();
-                                    link_id = format!("PMCID-{}", pmcid_as_str);
-                                    external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmcid_as_str);
-                                },
-                                None => {},
-                            }
-                        },
+                        None => {},  
                     }
                 }
 
-                if link_id == "".to_string() {  // probably a publisher's web site URL
-                    link_id = external_url.clone();
+                if !categorised {  // probably a publisher's web site URL
+                    pubsite_url_as_str = external_url.clone();
+                    pub_id = pubsite_url_as_str.clone(); 
+                    pub_id_type = "pub site URL".to_string();
                 }
                
                 db_pubs.push(DBPublication { 
-                    pub_type: Some(link_type.to_string()), 
-                    details: details, 
+                    pub_type: link_type.to_string(), 
+                    pub_id: pub_id,
+                    pub_id_type: pub_id_type,
+                    pub_notes: notes, 
                     external_url: Some(external_url), 
-                    linking_id: if link_id == "".to_string() {None} else {Some(link_id)},
                     doi: if doi_as_str == "".to_string() {None} else {Some(doi_as_str)},
                     pmid: if pmid_as_str == "".to_string() {None} else {Some(pmid_as_str)},
                     pmcid: if pmcid_as_str == "".to_string() {None} else {Some(pmcid_as_str)},
+                    pubsite_url: if pubsite_url_as_str == "".to_string() {None} else {Some(pubsite_url_as_str)},
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
                 });
@@ -1156,26 +1150,52 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 // a non publication link
 
                 let mut details: Option<String> = None;
-                    if let Some(mut d) = lk.description.clone() {
+                if let Some(mut d) = lk.description.clone() {
                     d = d.trim().trim_matches(':').to_string();
                     if d.to_lowercase() != link_type.to_lowercase() {
                         details = Some(capitalize_first(&d));
                     }
                 }
 
+                // may be a web page or a file if has a file ending in url
+
+                let mut access_url= lk.link_url.clone();
+                let instance_type: Option<String>;
+               
+                if external_url.ends_with("pdf")
+                || external_url.ends_with("zip")  
+                || external_url.ends_with("csv")  
+                || external_url.ends_with("xlsx")  
+                || external_url.ends_with("docx") 
+                || external_url.ends_with("xls")  
+                || external_url.ends_with("doc") {
+
+                    instance_type = Some("File download".to_string()); 
+
+                    let mut access_url_string = access_url.clone().unwrap_or_default();
+                    if access_url_string.contains("articles/PMC") {
+                        access_url_string = access_url_string.replace("articles/PMC", "articles/instance/");
+                        access_url = Some(access_url_string);
+                    }
+                }
+                else {
+                    instance_type = Some("Web page".to_string()); 
+                }
+
+
+
                 db_objects.push(DBObject { 
-                    artefact_type: Some("External Object".to_string()),
-                    object_type: Some(link_type.to_string()), 
+                    object_type: link_type.to_string(), 
+                    object_id: format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), link_type_string),
+                    object_id_type: "Constructed from type".to_string(), 
+                    object_notes: details.clone(), 
+                    display_name: None,
+                    access_url: access_url, 
+                    access_type: Some("Public".to_string()),
+                    instance_type: instance_type,
+                    instance_notes: None, 
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
-                    link_url: lk.link_url.clone(), 
-                    gu_id: None, 
-                    description: details.clone(), 
-                    object_name: None,
-                    download_filename: None,  
-                    object_version: None, 
-                    object_length: None,
-                    mime_type: None, 
                 });
             }
         }
@@ -1201,7 +1221,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 None => None,
             };
             
-
             let file_type_string = f.file_type.clone().unwrap_or_default().to_lowercase();
             let file_type = match file_type_string.as_str() {
                 "abstract" => "Abstract",
@@ -1236,22 +1255,149 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 }
             }
 
+            // derive name and file notes
+
+            let lg = match f.length {
+                Some(len) => {
+                    if len > 0 {
+                        let kb_num: f64 = len as f64 / 1024.0;
+                        if kb_num >= 1024.0 {
+                            let mb_num = kb_num/ 1024.0;
+                            format!("{:.2}Mb", mb_num)
+                        }
+                        else {
+                            format!("{:.0}Kb", kb_num)
+                        }
+                    }
+                    else {
+                        String::new()
+                    }
+                },
+                None => String::new(),
+            };
+
+            let mt = match f.mime_type.clone() {
+                Some(m) => {
+                    if !m.is_empty() {
+                        let m_type = m.replace("application/", "");
+                        let file_type = match m_type.as_str() {
+                            "pdf" => "PDF",
+                            "x-zip-compressed" => "ZIP",
+                            "msword" => "DOC",
+                            "vnd.openxmlformats-officedocument.wordprocessingml.document" => "DOCX",
+                            "vnd.openxmlformats-officedocument.spreadsheetml.sheet" => "XSLX",
+                            "x-spss-sav" => "SPSS SAV",
+                            _ => "",
+                        };
+                        if file_type != ""{
+                            file_type.to_string()
+                        }
+                        else {
+                            String::new()
+                        }
+                    }
+                    else {
+                        String::new()
+                    }
+                },
+                None => String::new(),
+            };
+
+            let mut i_notes = String::new();
+            if !mt.is_empty() {
+                if !lg.is_empty() {
+                    i_notes = format!("{} file, {}", mt, lg);
+                }
+                else {
+                    i_notes = format!("{} file", mt);
+                }
+            }
+
+            let instance_notes = 
+                if i_notes == String::new() 
+                {None} else {Some(i_notes)};
+
+            let ve = match f.version.clone() {
+                Some(v) => if !v.is_empty() {
+                    if v.to_lowercase().contains('v') {
+                        v
+                    }
+                    else {
+                        format!("v{}", v)
+                    }
+                }
+                else {
+                    String::new()
+                },
+                None => String::new(),
+            };
+
             
-            
+            let df = match f.download_filename.clone() {
+                 Some(dlfn) => if !dlfn.is_empty(){
+                    let ending = match mt.as_str() {
+                        "PDF" => ".pdf",
+                        "ZIP" => ".zip",
+                        "DOC" => ".doc",
+                        "DOCX" => ".docx",
+                        "XSLX" => ".xlsx",
+                        "CSV" => ".csv",
+                        "SPSS SAV" => ".sav",
+                        _ => "",
+                    };
+                    if ending != "" {
+                        let t_dlfn = dlfn.replace(ending, "");
+                        if t_dlfn.to_lowercase().contains(ve.as_str()) {
+                            t_dlfn
+                        }
+                        else {
+                            format!("{}.{}", t_dlfn, ve)
+                        }
+                    }
+                    else {
+                        if dlfn.to_lowercase().contains(ve.as_str()) {
+                            dlfn
+                        }
+                        else {
+                            format!("{}.{}", dlfn, ve)
+                        }
+                    }
+                }
+                 else {
+                    String::new()
+                },
+                 None => String::new(),
+                                     
+            };
+
+            let display_name: Option<String>;
+            let object_id: String;     
+            let object_id_type: String;  
+
+            if df == String::new() {
+                display_name = None;
+                object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), file_type);
+                object_id_type =  "Constructed from type".to_string(); 
+            }
+            else {
+                display_name = Some(df.clone());
+                object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), df);
+                object_id_type =  "Constructed from name".to_string(); 
+            }
+           
             db_objects.push(DBObject { 
-                artefact_type: Some("Local File".to_string()),
-                object_type: Some(file_type.to_string()), 
+                object_type: file_type.to_string(), 
+                object_id: object_id,
+                object_id_type: object_id_type, 
+                object_notes: details.clone(), 
+                display_name: display_name,
+                access_url: f.download_url.clone(), 
+                access_type: Some("Public".to_string()),
+                instance_type: Some("File download".to_string()),
+                instance_notes: instance_notes, 
                 date_created: creation_dt, 
                 date_uploaded: upload_dt, 
-                link_url: f.download_url.clone(), 
-                gu_id: f.file_id.clone(), 
-                description: details.clone(), 
-                object_name: f.name.clone(),
-                download_filename: f.download_filename.clone(),  
-                object_version: f.version.clone(), 
-                object_length: f.length,
-                mime_type: f.mime_type.clone(), 
-            });
+           });
 
         }
     }

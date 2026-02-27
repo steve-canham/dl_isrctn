@@ -826,36 +826,34 @@ impl IECVecs{
 
 pub struct ObjectVecs {
     pub sd_sids: Vec<String>,
-    pub artefact_types: Vec<Option<String>>,
-    pub object_types: Vec<Option<String>>,
+    pub object_types: Vec<String>,
+    pub object_ids: Vec<String>,   
+    pub object_id_types: Vec<String>,
+    pub object_notess: Vec<Option<String>>,
+    pub display_names: Vec<Option<String>>,
+    pub access_urls: Vec<Option<String>>,
+    pub access_types: Vec<Option<String>>,
+    pub instance_types: Vec<Option<String>>,
+    pub instance_notess: Vec<Option<String>>,
     pub date_createds: Vec<Option<NaiveDate>>,
     pub date_uploadeds: Vec<Option<NaiveDate>>,
-    pub link_urls: Vec<Option<String>>,
-    pub gu_ids: Vec<Option<String>>,    
-    pub descriptions: Vec<Option<String>>,
-    pub object_names: Vec<Option<String>>,
-    pub download_filenames: Vec<Option<String>>,
-    pub object_versions: Vec<Option<String>>,
-    pub object_lengths: Vec<Option<i32>>,
-    pub mime_types: Vec<Option<String>>,
 }
 
 impl ObjectVecs{
     pub fn new(vsize: usize) -> Self {
         ObjectVecs { 
             sd_sids: Vec::with_capacity(vsize),
-            artefact_types: Vec::with_capacity(vsize),
             object_types: Vec::with_capacity(vsize),
+            object_ids: Vec::with_capacity(vsize),   
+            object_id_types: Vec::with_capacity(vsize),
+            object_notess: Vec::with_capacity(vsize),
+            display_names: Vec::with_capacity(vsize),
+            access_urls: Vec::with_capacity(vsize),
+            access_types: Vec::with_capacity(vsize),
+            instance_types:  Vec::with_capacity(vsize),
+            instance_notess: Vec::with_capacity(vsize),
             date_createds: Vec::with_capacity(vsize),
             date_uploadeds: Vec::with_capacity(vsize),
-            link_urls: Vec::with_capacity(vsize),
-            gu_ids: Vec::with_capacity(vsize),   
-            descriptions: Vec::with_capacity(vsize),
-            object_names: Vec::with_capacity(vsize),
-            download_filenames: Vec::with_capacity(vsize),
-            object_versions: Vec::with_capacity(vsize),
-            object_lengths:  Vec::with_capacity(vsize),
-            mime_types: Vec::with_capacity(vsize),
         }
     }
 
@@ -863,61 +861,57 @@ impl ObjectVecs{
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.artefact_types.push(r.artefact_type.clone());
             self.object_types.push(r.object_type.clone());
+            self.object_ids.push(r.object_id.clone());
+            self.object_id_types.push(r.object_id_type.clone());
+            self.object_notess.push(r.object_notes.clone());
+            self.display_names.push(r.display_name.clone());
+            self.access_urls.push(r.access_url.clone());
+            self.access_types.push(r.access_type.clone());
+            self.instance_types.push(r.instance_type.clone());
+            self.instance_notess.push(r.instance_notes.clone());
             self.date_createds.push(r.date_created.clone());
             self.date_uploadeds.push(r.date_uploaded.clone());
-            self.link_urls.push(r.link_url.clone());
-            self.gu_ids.push(r.gu_id.clone());
-            self.descriptions.push(r.description.clone());
-            self.object_names.push(r.object_name.clone());
-            self.download_filenames.push(r.download_filename.clone());
-            self.object_versions.push(r.object_version.clone());
-            self.object_lengths.push(r.object_length.clone());
-            self.mime_types.push(r.mime_type.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
        
             self.sd_sids.shrink_to_fit();
-            self.artefact_types.shrink_to_fit();
             self.object_types.shrink_to_fit();
+            self.object_ids.shrink_to_fit();
+            self.object_id_types.shrink_to_fit();
+            self.object_notess.shrink_to_fit();
+            self.display_names.shrink_to_fit();
+            self.access_urls.shrink_to_fit();
+            self.access_types.shrink_to_fit();
+            self.instance_types.shrink_to_fit();
+            self.instance_notess.shrink_to_fit();
             self.date_createds.shrink_to_fit();
             self.date_uploadeds.shrink_to_fit();
-            self.link_urls.shrink_to_fit();
-            self.gu_ids.shrink_to_fit();
-            self.descriptions.shrink_to_fit();
-            self.object_names.shrink_to_fit();
-            self.download_filenames.shrink_to_fit();
-            self.object_versions.shrink_to_fit();
-            self.object_lengths.shrink_to_fit();
-            self.mime_types.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_objects (sd_sid, artefact_type, object_type, date_created, date_uploaded, 
-                         link_url, gu_id, object_description, object_filename, download_filename, 
-                         object_version, object_length, mime_type) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::date[], $5::date[], 
-                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[],
-                         $11::text[], $12::text[], $13::text[])"#;
+        let sql = r#"INSERT INTO sd.study_objects (sd_sid, object_type, object_id,
+                         object_id_type, object_notes, display_name, access_url, 
+                         access_type, instance_type, instance_notes, date_created, date_published) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], 
+                         $7::text[], $8::text[], $9::text[], $10::text[], $11::date[], $12::date[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
-        .bind(&self.artefact_types)
         .bind(&self.object_types)
+        .bind(&self.object_ids)
+        .bind(&self.object_id_types)
+        .bind(&self.object_notess)
+        .bind(&self.display_names)
+        .bind(&self.access_urls)
+        .bind(&self.access_types)
+        .bind(&self.instance_types)
+        .bind(&self.instance_notess)
         .bind(&self.date_createds)
         .bind(&self.date_uploadeds)
-        .bind(&self.link_urls)
-        .bind(&self.gu_ids)
-        .bind(&self.descriptions)
-        .bind(&self.object_names)
-        .bind(&self.download_filenames)
-        .bind(&self.object_versions)
-        .bind(&self.object_lengths)
-        .bind(&self.mime_types)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
@@ -927,13 +921,15 @@ impl ObjectVecs{
 
 pub struct PublicationVecs {
     pub sd_sids: Vec<String>,
-    pub pub_types: Vec<Option<String>>,
-    pub detailss: Vec<Option<String>>,
+    pub pub_types: Vec<String>,
+    pub pub_ids: Vec<String>,
+    pub pub_id_types: Vec<String>,
+    pub pub_notes: Vec<Option<String>>,
     pub external_urls: Vec<Option<String>>,
-    pub linking_ids: Vec<Option<String>>,
     pub dois: Vec<Option<String>>,
     pub pmids: Vec<Option<String>>,
     pub pmcids: Vec<Option<String>>,
+    pub pubsite_urls: Vec<Option<String>>,
     pub date_createds: Vec<Option<NaiveDate>>,
     pub date_uploadeds: Vec<Option<NaiveDate>>,
 
@@ -946,12 +942,14 @@ impl PublicationVecs{
         PublicationVecs { 
             sd_sids: Vec::with_capacity(vsize),
             pub_types: Vec::with_capacity(vsize),
-            detailss: Vec::with_capacity(vsize),
+            pub_ids: Vec::with_capacity(vsize),
+            pub_id_types: Vec::with_capacity(vsize),
+            pub_notes: Vec::with_capacity(vsize),
             external_urls: Vec::with_capacity(vsize),
-            linking_ids: Vec::with_capacity(vsize),
             dois: Vec::with_capacity(vsize),
             pmids: Vec::with_capacity(vsize),
             pmcids: Vec::with_capacity(vsize),
+            pubsite_urls: Vec::with_capacity(vsize),
             date_createds: Vec::with_capacity(vsize),
             date_uploadeds: Vec::with_capacity(vsize),
         }
@@ -962,12 +960,14 @@ impl PublicationVecs{
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.pub_types.push(r.pub_type.clone());
-            self.detailss.push(r.details.clone());
+            self.pub_ids.push(r.pub_id.clone());
+            self.pub_id_types.push(r.pub_id_type.clone());
+            self.pub_notes.push(r.pub_notes.clone());
             self.external_urls.push(r.external_url.clone());
-            self.linking_ids.push(r.linking_id.clone());
             self.dois.push(r.doi.clone());
             self.pmids.push(r.pmid.clone());
             self.pmcids.push(r.pmcid.clone());
+            self.pubsite_urls.push(r.pubsite_url.clone());
             self.date_createds.push(r.date_created.clone());
             self.date_uploadeds.push(r.date_uploaded.clone());
         }
@@ -977,32 +977,36 @@ impl PublicationVecs{
        
             self.sd_sids.shrink_to_fit();
             self.pub_types.shrink_to_fit();
-            self.detailss.shrink_to_fit();
+            self.pub_ids.shrink_to_fit();
+            self.pub_id_types.shrink_to_fit();
+            self.pub_notes.shrink_to_fit();
             self.external_urls.shrink_to_fit();
-            self.linking_ids.shrink_to_fit();
             self.dois.shrink_to_fit();
             self.pmids.shrink_to_fit();
             self.pmcids.shrink_to_fit();
+            self.pubsite_urls.shrink_to_fit();
             self.date_createds.shrink_to_fit();
             self.date_uploadeds.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_pubs (sd_sid, pub_type, details, external_url,
-                         linking_id, doi, pmid, pmcid, date_created, date_uploaded) 
+        let sql = r#"INSERT INTO sd.study_pubs (sd_sid, pub_type, pub_id, pub_id_type, pub_notes, external_url,
+                         doi, pmid, pmcid, pubsite_url, date_created, date_published) 
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], 
-                         $6::text[], $7::text[], $8::text[], $9::date[], $10::date[])"#;
+                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::date[], $12::date[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.pub_types)
-        .bind(&self.detailss)
+        .bind(&self.pub_ids)
+        .bind(&self.pub_id_types)
+        .bind(&self.pub_notes)
         .bind(&self.external_urls)
-        .bind(&self.linking_ids)
         .bind(&self.dois)
         .bind(&self.pmids)
         .bind(&self.pmcids)
+        .bind(&self.pubsite_urls)
         .bind(&self.date_createds)
         .bind(&self.date_uploadeds)
 

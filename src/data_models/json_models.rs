@@ -247,6 +247,8 @@ pub struct StudyLink
     pub date_uploaded: Option<String>,
 }  
 
+// Not serialised, but used as an intermediary struct
+// when constructing A StudyFile
 
 pub struct LocalFile
 {
@@ -268,7 +270,7 @@ pub struct StudyFile
     pub file_type: Option<String>,
     pub file_id: Option<String>,
     pub description: Option<String>,
-    pub download_url: Option<String>,
+    pub download_url: Option<String>,       
     pub download_filename: Option<String>,
     pub name: Option<String>,
     pub version: Option<String>,

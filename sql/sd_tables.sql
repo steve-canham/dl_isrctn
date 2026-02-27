@@ -207,14 +207,16 @@ CREATE TABLE sd.study_pubs(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 , sd_sid                 VARCHAR         NULL
 , pub_type               VARCHAR         NULL
-, details                VARCHAR         NULL
+, pub_id                 VARCHAR         NULL	
+, pub_id_type            VARCHAR         NULL	
+, pub_notes              VARCHAR         NULL
 , external_url           VARCHAR         NULL
-, linking_id             VARCHAR         NULL
 , doi                    VARCHAR         NULL
 , pmid                   VARCHAR         NULL
 , pmcid                  VARCHAR         NULL
+, pubsite_url            VARCHAR         NULL
 , date_created           DATE            NULL
-, date_uploaded          DATE            NULL
+, date_published         DATE            NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
@@ -224,35 +226,20 @@ DROP TABLE IF EXISTS sd.study_objects;
 CREATE TABLE sd.study_objects(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 , sd_sid                 VARCHAR         NULL
-, artefact_type          VARCHAR         NULL
 , object_type            VARCHAR         NULL
+, object_id              VARCHAR         NULL
+, object_id_type         VARCHAR         NULL
+, object_notes           VARCHAR         NULL
+, display_name           VARCHAR         NULL	
+, access_url             VARCHAR         NULL
+, access_type            VARCHAR         NULL	
+, instance_type          VARCHAR         NULL
+, instance_notes         VARCHAR         NULL
 , date_created           DATE            NULL
-, date_uploaded          DATE            NULL
-, link_url               VARCHAR         NULL
-, gu_id                  VARCHAR         NULL
-, file_name              VARCHAR         NULL
-, object_description     VARCHAR         NULL
-, object_filename        VARCHAR         NULL
-, download_filename      VARCHAR         NULL
-, output_version         VARCHAR         NULL
-, object_length          INT             NULL
-, mime_type              VARCHAR         NULL
+, date_published         DATE            NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_objects_sid ON sd.study_objects(sd_sid);
 
-
-DROP TABLE IF EXISTS sd.study_attached_files;
-CREATE TABLE sd.study_attached_files(
-  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_sid                 VARCHAR         NULL
-, gu_id                  VARCHAR         NULL
-, file_name              VARCHAR         NULL
-, file_description       VARCHAR         NULL
-, is_public              BOOLEAN         NULL
-, mime_type              VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_files_sid ON sd.study_attached_files(sd_sid);
 
 SET client_min_messages TO NOTICE; 
