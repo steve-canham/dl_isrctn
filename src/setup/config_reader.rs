@@ -30,8 +30,9 @@ pub struct TomlDBPars {
     pub db_user: Option<String>,
     pub db_password: Option<String>,
     pub db_port: Option<String>,
+    pub db_name: Option<String>,
     pub mon_db_name: Option<String>,
-    pub src_db_name: Option<String>,
+    pub cxt_db_name: Option<String>,
 }
 
 pub struct Config {
@@ -55,8 +56,9 @@ pub struct DBPars {
     pub db_user: String,
     pub db_password: String,
     pub db_port: usize,
+    pub db_name: String,
     pub mon_db_name: String,
-    pub src_db_name: String,
+    pub cxt_db_name: String,
 }
 
 pub static DB_PARS: OnceLock<DBPars> = OnceLock::new();
@@ -129,21 +131,23 @@ fn verify_db_parameters(toml_database: TomlDBPars) -> Result<DBPars, AppError> {
 
     let db_password = check_essential_string (toml_database.db_password, "database user password", "db_password")?;
        
-    let db_host = check_defaulted_string (toml_database.db_host, "DB host", "localhost", "localhost");
+    let db_host = check_defaulted_string (toml_database.db_host, "DB host", "localhost");
             
-    let db_port_as_string = check_defaulted_string (toml_database.db_port, "DB port", "5432", "5432");
+    let db_port_as_string = check_defaulted_string (toml_database.db_port, "DB port", "5432");
     let db_port: usize = db_port_as_string.parse().unwrap_or_else(|_| 5432);
 
-    let mon_db_name = check_defaulted_string (toml_database.mon_db_name, "Mon DB name", "mon", "mon");
-    let src_db_name = check_defaulted_string (toml_database.src_db_name, "Src DB name", "isrctn", "isrctn");
+    let db_name = check_defaulted_string (toml_database.db_name, "Data DB name", "isrctn");
+    let mon_db_name = check_defaulted_string (toml_database.mon_db_name, "Monitoring DB name", "mon");
+    let cxt_db_name = check_defaulted_string (toml_database.cxt_db_name, "Context DB name", "cxt");
 
     Ok(DBPars {
         db_host,
         db_user,
         db_password,
         db_port,
+        db_name,
         mon_db_name,
-        src_db_name
+        cxt_db_name,
     })
 }
 
@@ -166,7 +170,7 @@ fn check_essential_string (src_name: Option<String>, value_name: &str, config_na
 }
 
 
-fn check_defaulted_string (src_name: Option<String>, value_name: &str, default_name: &str, default:  &str) -> String {
+fn check_defaulted_string (src_name: Option<String>, value_name: &str, default:  &str) -> String {
  
     let s = match src_name {
         Some(s) => s,
@@ -175,8 +179,9 @@ fn check_defaulted_string (src_name: Option<String>, value_name: &str, default_n
 
     if s == "none".to_string() || s.trim() == "".to_string()
     {
-        println!("No value found for the {} in config file - using the provided default value ('{}') instead.", 
-        value_name, default_name);
+        println!("No value found for the {} in config file - 
+        using the provided default value ('{}') instead.", 
+        value_name, default);
         default.to_owned()
     }
     else {
@@ -184,25 +189,24 @@ fn check_defaulted_string (src_name: Option<String>, value_name: &str, default_n
     }
 }
 
-pub fn fetch_mon_db_name() -> Result<String, AppError> {
-    let db_pars = match DB_PARS.get() {
-         Some(dbp) => dbp,
-         None => {
-            return Result::Err(AppError::MissingDBParameters());
-        },
-    };
-    Ok(db_pars.mon_db_name.clone())
-}
 
-pub fn fetch_src_db_name() -> Result<String, AppError> {
-    let db_pars = match DB_PARS.get() {
-         Some(dbp) => dbp,
-         None => {
-            return Result::Err(AppError::MissingDBParameters());
-        },
-    };
-    Ok(db_pars.src_db_name.clone())
-}
+pub fn fetch_db_name(db: &str) -> Result<String, AppError> {
+     let db_pars = match DB_PARS.get() {
+          Some(dbp) => dbp,
+          None => {
+             return Result::Err(AppError::MissingDBParameters());
+         },
+     };
+
+     let db_name = match db {
+        "db" => db_pars.db_name.clone(), 
+        "cxt" => db_pars.cxt_db_name.clone(), 
+        "mon" => db_pars.mon_db_name.clone(), 
+        _ => "".to_string(), 
+     };
+     Ok(db_name)
+ }
+
 
 pub fn fetch_db_conn_string(db_name: &String) -> Result<String, AppError> {
     let db_pars = match DB_PARS.get() {
@@ -234,15 +238,16 @@ base_url = "https://www.isrctn.com/api/query/format/default?q="
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+log_folder_path="/home/steve/Data/MDR logs/isrctn"
 
 [database]
 db_host="localhost"
 db_user="user_name"
 db_password="password"
 db_port="5432"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="isrctn"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
@@ -250,14 +255,15 @@ src_db_name="isrctn"
 
         assert_eq!(res.api.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.folders.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
-        assert_eq!(res.folders.log_folder_path, PathBuf::from("/home/steve/Data/MDR/MDR_Logs/isrctn"));
+        assert_eq!(res.folders.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
 
         assert_eq!(res.db_pars.db_host, "localhost");
         assert_eq!(res.db_pars.db_user, "user_name");
         assert_eq!(res.db_pars.db_password, "password");
         assert_eq!(res.db_pars.db_port, 5432);
+        assert_eq!(res.db_pars.db_name, "isrctn");
         assert_eq!(res.db_pars.mon_db_name, "mon");
-        assert_eq!(res.db_pars.src_db_name, "isrctn");
+        assert_eq!(res.db_pars.cxt_db_name, "cxt");
     }
     
 
@@ -271,15 +277,16 @@ base_url = ""
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+log_folder_path="/home/steve/Data/MDR logs/isrctn"
 
 [database]
 db_host="localhost"
 db_user="user_name"
 db_password="password"
 db_port="5432"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="isrctn"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
@@ -298,15 +305,16 @@ base_url = "https://www.isrctn.com/api/query/format/default?q="
 
 [folders]
 json_data_path=""
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+log_folder_path="/home/steve/Data/MDR logs/isrctn"
 
 [database]
 db_host="localhost"
 db_user="user_name"
 db_password="password"
 db_port="5432"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="isrctn"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
@@ -332,17 +340,15 @@ db_host="localhost"
 db_user="user_name"
 db_password="password"
 db_port="5432"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="isrctn"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
         let _res = populate_config_vars(&config_string).unwrap();
     }
     
-
-    
-
 
     #[test]
     #[should_panic]
@@ -355,14 +361,15 @@ base_url = "https://www.isrctn.com/api/query/format/default?q="
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+log_folder_path="/home/steve/Data/MDR logs/isrctn"
 
 [database]
 db_host="localhost"
 db_password="password"
 db_port="5432"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="isrctn"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
@@ -380,7 +387,7 @@ base_url = "https://www.isrctn.com/api/query/format/default?q="
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn"
+log_folder_path="/home/steve/Data/MDR logs/isrctn"
 
 [database]
 db_user="user_name"
@@ -394,8 +401,9 @@ db_password="password"
         assert_eq!(res.db_pars.db_user, "user_name");
         assert_eq!(res.db_pars.db_password, "password");
         assert_eq!(res.db_pars.db_port, 5432);
+        assert_eq!(res.db_pars.db_name, "isrctn");
         assert_eq!(res.db_pars.mon_db_name, "mon");
-        assert_eq!(res.db_pars.src_db_name, "isrctn");
+        assert_eq!(res.db_pars.cxt_db_name, "cxt");
     }
 
 
@@ -409,14 +417,15 @@ base_url = "https://www.isrctn.com/api/query/format/default?q="
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
-log_folder_path="/home/steve/Data/MDR/MDR_Logs/isrctn" 
+log_folder_path="/home/steve/Data/MDR logs/isrctn" 
 
 [database]
 db_host="localhost"
 db_user="user_name"
 db_password="password"
+db_name="isrctn"
 mon_db_name="mon"
-src_db_name="anz"
+cxt_db_name="cxt"
 
 "#;
         let config_string = config.to_string();
@@ -426,8 +435,9 @@ src_db_name="anz"
         assert_eq!(res.db_pars.db_user, "user_name");
         assert_eq!(res.db_pars.db_password, "password");
         assert_eq!(res.db_pars.db_port, 5432);
+        assert_eq!(res.db_pars.db_name, "isrctn");
         assert_eq!(res.db_pars.mon_db_name, "mon");
-        assert_eq!(res.db_pars.src_db_name, "anz");
+        assert_eq!(res.db_pars.cxt_db_name, "cxt");
    }
 
 }

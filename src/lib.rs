@@ -26,23 +26,28 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // which can then later be used to construct a database of the data.
 
     // There are three types of download.
-    // Type 111 (-t 111 in the CLI) identifies and downloads studies edited since a cut-off date, 
+    // 'Recent' (-d in the CLI) identifies and downloads studies edited since a cut-off date, 
     // usually from the previous week (i.e., the date of the most recent download). It must be 
     // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18")
    
-    // Type 115 (-t 115 in the CLI) downloads all records that were last edited
+    // 'BetweenDates' (-b in the CLI) downloads all records that were last edited
     // between two dates. Running against this type in batches allows all ISRCTN records to be
     // re-downloaded, if and when necessary. Calling -t 115 requires two date
     // parmameters, for the start and end dates respectively, e.g. 
     // -s "2023-10-01" -e "2023-10-31"
 
-    // Both procedures need a start and end date, but in the case of type 111 the
+    // Both procedures need a start and end date, but in the case of type 'Recent' the
     // end date is taken as the current date.
 
-    // Type 117 (-t 117 in the CLI) can be used to download all records for a specified year,
+    // 'ByYear' (-w in the CLI) can be used to download all records for a specified year,
     // and is designed for bulk download scenarios. It takes a single parameter (e.g. -y 2009),
-    // and constructs start and end dates for that year, calling the -t 115 routine with those dates.
-    // It therefore wraps the -t 115 download type.
+    // and constructs start and end dates for that year, calling the -w routine with those dates.
+    // It therefore wraps the -b download type.
+
+    // Imports can be of recently downloaded files, i.e. since the last import (-i in the CLI)
+    // or can be of all downloaded files (-a in the CLI).
+
+    // Coding can be of just uncoded data, or be a recoding of all data
     
     let cli_pars: cli_reader::CliPars;
     cli_pars = cli_reader::fetch_valid_arguments(args)?;
@@ -54,20 +59,23 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     let params = setup::get_params(cli_pars, &config_string)?;
 
     setup::establish_log(&params)?;
-    let mon_pool = setup::get_mon_db_pool().await?;  // pool for the monitoring db
-    let src_pool = setup::get_src_db_pool().await?;  // pool for the source specific db
 
-    if params.dl_type != DownloadType::None {
+    let src_pool = setup::get_db_pool("db").await?; // pool for the source specific db
+    let mon_pool = setup::get_db_pool("mon").await?;  // pool for the monitoring db
+    let _cxt_pool = setup::get_db_pool("cxt").await?; // pool for the context data db
+
+    if params.download_type != DownloadType::None {
 
         // a download reuested
 
-        let dl_id = get_next_download_id(&params.dl_type, &mon_pool).await?;
+        let dl_id = get_next_download_id(100126, &params.download_type, &mon_pool).await?;
         let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
         update_dl_event_record (dl_id, dl_res, &params, &mon_pool).await?;
     }
     else {
         
         // an import requested
+
         let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
         let imp_res = import::import_data(&params.import_type, imp_id, &src_pool).await?;
         update_imp_event_record (imp_id, imp_res, &mon_pool).await?;

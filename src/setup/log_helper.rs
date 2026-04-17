@@ -83,8 +83,8 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("json data path: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
 
-    if ip.dl_type != DownloadType::None {
-        let dl_type = match ip.dl_type {
+    if ip.download_type != DownloadType::None {
+        let dl_type = match ip.download_type {
             DownloadType::Recent => "Data recently updated",
             DownloadType::BetweenDates => "Data updated between dates",
             DownloadType::ByYear => "Data updated in a set year",

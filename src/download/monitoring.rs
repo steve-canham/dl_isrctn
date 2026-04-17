@@ -44,7 +44,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
 }
 
 
-pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
+pub async fn get_next_download_id(source_id: i32, dl_type: &DownloadType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
     let sql = "select coalesce(max(id), 10001) from evs.dl_events ";
     let last_id: i32 = sqlx::query_scalar(sql).fetch_one(mon_pool)
@@ -55,7 +55,7 @@ pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgr
 
     let now = Utc::now();
     let sql = "Insert into evs.dl_events(id, source_id, dl_type, time_started) values ($1, $2, $3, $4)";
-    sqlx::query(sql).bind(new_id).bind(100126).bind(dl_type.to_string()).bind(now)
+    sqlx::query(sql).bind(new_id).bind(source_id).bind(dl_type.to_string()).bind(now)
             .execute(mon_pool)
             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
 
@@ -65,19 +65,21 @@ pub async fn get_next_download_id(dl_type: &DownloadType, mon_pool: &Pool<Postgr
 
 pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params: &InitParams, mon_pool: &Pool<Postgres>) ->  Result<bool, AppError> {
      
+    let par_1 = params.start_date.to_string();
+    let par_2 = params.end_date.to_string();
     let now = Utc::now();
     let sql = r#"Update evs.dl_events set 
              time_ended = $2,
              num_records_checked = $3,
              num_records_downloaded = $4,
              num_records_added = $5,
-             start_date = $6,
-             end_date = $7,
+             par1 = $6,
+             par2 = $7,
              filefolder_path = $8
              where id = $1"#;
     let res = sqlx::query(sql).bind(dl_id).bind(now)
             .bind(dl_res.num_checked).bind(dl_res.num_downloaded).bind(dl_res.num_added)
-            .bind(params.start_date).bind(params.end_date).bind(params.json_data_path.to_string_lossy())
+            .bind(par_1).bind(par_2).bind(params.json_data_path.to_string_lossy())
             .execute(mon_pool)
             .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))?; 
     Ok(res.rows_affected() == 1)

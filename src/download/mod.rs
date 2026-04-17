@@ -178,9 +178,6 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 }
 
 
-
-
-
 async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     let mut res = DownloadResult::new();

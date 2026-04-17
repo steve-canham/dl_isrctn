@@ -7,7 +7,7 @@ pub struct InitParams {
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
     pub import_type: ImportType,
-    pub dl_type: DownloadType,
+    pub download_type: DownloadType,
     pub start_date: NaiveDate,
     pub end_date: NaiveDate,
 }
@@ -31,6 +31,43 @@ impl DownloadType {
         }
     }
 }
+
+
+#[derive(PartialEq, Debug)]
+pub enum ImportType {
+    None,
+    Recent,
+    All,
+}
+
+impl ImportType {
+    pub fn to_string(&self) -> String {
+        match self { 
+            ImportType::None => "None".to_string(), 
+            ImportType::Recent => "Recently downloaded".to_string(), 
+            ImportType::All => "All files".to_string(), 
+        }
+    }
+}
+
+
+#[derive(PartialEq, Debug)]
+pub enum EncodingType {
+    None,
+    Recent,
+    All,
+}
+
+impl EncodingType {
+    pub fn to_string(&self) -> String {
+        match self { 
+            EncodingType::None => "None".to_string(), 
+            EncodingType::Recent => "Uncoded data".to_string(), 
+            EncodingType::All => "All data".to_string(), 
+        }
+    }
+}
+
 
 #[derive(Clone)]
 pub struct DownloadResult {
@@ -61,23 +98,6 @@ impl Add for DownloadResult {
     }
 }
 
-
-#[derive(PartialEq, Debug)]
-pub enum ImportType {
-    None,
-    Recent,
-    All,
-}
-
-impl ImportType {
-    pub fn to_string(&self) -> String {
-        match self { 
-            ImportType::None => "None".to_string(), 
-            ImportType::Recent => "Recently downloaded".to_string(), 
-            ImportType::All => "All files".to_string(), 
-        }
-    }
-}
 
 pub struct ImportResult {
     pub num_available: i64,
