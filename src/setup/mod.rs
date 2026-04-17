@@ -47,7 +47,7 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
         import_type: cli_pars.import_type,
-        download_type: cli_pars.dl_type,
+        download_type: cli_pars.download_type,
         start_date: cli_pars.start_date,
         end_date:cli_pars.end_date,
     })
@@ -148,9 +148,9 @@ cxt_db_name="cxt"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.dl_type, DownloadType::Recent);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.download_type, DownloadType::Recent);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(today));
 
     }
 
@@ -188,9 +188,9 @@ cxt_db_name="cxt"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.dl_type, DownloadType::ByYear);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2024, 1, 1).unwrap());
-        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2025, 1, 1).unwrap());
+        assert_eq!(res.download_type, DownloadType::ByYear);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2025, 1, 1).unwrap()));
 
     }
 
@@ -229,9 +229,9 @@ cxt_db_name="cxt"
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::Recent);
-        assert_eq!(res.dl_type, DownloadType::None);
-        assert_eq!(res.start_date, today);
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
 
     }
 

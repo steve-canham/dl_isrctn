@@ -282,6 +282,7 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
+    
     fn regularise_nb_spaces(&self) -> Option<String> {
 
         // Assumed this call is immediately after a 'tidy' call

@@ -8,9 +8,9 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub struct CliPars {
     pub import_type: ImportType,
-    pub dl_type: DownloadType,
-    pub start_date: NaiveDate,
-    pub end_date: NaiveDate,
+    pub download_type: DownloadType,
+    pub start_date: Option<NaiveDate>,
+    pub end_date: Option<NaiveDate>,
 }
 
 pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
@@ -18,7 +18,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     let parse_result = parse_args(args.to_vec())?;
 
     let i_flag = parse_result.get_flag("i_flag");
-    let mut a_flag = parse_result.get_flag("a_flag");
+    let mut imp_all_flag = parse_result.get_flag("imp_all_flag");
     let mut d_flag = parse_result.get_flag("d_flag");
     let b_flag = parse_result.get_flag("b_flag");
     let w_flag = parse_result.get_flag("w_flag");
@@ -31,26 +31,26 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     // could be dropped if the program can use the day of the last 
     // download date as the start date    
 
-    if  !i_flag && !a_flag  && !d_flag && !b_flag && !w_flag 
+    if  !i_flag && !imp_all_flag  && !d_flag && !b_flag && !w_flag 
     {
         d_flag = true;
     }
 
     // import and download functions mutually exclusive   
 
-    if i_flag || a_flag {
+    if i_flag || imp_all_flag {
 
-        if i_flag && a_flag {
-            a_flag = false;   // if both true only recent import done
+        if i_flag && imp_all_flag {
+            imp_all_flag = false;   // if both true only recent import done
         }
 
-        let import_type = if a_flag{ImportType::All} else {ImportType::Recent};
+        let import_type = if imp_all_flag {ImportType::All} else {ImportType::Recent};
 
         Ok(CliPars {
             import_type: import_type,
-            dl_type: DownloadType::None,     
-            start_date: today,
-            end_date: today,
+            download_type: DownloadType::None,     
+            start_date: None,
+            end_date: None,
         }) 
     }
     else if d_flag || b_flag {
@@ -91,9 +91,9 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 
         Ok(CliPars {
             import_type: ImportType::None,
-            dl_type: download_type,
-            start_date: start_date,
-            end_date: end_date,
+            download_type: download_type,
+            start_date: Some(start_date),
+            end_date: Some(end_date)
         }) 
         
     }
@@ -123,9 +123,9 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 
             Ok(CliPars {
             import_type: ImportType::None,
-            dl_type: DownloadType::ByYear,     
-            start_date: start_date,
-            end_date: end_date,
+            download_type: DownloadType::ByYear,     
+            start_date: Some(start_date),
+            end_date: Some(end_date)
             }) 
         }
     }
@@ -205,8 +205,8 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .action(clap::ArgAction::SetTrue)
         )
         .arg(
-            Arg::new("a_flag")
-           .short('a')
+            Arg::new("imp_all_flag")
+           .short('I')
            .long("import_all")
            .required(false)
            .help("A flag signifying (re-)import all data from source json files")
@@ -231,8 +231,8 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::Recent);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(today));
     }  
 
     #[test]
@@ -245,8 +245,8 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::BetweenDates);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
-        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 2, 6).unwrap());
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
     }
 
         #[test]
@@ -259,8 +259,8 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::ByYear);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 1, 1).unwrap());
-        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 1, 1).unwrap());
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()));
     }
 
     #[test]
@@ -274,8 +274,8 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::Recent);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(today));
     }
 
 
@@ -290,8 +290,8 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::BetweenDates);
-        assert_eq!(res.start_date, isrctn_start_date);
-        assert_eq!(res.end_date, NaiveDate::from_ymd_opt(2021, 2, 6).unwrap());
+        assert_eq!(res.start_date, Some(isrctn_start_date));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
     }
 
 
@@ -306,8 +306,8 @@ mod tests {
         
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.dl_type, DownloadType::BetweenDates);
-        assert_eq!(res.start_date, NaiveDate::from_ymd_opt(2020, 12, 4).unwrap());
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(today));
     }
 
 
@@ -353,8 +353,8 @@ mod tests {
         
         assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.dl_type, DownloadType::None);
-        assert_eq!(res.start_date, today);
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
     }
 
     #[test]
@@ -368,8 +368,8 @@ mod tests {
         
         assert_eq!(res.import_type, ImportType::All);
         assert_eq!(res.dl_type, DownloadType::None);
-        assert_eq!(res.start_date, today);
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
     }
 
     #[test]
@@ -383,8 +383,8 @@ mod tests {
         
         assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.dl_type, DownloadType::None);
-        assert_eq!(res.start_date, today);
-        assert_eq!(res.end_date, today);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
     }
 
 }

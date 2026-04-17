@@ -37,17 +37,27 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     // broken down into calls for individual days. 
     
     let base_url = params.base_url.clone();
-    let mut sd = params.start_date;
+
+    let mut sd = match params.start_date {
+        Some(nd) => nd,
+        None => {return Err(AppError::MissingProgramParameter("Start date required but not provided".to_string()))},
+    };
+
+    let edate = match params.end_date {
+        Some(nd) => nd,
+        None => {return Err(AppError::MissingProgramParameter("End date required but not provided".to_string()))},
+    };
+
     let mut res = DownloadResult::new();
     
-    while sd < params.end_date  {
+    while sd < edate  {
 
         // For each pass, set end date to be 4 days later than start date. 
         // If that goes past the overall end date set end date back to the overall end date.
          
         let mut ed = sd.checked_add_days(Days::new(4)).unwrap();  // unwrap should be safe!
-        if ed >  params.end_date {
-            ed = params.end_date  // ensure does not go beyond end of range
+        if ed > edate {
+            ed = edate // ensure does not go beyond end of range
         }
 
         // Establish api url for these dates.

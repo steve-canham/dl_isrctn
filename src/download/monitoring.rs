@@ -1,5 +1,6 @@
 use crate::base_types::*;
 use crate::AppError;
+use crate::helpers::date_extensions::*;
 
 use sqlx::{Pool, Postgres};
 use std::path::PathBuf;
@@ -65,8 +66,8 @@ pub async fn get_next_download_id(source_id: i32, dl_type: &DownloadType, mon_po
 
 pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params: &InitParams, mon_pool: &Pool<Postgres>) ->  Result<bool, AppError> {
      
-    let par_1 = params.start_date.to_string();
-    let par_2 = params.end_date.to_string();
+    let par_1 = params.start_date.as_string_opt();
+    let par_2 = params.end_date.as_string_opt();
     let now = Utc::now();
     let sql = r#"Update evs.dl_events set 
              time_ended = $2,
