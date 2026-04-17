@@ -6,10 +6,12 @@ pub struct InitParams {
     pub base_url: String,
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
-    pub import_type: ImportType,
     pub download_type: DownloadType,
+    pub import_type: ImportType,
+    pub encoding_type: EncodingType,
     pub start_date: Option<NaiveDate>,
     pub end_date: Option<NaiveDate>,
+    pub is_test: bool,
 }
 
 

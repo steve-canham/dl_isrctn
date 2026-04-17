@@ -10,13 +10,12 @@ mod iec;
 
 use download::monitoring::{get_next_download_id, update_dl_event_record};
 use import::monitoring::{get_next_import_id, update_imp_event_record};
+use crate::base_types::{DownloadType, ImportType, EncodingType};
 use setup::cli_reader;
 use err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
-
-use crate::base_types::DownloadType;
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
@@ -45,24 +44,24 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // It therefore wraps the -b download type.
 
     // Imports can be of recently downloaded files, i.e. since the last import (-i in the CLI)
-    // or can be of all downloaded files (-a in the CLI).
+    // or can be of all downloaded files (-I in the CLI).
 
     // Coding can be of just uncoded data, or be a recoding of all data
     
-    let cli_pars: cli_reader::CliPars;
-    cli_pars = cli_reader::fetch_valid_arguments(args)?;
-    
+    let cli_pars = cli_reader::fetch_valid_arguments(args)?;
+
     let config_file = PathBuf::from("./app_config.toml");
     let config_string: String = fs::read_to_string(&config_file)
                                 .map_err(|e| AppError::IoReadErrorWithPath(e, config_file))?;
-                              
-    let params = setup::get_params(cli_pars, &config_string)?;
-
-    setup::establish_log(&params)?;
 
     let src_pool = setup::get_db_pool("db").await?; // pool for the source specific db
     let mon_pool = setup::get_db_pool("mon").await?;  // pool for the monitoring db
-    let _cxt_pool = setup::get_db_pool("cxt").await?; // pool for the context data db
+                               
+    let params = setup::get_params(cli_pars, &config_string)?;
+
+ 
+
+    setup::establish_log(&params)?;
 
     if params.download_type != DownloadType::None {
 
@@ -72,13 +71,22 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
         let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
         update_dl_event_record (dl_id, dl_res, &params, &mon_pool).await?;
     }
-    else {
+
+
+    if params.import_type != ImportType::None {
         
         // an import requested
 
         let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
         let imp_res = import::import_data(&params.import_type, imp_id, &src_pool).await?;
         update_imp_event_record (imp_id, imp_res, &mon_pool).await?;
+    }
+
+
+    if params.encoding_type != EncodingType::None {
+        
+        // coding requested
+
     }
     
     Ok(())  

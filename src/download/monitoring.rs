@@ -86,6 +86,16 @@ pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params:
     Ok(res.rows_affected() == 1)
 }
 
+/* 
+pub async fn get_last_dl_event_date (source_id: i32, mon_pool: &Pool<Postgres>) -> Option<NaiveDate> {
+
+        let sql = format!(r#"SELECT max(time_ended)::date FROM evs.dl_events
+                where source_id = {}"#, source_id);
+        let res: Option<NaiveDate> = sqlx::query_scalar(&sql).fetch_optional(mon_pool)
+                        .await.map_err(|e| AppError::SqlxError(e, sql.to_string())).ok()?; 
+        res
+}
+*/
 
 
 

@@ -41,15 +41,26 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     if !folder_exists(&log_folder_path) {
         fs::create_dir_all(&log_folder_path)?;
     }
+
+    // Here, possibly modify start date for a type 'recent' download
+    // If not given in CLI it may be available from the DB....
+    // Run a routine to see if this is the case
+    // ... if dowbnloadtype = recent and no date provided....
+    // get a date fromn the db
+    // if no date then post an error and message and stop program
+    // If date present use it as the start dateb parameter...
+    
         
     Ok(InitParams {
         base_url: base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
-        import_type: cli_pars.import_type,
         download_type: cli_pars.download_type,
+        import_type: cli_pars.import_type,
+        encoding_type: cli_pars.encoding_type,
         start_date: cli_pars.start_date,
         end_date:cli_pars.end_date,
+        is_test: cli_pars.is_test,
     })
 
 }
@@ -106,6 +117,7 @@ pub fn log_set_up() -> bool {
 
 // Tests
 #[cfg(test)]
+//use super::*;
 
 mod tests {
 
@@ -140,7 +152,6 @@ cxt_db_name="cxt"
         let args : Vec<&str> = vec!["dummy target", "-s", "2020-12-04"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
-
         let res = get_params(cli_pars, &config_string).unwrap();
         let today = Local::now().date_naive();
 
@@ -178,10 +189,9 @@ cxt_db_name="cxt"
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
 
-        let args : Vec<&str> = vec!["dummy target", "-w", "-y", "2024"];
+        let args : Vec<&str> = vec!["dummy target", "-y", "-s", "2024"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
-
         let res = get_params(cli_pars, &config_string).unwrap();
  
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
@@ -221,9 +231,7 @@ cxt_db_name="cxt"
         let args : Vec<&str> = vec!["dummy target", "-i"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
-
         let res = get_params(cli_pars, &config_string).unwrap();
-        let today = Local::now().date_naive();
 
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
