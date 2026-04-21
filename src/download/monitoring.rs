@@ -4,7 +4,7 @@ use crate::helpers::date_extensions::*;
 
 use sqlx::{Pool, Postgres};
 use std::path::PathBuf;
-use chrono::Utc;
+use chrono::{Utc, NaiveDate};
 
 
 pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
@@ -86,7 +86,7 @@ pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params:
     Ok(res.rows_affected() == 1)
 }
 
-/* 
+
 pub async fn get_last_dl_event_date (source_id: i32, mon_pool: &Pool<Postgres>) -> Option<NaiveDate> {
 
         let sql = format!(r#"SELECT max(time_ended)::date FROM evs.dl_events
@@ -95,7 +95,7 @@ pub async fn get_last_dl_event_date (source_id: i32, mon_pool: &Pool<Postgres>) 
                         .await.map_err(|e| AppError::SqlxError(e, sql.to_string())).ok()?; 
         res
 }
-*/
+
 
 
 

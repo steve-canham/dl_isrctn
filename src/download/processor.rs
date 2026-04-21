@@ -214,7 +214,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         plain_english_summary: plain_summ,
         study_hypothesis: d.study_hypothesis.as_text_opt(),
         primary_outcome: d.primary_outcome.as_text_opt(),
-        secondary_outcome: d.secondary_outcome.as_text_opt(),
         overall_end_date: study.trial_design.overall_end_date.as_date_opt(),
         trial_website: d.trial_website.as_text_opt(),
     };
@@ -233,40 +232,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     }
     let primary_outcomes =  count_option(s_primary_outcomes);
 
-    let mut s_secondary_outcomes: Vec<OutcomeMeasure> = Vec::new();
-    if d.secondary_outcomes.outcome_measures.len() > 0 {
-        for om in d.secondary_outcomes.outcome_measures {
-            s_secondary_outcomes.push(OutcomeMeasure { 
-                variable: om.variable, 
-                method: om.method, 
-                timepoints: om.timepoints,
-            })
-        }
-    } 
-    let secondary_outcomes =  count_option(s_secondary_outcomes);
-
-    // Ethics Committee data
-
-    let ethics = Ethics {
-        ethics_approval_required: d.ethics_approval_required.as_text_opt(),
-        ethics_approval: d.ethics_approval.as_text_opt(),
-    };
-
-    let mut ethics_comms = Vec::new();
-    if d.ethics_committee_list.ethics_committees.len() > 0 {
-        for ec in d.ethics_committee_list.ethics_committees {
-            
-            let committee = EthicsCommittee {
-                name: ec.committee_name.as_text_opt(),
-                approval_status: ec.approval_status.as_text_opt(),
-                status_date: ec.status_date.as_date_opt(),
-                committee_reference: ec.committee_reference.as_text_opt(),
-            };
-            ethics_comms.push(committee);
-        }
-    }
-    let ethics_committees = count_option(ethics_comms);
-
     // Design block
 
     let ds = study.trial_design;
@@ -277,7 +242,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         secondary_study_design: ds.secondary_study_design.as_text_opt(),
     };
 
-    // Trial type list and trial settings list
+    // Trial type list
 
     let mut t_types: Vec<String> = Vec::new();
     if let Some(tts) = ds.trial_type_list {
@@ -291,19 +256,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     }
     let trial_types = count_option(t_types);
 
-    
-    let mut t_settings: Vec<String> = Vec::new();
-    if let Some(tss) = ds.trial_setting_list {
-        if tss.trial_settings.len() > 0 {
-            for ts in tss.trial_settings {
-                if let Some(s) = ts.trial_setting.as_text_opt(){
-                    t_settings.push(s);
-                }
-            }
-        }
-    }
-    let trial_settings = count_option(t_settings);
-    
 
     // Conditions
 
@@ -502,20 +454,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
             recruitment_start_status_override: p.recruitment_start_status_override.as_text_opt(),
             recruitment_status_override: p.recruitment_status_override.as_text_opt(),
     };
-
-    let mut s_centres: Vec<StudyCentre> = Vec::new();
-    if p.centre_list.centres.len() > 0 {
-        for c in p.centre_list.centres {
-            s_centres.push(StudyCentre {
-                name: c.name.as_text_opt(),
-                address: c.address.as_text_opt(),
-                city: c.city.as_text_opt(),
-                state: c.state.as_text_opt(),
-                country: c.country.as_text_opt(),
-            });
-        }  
-    }
-    let centres = count_option(s_centres);
 
 
     let mut init_countries: Vec<String> = Vec::new();
@@ -727,12 +665,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         identifiers,
         summary,
         primary_outcomes,
-        secondary_outcomes,
-        ethics,
-        ethics_committees,
         design,
         trial_types,
-        trial_settings,
         conditions,
         interventions, 
         contacts,
@@ -741,7 +675,6 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         participant_types,
         participants,
         recruitment,
-        centres,
         countries,
         data_policies,
         results,
@@ -753,4 +686,77 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     Ok(json_study)
 
 }
+
+
+// PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
+
+/* 
+    let mut s_secondary_outcomes: Vec<OutcomeMeasure> = Vec::new();
+    if d.secondary_outcomes.outcome_measures.len() > 0 {
+        for om in d.secondary_outcomes.outcome_measures {
+            s_secondary_outcomes.push(OutcomeMeasure { 
+                variable: om.variable, 
+                method: om.method, 
+                timepoints: om.timepoints,
+            })
+        }
+    } 
+    let secondary_outcomes =  count_option(s_secondary_outcomes);
+*/
+
+    // Ethics Committee data
+
+/* 
+    let ethics = Ethics {
+        ethics_approval_required: d.ethics_approval_required.as_text_opt(),
+        ethics_approval: d.ethics_approval.as_text_opt(),
+    };
+
+    let mut ethics_comms = Vec::new();
+    if d.ethics_committee_list.ethics_committees.len() > 0 {
+        for ec in d.ethics_committee_list.ethics_committees {
+            
+            let committee = EthicsCommittee {
+                name: ec.committee_name.as_text_opt(),
+                approval_status: ec.approval_status.as_text_opt(),
+                status_date: ec.status_date.as_date_opt(),
+                committee_reference: ec.committee_reference.as_text_opt(),
+            };
+            ethics_comms.push(committee);
+        }
+    }
+    let ethics_committees = count_option(ethics_comms);
+*/
+
+    
+/* 
+    let mut s_centres: Vec<StudyCentre> = Vec::new();
+    if p.centre_list.centres.len() > 0 {
+        for c in p.centre_list.centres {
+            s_centres.push(StudyCentre {
+                name: c.name.as_text_opt(),
+                address: c.address.as_text_opt(),
+                city: c.city.as_text_opt(),
+                state: c.state.as_text_opt(),
+                country: c.country.as_text_opt(),
+            });
+        }  
+    }
+    let centres = count_option(s_centres);
+*/
+
+
+/* 
+    let mut t_settings: Vec<String> = Vec::new();
+    if let Some(tss) = ds.trial_setting_list {
+        if tss.trial_settings.len() > 0 {
+            for ts in tss.trial_settings {
+                if let Some(s) = ts.trial_setting.as_text_opt(){
+                    t_settings.push(s);
+                }
+            }
+        }
+    }
+    let trial_settings = count_option(t_settings);
+*/
 

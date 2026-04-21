@@ -592,7 +592,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
 
     // locations
-
+/*
     let mut db_locs: Vec<DBLocation> = Vec::new();
 
     if let Some(locs) = &s.centres {
@@ -606,7 +606,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             });
         }
     }
-
+*/
     // countries
 
     let mut db_countries: Vec<DBCountry> = Vec::new();
@@ -958,7 +958,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     }
 
     participants.iec_flag =  inc_result + exc_result;
-
 
 
     // Outputs
@@ -1413,7 +1412,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         identifiers: option_from_count(db_ids),
         orgs: option_from_count(db_orgs),
         people: option_from_count(db_peop),
-        locations: option_from_count(db_locs),
+        //locations: option_from_count(db_locs),
         countries: option_from_count(db_countries),
         conditions: option_from_count(db_conds),
         features: option_from_count(db_feats),

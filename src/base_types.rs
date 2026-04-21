@@ -18,7 +18,8 @@ pub struct InitParams {
 #[derive(PartialEq, Debug)]
 pub enum DownloadType {
     Recent,
-    BetweenDates,
+    UdBetweenDates,
+    CrBetweenDates,
     ByYear,
     None
 }
@@ -27,8 +28,9 @@ impl DownloadType {
     pub fn to_string(&self) -> String {
         match self { 
             DownloadType::Recent => "Recently updated".to_string(), 
-            DownloadType::BetweenDates => "Updated between dates".to_string(), 
-            DownloadType::ByYear => "Updated in year".to_string(), 
+            DownloadType::UdBetweenDates => "Updated between dates".to_string(), 
+            DownloadType::CrBetweenDates => "Created between dates".to_string(), 
+            DownloadType::ByYear => "Created in year".to_string(), 
             DownloadType::None => "None".to_string(), 
         }
     }

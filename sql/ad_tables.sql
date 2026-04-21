@@ -142,26 +142,6 @@ CREATE TABLE ad.study_iec(
 CREATE INDEX study_iec_sid ON ad.study_iec(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_locations;
-CREATE TABLE ad.study_locations(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, fac_id                 INT             NULL
-, fac_name               VARCHAR         NULL
-, fac_ror_id             VARCHAR         NULL
-, city_id                INT             NULL
-, city_name              VARCHAR         NULL
-, disamb_id              INT             NULL
-, disamb_name            VARCHAR         NULL
-, country_id             INT             NULL
-, country_name           VARCHAR         NULL
-, status_id              INT             NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL           
-);
-CREATE INDEX study_locations_sid ON ad.study_locations(sd_sid);
-
-
 DROP TABLE IF EXISTS ad.study_countries;
 CREATE TABLE ad.study_countries(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
@@ -261,3 +241,25 @@ CREATE TABLE ad.study_objects(
 CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
 
 SET client_min_messages TO NOTICE; 
+
+
+/*
+DROP TABLE IF EXISTS ad.study_locations;
+CREATE TABLE ad.study_locations(
+  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
+, sd_sid                 VARCHAR         NOT NULL
+, fac_id                 INT             NULL
+, fac_name               VARCHAR         NULL
+, fac_ror_id             VARCHAR         NULL
+, city_id                INT             NULL
+, city_name              VARCHAR         NULL
+, disamb_id              INT             NULL
+, disamb_name            VARCHAR         NULL
+, country_id             INT             NULL
+, country_name           VARCHAR         NULL
+, status_id              INT             NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+, coded_on               TIMESTAMPTZ     NULL           
+);
+CREATE INDEX study_locations_sid ON ad.study_locations(sd_sid);
+*/

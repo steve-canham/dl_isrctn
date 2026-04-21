@@ -12,7 +12,6 @@ pub struct DBStudy {
     pub identifiers: Option<Vec<DBIdentifier>>,
     pub orgs: Option<Vec<DBOrganisation>>, 
     pub people: Option<Vec<DBPerson>>, 
-    pub locations: Option<Vec<DBLocation>>, 
     pub countries: Option<Vec<DBCountry>>, 
     pub conditions: Option<Vec<DBCondition>>, 
     pub features: Option<Vec<DBFeature>>, 
@@ -105,14 +104,6 @@ pub struct DBPerson {
     pub affiliation: Option<String>,
     pub email_domain: Option<String>,
 }
-    
-pub struct DBLocation {
-    pub fac_name: Option<String>,
-    pub fac_address: Option<String>,
-    pub city_name: Option<String>,
-    pub disamb_name: Option<String>,
-    pub country_name: Option<String>,
-}
 
 pub struct DBCountry {
     pub country_name: String,
@@ -166,4 +157,14 @@ pub struct DBObject {
 }
 
 
+// PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
 
+/*  
+pub struct DBLocation {
+    pub fac_name: Option<String>,
+    pub fac_address: Option<String>,
+    pub city_name: Option<String>,
+    pub disamb_name: Option<String>,
+    pub country_name: Option<String>,
+}
+*/

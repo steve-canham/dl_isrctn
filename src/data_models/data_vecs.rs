@@ -500,70 +500,12 @@ impl PeopleVecs{
     }
 }
 
-pub struct LocationVecs {
-    pub sd_sids: Vec<String>,
-    pub fac_names: Vec<Option<String>>,
-    pub fac_addresses: Vec<Option<String>>,
-    pub city_names: Vec<Option<String>>,
-    pub disamb_names: Vec<Option<String>>,
-    pub country_names: Vec<Option<String>>,
-}
 
-impl LocationVecs{
-    pub fn new(vsize: usize) -> Self {
-        LocationVecs { 
-            sd_sids: Vec::with_capacity(vsize),
-            fac_names: Vec::with_capacity(vsize),
-            fac_addresses: Vec::with_capacity(vsize),
-            city_names: Vec::with_capacity(vsize),
-            disamb_names: Vec::with_capacity(vsize),
-            country_names: Vec::with_capacity(vsize),
-        }
-    }
-
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBLocation>) 
-    {
-        for r in v {
-            self.sd_sids.push(sd_sid.clone());
-            self.fac_names.push(r.fac_name.clone());
-            self.fac_addresses.push(r.fac_address.clone());
-            self.city_names.push(r.city_name.clone());
-            self.disamb_names.push(r.disamb_name.clone());
-            self.country_names.push(r.country_name.clone());
-        }
-    }
-
-    pub fn shrink_to_fit(&mut self) -> () {
-        self.sd_sids.shrink_to_fit();
-        self.fac_names.shrink_to_fit();
-        self.fac_addresses.shrink_to_fit();
-        self.city_names.shrink_to_fit();
-        self.disamb_names.shrink_to_fit();
-        self.country_names.shrink_to_fit();
-    }
-
-    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
-
-        let sql = r#"INSERT INTO sd.study_locations (sd_sid, fac_name, fac_address, city_name, disamb_name, country_name) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])"#;
-
-        sqlx::query(sql)
-        .bind(&self.sd_sids)
-        .bind(&self.fac_names)
-        .bind(&self.fac_addresses)
-        .bind(&self.city_names)
-        .bind(&self.disamb_names)
-        .bind(&self.country_names)
-        .execute(pool)
-        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
-    }
-}
 
 pub struct CountryVecs {
     pub sd_sids: Vec<String>,
     pub country_names: Vec<String>,
 }
-
 
 impl CountryVecs{
     pub fn new(vsize: usize) -> Self {
@@ -649,6 +591,7 @@ impl ConditionVecs {
     }
 }
 
+
 pub struct FeatureVecs {
     pub sd_sids: Vec<String>,
     pub sources: Vec<String>,
@@ -697,6 +640,7 @@ impl FeatureVecs{
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
 }
+
 
 pub struct TopicVecs {
     pub sd_sids: Vec<String>,
@@ -1016,3 +960,67 @@ impl PublicationVecs{
     }
 }
 
+
+
+// PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
+
+/* 
+pub struct LocationVecs {
+    pub sd_sids: Vec<String>,
+    pub fac_names: Vec<Option<String>>,
+    pub fac_addresses: Vec<Option<String>>,
+    pub city_names: Vec<Option<String>>,
+    pub disamb_names: Vec<Option<String>>,
+    pub country_names: Vec<Option<String>>,
+}
+
+impl LocationVecs{
+    pub fn new(vsize: usize) -> Self {
+        LocationVecs { 
+            sd_sids: Vec::with_capacity(vsize),
+            fac_names: Vec::with_capacity(vsize),
+            fac_addresses: Vec::with_capacity(vsize),
+            city_names: Vec::with_capacity(vsize),
+            disamb_names: Vec::with_capacity(vsize),
+            country_names: Vec::with_capacity(vsize),
+        }
+    }
+
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBLocation>) 
+    {
+        for r in v {
+            self.sd_sids.push(sd_sid.clone());
+            self.fac_names.push(r.fac_name.clone());
+            self.fac_addresses.push(r.fac_address.clone());
+            self.city_names.push(r.city_name.clone());
+            self.disamb_names.push(r.disamb_name.clone());
+            self.country_names.push(r.country_name.clone());
+        }
+    }
+
+    pub fn shrink_to_fit(&mut self) -> () {
+        self.sd_sids.shrink_to_fit();
+        self.fac_names.shrink_to_fit();
+        self.fac_addresses.shrink_to_fit();
+        self.city_names.shrink_to_fit();
+        self.disamb_names.shrink_to_fit();
+        self.country_names.shrink_to_fit();
+    }
+
+    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+
+        let sql = r#"INSERT INTO sd.study_locations (sd_sid, fac_name, fac_address, city_name, disamb_name, country_name) 
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])"#;
+
+        sqlx::query(sql)
+        .bind(&self.sd_sids)
+        .bind(&self.fac_names)
+        .bind(&self.fac_addresses)
+        .bind(&self.city_names)
+        .bind(&self.disamb_names)
+        .bind(&self.country_names)
+        .execute(pool)
+        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
+    }
+}
+*/

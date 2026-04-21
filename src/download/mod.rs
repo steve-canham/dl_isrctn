@@ -25,15 +25,24 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     // The base url, json file folder, log folder, and start and end dates have
     // already been checked as being present and reasonable.
 
-    // The download process downloads all records with last edited dates >= start date and < end date.
-    // Records last edited on the start date are included, but the full set only includes studies
-    // last edited up to the (end date - 1). This avoids duplications when stepping through the
-    // full set in the API. It also means that the best time for regular downloading is in the very 
+    // If the download type is 'Recent' or 'UdBetweenDates' the process downloads all records with 
+    // last edited dates >= start date and < end date, with conventionally the start date being the date of 
+    // the last download of that type, and the end date being today. 
+
+    // The range is set up as GE start date AND LT end date, so this will 
+    // download records updated up to midnight on the previous day. All records updated on the date of the 
+    // last download will be included, however, as these were not included in the download of that day.
+    // This avoids duplications when stepping through the full set in the API. 
+    // It also means that the best time for regular downloading is in the very 
     // early morning (European time) as this means a minimal number of records are missed.
 
-    // Each period is broken up into periods of 4 days. There does not appear to be a way to rank or 
-    // order results and select from within a returned set, so record sets are returned 'as is'.
-    // If the number of available records for a selected period is > 100 records the call is 
+    // if the download type is 'CrBetweenDates' or 'ByYear', the records downloaded are those created
+    // in the specified period. The parameter used is therefor 'dateApplied' rather than 'lastEdited'. These 
+    // optrions are chiefly used when doing a full reconstruction of the dataset.
+
+    // In either case, each period is broken up into periods of 4 days. There does not appear to be 
+    // a way to rank or order results and select from within a returned set, so record sets are returned 'as is'.
+    // If the number of available records for a selected 4-day period is > 100 records the call is 
     // broken down into calls for individual days. 
     
     let base_url = params.base_url.clone();
@@ -62,10 +71,18 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 
         // Establish api url for these dates.
 
+        let range_parameter: &str;
+        if params.download_type == DownloadType::Recent || params.download_type == DownloadType::UdBetweenDates {
+            range_parameter = "lastEdited";
+        }
+        else {
+            range_parameter = "dateApplied";
+        }
+
         let start_date_param = sd.format("%Y-%m-%d").to_string();
-        let query_start_param = format!("lastEdited%20GE%20{}T00:00:00%20AND%20", start_date_param);
+        let query_start_param = format!("{}%20GE%20{}T00:00:00%20AND%20", range_parameter, start_date_param);
         let end_date_param = ed.format("%Y-%m-%d").to_string();
-        let query_end_param = format!("lastEdited%20LT%20{}T00:00:00%20&limit=", end_date_param);
+        let query_end_param = format!("{}%20LT%20{}T00:00:00%20&limit=", range_parameter, end_date_param);
         let dated_url = format!("{}{}{}", base_url, query_start_param, query_end_param);
 
         // Initially just get record count.
@@ -80,7 +97,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 
                 let mut d = sd;
                 while d < ed {
-                    let this_res = process_single_day(params, &d, dl_id, src_pool).await?;
+                    let this_res = process_single_day(params, range_parameter, &d, dl_id, src_pool).await?;
                     info!("For single day {}, records checked:{}", d, this_res.num_checked);
                     res = res + this_res;
                     d = d.checked_add_days(Days::new(1)).unwrap();
@@ -110,11 +127,13 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 }
 
 
-async fn process_single_day(params: &InitParams, date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
+async fn process_single_day(params: &InitParams, range_parameter: &str, date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
 {
     let date_param = date.format("%Y-%m-%d").to_string();
-    let query_start_param = format!("lastEdited%20GE%20{}T00:00:00%20AND%20", date_param);
-    let query_end_param = format!("lastEdited%20LT%20{}T23:59:59%20&limit=", date_param);
+
+
+    let query_start_param = format!("{}%20GE%20{}T00:00:00%20AND%20", range_parameter, date_param);
+    let query_end_param = format!("{}%20LT%20{}T23:59:59%20&limit=", range_parameter, date_param);
 
     // See how many records there are this day.
 
@@ -143,13 +162,7 @@ async fn get_study_count(url: &String) -> Result<i32, AppError> {
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
 
-    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-    
-    let mut rng = rand::rng();
-    let num = &rng.random_range(1..=1000);
-    let millis = 500 + num;
-    let pause = time::Duration::from_millis(millis);
-    thread::sleep(pause);
+    pause_about_500ms();  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
 
     // Extract api text and deserialise it to the xml model
 
@@ -168,14 +181,8 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-
-    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-    
-    let mut rng = rand::rng();
-    let num = &rng.random_range(1..=1000);
-    let millis = 500 + num;
-    let pause = time::Duration::from_millis(millis);
-    thread::sleep(pause);
+   
+    pause_about_500ms();  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
 
     // Extract api text and deserialise it to the xml model
 
@@ -187,21 +194,28 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
 }
 
+fn pause_about_500ms() -> () {
+    
+    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
+    
+    let mut rng = rand::rng();
+    let num = &rng.random_range(1..=1000);
+    let millis = 500 + num;
+    let pause = time::Duration::from_millis(millis);
+    thread::sleep(pause);
+}
+
 
 async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     let mut res = DownloadResult::new();
 
-        // iterate through studies, the vector of FullTrials
+        // Iterate through studies, the vector of FullTrials
         // For each, call the process_studyroutine that goes through the xml 
         // derived structure and which produces a much more mdr compliant model
         // That includes tidying up many of the fields, removing spaces and carriage returns...
-
-        // Once that model has been returned Write it out as a json file
-        // Also - optionally - update the database with it, as a new or updated version of 
-        // the various tables. (Probably not at this stage). This would allows the 
-        // isrctn database to be updated in situ, (though there is still a lot of 
-        // coding to be applied after each update)
+        // Once that model has been returned Write it out as a json file, for 
+        // later import and further processing.
 
         for s in studies {
 
@@ -211,23 +225,7 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
             let sd_sid = &t.sd_sid;
             let record_date = &t.registration.last_updated;
             let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
-
-
-            let mut yr = "pre-2007".to_string();  // default value
-            if let Some(s) = &t.registration.date_id_assigned {
-                let reg_year_string = s[0..4].to_string();
-                if reg_year_string.as_str() > "2006" 
-                {
-                    yr = reg_year_string;
-                }
-            }
-            let json_folder = &params.json_data_path;
-            let file_folder: PathBuf = [json_folder, &PathBuf::from(&yr)].iter().collect(); 
-            if !folder_exists(&file_folder) {
-                fs::create_dir_all(&file_folder)?;
-            }
-                             
-            let full_path = write_out_file(&t, &file_folder).await?;
+            let full_path = write_out_file(&sd_sid, &t, &params.json_data_path).await?;
 
             let added = monitoring::update_isrctn_mon(sd_sid, &remote_url, dl_id,
                      record_date, &full_path, src_pool).await?;
@@ -242,14 +240,27 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
 }
 
 
-pub async fn write_out_file(t: &json_models::Study, json_folder: &PathBuf) -> Result<PathBuf, AppError> {
+pub async fn write_out_file(sd_sid: &String, t: &json_models::Study, json_folder: &PathBuf) -> Result<PathBuf, AppError> {
 
     // Writes out the file with the correct name to the correct folder, as indented json.
     // Called from the process_studies function.
     // Returns the full file path as constructed.
+
+    let reg_year_string = match &t.registration.date_id_assigned {
+        Some(s) =>  s[0..4].to_string(),
+        None => {
+            info!("Odd - study {} does not appear to have a registration date", sd_sid.clone());
+            info!("File written to the 'Odd' sub-folder ");
+            "Odd".to_string()
+        }
+    };
+    let file_folder: PathBuf = [json_folder, &PathBuf::from(&reg_year_string)].iter().collect(); 
+    if !folder_exists(&file_folder) {
+        fs::create_dir_all(&file_folder)?;
+    }
  
     let file_name = format!("{}.json", t.sd_sid);
-    let file_path: PathBuf= [json_folder, &PathBuf::from(&file_name)].iter().collect();
+    let file_path: PathBuf= [&file_folder, &PathBuf::from(&file_name)].iter().collect();
     let json_string = to_string_pretty(&t).unwrap();
 
     let mut file = fs::File::create(&file_path)?;

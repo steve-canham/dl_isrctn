@@ -8,7 +8,7 @@ mod data_models;
 mod helpers;
 mod iec;
 
-use download::monitoring::{get_next_download_id, update_dl_event_record};
+use download::monitoring::{get_next_download_id, update_dl_event_record, get_last_dl_event_date};
 use import::monitoring::{get_next_import_id, update_imp_event_record};
 use crate::base_types::{DownloadType, ImportType, EncodingType};
 use setup::cli_reader;
@@ -16,6 +16,7 @@ use err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::fs;
+use chrono::NaiveDate;
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
@@ -53,13 +54,26 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     let config_file = PathBuf::from("./app_config.toml");
     let config_string: String = fs::read_to_string(&config_file)
                                 .map_err(|e| AppError::IoReadErrorWithPath(e, config_file))?;
+        let mut params = setup::get_params(cli_pars, &config_string)?;
 
     let src_pool = setup::get_db_pool("db").await?; // pool for the source specific db
     let mon_pool = setup::get_db_pool("mon").await?;  // pool for the monitoring db
-                               
-    let params = setup::get_params(cli_pars, &config_string)?;
 
- 
+    // Here, possibly modify start date for a 'recent' download type
+    // If date not given in CLI it may be available from the DB....
+    // Check to see if this is the case - if not post an error and stop program
+    // If date present use it as the start date parameter...
+
+    if params.download_type == DownloadType::Recent 
+        && params.start_date == NaiveDate::from_ymd_opt(1900, 1, 1) {
+
+        if let Some(nd) = get_last_dl_event_date (100126, &mon_pool).await {
+            params.start_date = Some(nd);
+        }
+        else {
+            return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+        }
+    }
 
     setup::establish_log(&params)?;
 

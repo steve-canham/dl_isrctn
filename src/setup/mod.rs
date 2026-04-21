@@ -41,16 +41,7 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     if !folder_exists(&log_folder_path) {
         fs::create_dir_all(&log_folder_path)?;
     }
-
-    // Here, possibly modify start date for a type 'recent' download
-    // If not given in CLI it may be available from the DB....
-    // Run a routine to see if this is the case
-    // ... if dowbnloadtype = recent and no date provided....
-    // get a date fromn the db
-    // if no date then post an error and message and stop program
-    // If date present use it as the start dateb parameter...
-    
-        
+           
     Ok(InitParams {
         base_url: base_url,
         json_data_path: json_data_path,

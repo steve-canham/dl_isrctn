@@ -15,14 +15,9 @@ pub struct Study
     
     pub summary: Summary,
     pub primary_outcomes: Option<Vec<OutcomeMeasure>>,
-    pub secondary_outcomes: Option<Vec<OutcomeMeasure>>,
-
-    pub ethics: Ethics,
-    pub ethics_committees: Option<Vec<EthicsCommittee>>,
 
     pub design: Design,
     pub trial_types: Option<Vec<String>>,
-    pub trial_settings: Option<Vec<String>>,
 
     pub conditions: Option<Vec<Condition>>,
     pub interventions: Option<Vec<Intervention>>,
@@ -35,7 +30,6 @@ pub struct Study
     pub participants: Participants,
 
     pub recruitment: Recruitment,
-    pub centres: Option<Vec<StudyCentre>>,
     pub countries: Option<Vec<String>>,
 
     pub data_policies: Option<Vec<String>>,
@@ -84,26 +78,8 @@ pub struct Summary
     pub plain_english_summary: Option<String>,
     pub study_hypothesis: Option<String>,
     pub primary_outcome: Option<String>,
-    pub secondary_outcome: Option<String>,
     pub overall_end_date: Option<String>,
     pub trial_website: Option<String>,
-}
-
-
-#[derive(Serialize, Deserialize)]
-pub struct Ethics
-{
-    pub ethics_approval_required: Option<String>,
-    pub ethics_approval: Option<String>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct EthicsCommittee
-{
-    pub name: Option<String>,
-    pub approval_status: Option<String>,
-    pub status_date: Option<String>,
-    pub committee_reference: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -129,7 +105,6 @@ pub struct Condition
     pub disease_class1: Option<String>,
     pub disease_class2: Option<String>,
 }
-
 
 #[derive(Serialize, Deserialize)]
 pub struct Intervention 
@@ -207,15 +182,6 @@ pub struct Recruitment
     pub recruitment_status_override: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct StudyCentre
-{
-    pub name: Option<String>,
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub state: Option<String>,
-    pub country: Option<String>,
-}
 
 #[derive(Serialize, Deserialize)]
 pub struct Results
@@ -280,3 +246,37 @@ pub struct StudyFile
     pub date_created: Option<String>,
     pub date_uploaded: Option<String>,
 }
+
+
+
+// PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
+
+/*
+#[derive(Serialize, Deserialize)]
+pub struct StudyCentre
+{
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub country: Option<String>,
+}
+*/
+
+/* 
+#[derive(Serialize, Deserialize)]
+pub struct Ethics
+{
+    pub ethics_approval_required: Option<String>,
+    pub ethics_approval: Option<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct EthicsCommittee
+{
+    pub name: Option<String>,
+    pub approval_status: Option<String>,
+    pub status_date: Option<String>,
+    pub committee_reference: Option<String>,
+}
+*/

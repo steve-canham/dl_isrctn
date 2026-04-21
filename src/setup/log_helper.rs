@@ -83,25 +83,13 @@ pub fn log_startup_params (ip : &InitParams) {
     info!("json data path: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
 
-    if ip.download_type != DownloadType::None {
-        let dl_type = match ip.download_type {
-            DownloadType::Recent => "Data recently updated",
-            DownloadType::BetweenDates => "Data updated between dates",
-            DownloadType::ByYear => "Data updated in a set year",
-            DownloadType::None => "",
-        }; 
-        info!("dl type: {:?}", dl_type);
-        info!("start date: {:?}", ip.start_date);
-        info!("end date: {:?}", ip.end_date);
-    } 
-    else {
-        let imp_type = match ip.import_type {
-            ImportType::Recent => "Files recently downloaded",
-            ImportType::All => "All files",
-            ImportType::None => "",
-        }; 
-        info!("import type: {:?}", imp_type); 
-    }
+    info!("download data: {:?}", ip.download_type.to_string());
+    info!("import data: {:?}", ip.import_type.to_string());
+    info!("encoding data: {:?}", ip.encoding_type.to_string());
+    let sd = if ip.start_date == None {"none".to_string()} else {ip.start_date.unwrap().format("%Y-%m-%d").to_string()};
+    info!("start date: {}", sd);
+    let ed = if ip.end_date == None {"none".to_string()} else {ip.end_date.unwrap().format("%Y-%m-%d").to_string()};
+    info!("start date: {}", ed);
 
     info!("");
     info!("************************************");

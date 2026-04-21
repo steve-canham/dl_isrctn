@@ -22,20 +22,21 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     let do_all_recent = parse_result.get_flag("do_all_recent");
 
     let mut dl_updated_recently = parse_result.get_flag("dl_recent");
-    let dl_updated_between_dates = parse_result.get_flag("dl_updated_between_dates");
-    let dl_updated_in_year = parse_result.get_flag("dl_updated_in_year");
+    let mut dl_updated_between_dates = parse_result.get_flag("dl_updated_between_dates");
+    let dl_created_between_dates = parse_result.get_flag("dl_created_between_dates");
+    let dl_created_in_year = parse_result.get_flag("dl_created_in_year");
 
     let mut imp_recent_flag = parse_result.get_flag("imp_flag");
     let mut imp_all_flag = parse_result.get_flag("imp_all_flag");
-    let mut code_recent_flag = parse_result.get_flag("code_flag");
-    let mut code_all_flag = parse_result.get_flag("code_all_flag");
+    let mut code_recent_flag = parse_result.get_flag("encode_flag");
+    let mut code_all_flag = parse_result.get_flag("encode_all_flag");
 
     let test_flag = parse_result.get_flag("test_flag");
 
     // dates have default values of "" so can be unwrapped
 
     let start_date_as_string = parse_result.get_one::<String>("start_date").unwrap();
-    let end_date_as_string = parse_result.get_one::<String>("end_date").unwrap();
+    let end_date_as_string = parse_result.get_one::<String>("terminal_date").unwrap();
 
     if do_all_recent {
         dl_updated_recently = true;
@@ -49,7 +50,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     // download date as the start date    
 
     if !imp_recent_flag && !imp_all_flag  
-    && !dl_updated_recently && !dl_updated_between_dates && !dl_updated_in_year 
+    && !dl_updated_recently && !dl_updated_between_dates  && !dl_created_between_dates && !dl_created_in_year 
     && !code_recent_flag && !code_all_flag
     {
         dl_updated_recently = true;
@@ -61,8 +62,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
     let mut start_date = None;
     let mut end_date = None;
     let today = Utc::now().date_naive();
-    let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
-
+    
     if imp_recent_flag || imp_all_flag {
 
         if imp_recent_flag && imp_all_flag {
@@ -79,41 +79,55 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
         encoding_type = if code_all_flag {EncodingType::All} else {EncodingType::Recent};
     }
 
-    if dl_updated_recently || dl_updated_between_dates || dl_updated_in_year {
+    if dl_updated_recently || dl_updated_between_dates || dl_created_between_dates || dl_created_in_year {
+
+        // No need to check combinations of these as in most cases need for accompanying date parameter(s) 
+        // means that only one of them can be run legitimately at a time - any additional params will error
 
         if dl_updated_recently {
-            
-            start_date = get_start_date(start_date_as_string, today, isrctn_start_date)?;
-            end_date = Some(Utc::now().date_naive());
             download_type = DownloadType::Recent;
+            let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+            start_date = get_start_date(start_date_as_string, dl_updated_recently, today, isrctn_start_date)?;
+            end_date = Some(Utc::now().date_naive());
         }
 
-        if dl_updated_between_dates {
+        if dl_updated_between_dates || dl_created_between_dates {
 
+            if dl_updated_between_dates && dl_created_between_dates {
+                dl_updated_between_dates = false;  // the created between dates option takes precedence
+            }
+
+            let mut isrctn_start_date =  NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+            if dl_updated_between_dates  {
+                download_type = DownloadType::UdBetweenDates;
+            }
+            else {
+                download_type = DownloadType::CrBetweenDates;
+                isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
+            }
             // Both start and end date parameters are essential.
 
-            start_date = get_start_date(start_date_as_string, today, isrctn_start_date)?;
+            start_date = get_start_date(start_date_as_string, false, today, isrctn_start_date)?;
             end_date = get_end_date(end_date_as_string, today)?;
-            download_type = DownloadType::BetweenDates;
         }
 
-        if dl_updated_in_year {
+        if dl_created_in_year {
 
             download_type = DownloadType::ByYear;
-
             let year: i32 = start_date_as_string.parse().unwrap_or_else(|_| 0);
             let current_year = Utc::now().year();
 
             if year == 0 {
                 return Result::Err(AppError::MissingProgramParameter("year not provided for download".to_string()));
             }
-            else if year < 2005 || year > current_year {
+            else if year < 2000 || year > current_year {
                 return Result::Err(AppError::MissingProgramParameter("year provided is invalid".to_string()));
             }
             else {
                 let mut s_date =  NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
                 let mut e_date =  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
-                           
+
+                let isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
                 if s_date < isrctn_start_date {
                     s_date = isrctn_start_date
                 }
@@ -141,20 +155,30 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 }
 
 
-fn get_start_date(sd_param: &String, today: NaiveDate, isrctn_start_date: NaiveDate) -> Result<Option<NaiveDate>, AppError> {
+fn get_start_date(sd_param: &String, dl_updated_recently: bool, today: NaiveDate, isrctn_start_date: NaiveDate) -> Result<Option<NaiveDate>, AppError> {
 
-    let mut start_date = match NaiveDate::parse_from_str(sd_param, "%Y-%m-%d") {
-        Ok(date) => {if date >= today {   // invalid
-                                    return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
-                                }
-                                else {date}},
-        Err(_) => {
-            return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()))},
-    };
-    if start_date < isrctn_start_date {
-        start_date = isrctn_start_date;
+    if dl_updated_recently && sd_param == "" {
+
+        // Possible special case: No start date provided but one may be available in database. 
+        // Cannot check this now (no db access yet) - instead put in a specific value to act as 
+        // a trigger for check at later stage (within the mod.rs get+params routine)
+
+        Ok(NaiveDate::from_ymd_opt(1900, 1, 1))
     }
-    Ok(Some(start_date))
+    else {
+        let mut start_date = match NaiveDate::parse_from_str(sd_param, "%Y-%m-%d") {
+            Ok(date) => {if date >= today {   // invalid
+                                        return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
+                                    }
+                                    else {date}},
+            Err(_) => {
+                return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()))},
+        };
+        if start_date < isrctn_start_date {
+            start_date = isrctn_start_date;
+        }
+        Ok(Some(start_date))
+    }
 }
 
 
@@ -205,13 +229,21 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
         .arg(
             Arg::new("dl_updated_between_dates")
            .short('b')
-           .long("between")
+           .long("ud_between")
            .required(false)
            .help("")
            .action(clap::ArgAction::SetTrue)
         )
         .arg(
-            Arg::new("dl_updated_in_year")
+            Arg::new("dl_created_between_dates")
+           .short('c')
+           .long("cr_between")
+           .required(false)
+           .help("")
+           .action(clap::ArgAction::SetTrue)
+        )
+        .arg(
+            Arg::new("dl_created_in_year")
            .short('y')
            .long("year")
            .required(false)
@@ -227,9 +259,9 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .default_value("")
         )
         .arg(
-            Arg::new("end_date")
-           .short('e')
-           .long("end_date")
+            Arg::new("terminal_date")
+           .short('t')
+           .long("terminal_date")
            .required(false)
            .help("Only data last edited before this date should be downloaded")
            .default_value("")
@@ -251,17 +283,17 @@ fn parse_args(args: Vec<OsString>) -> Result<ArgMatches, clap::Error> {
            .action(clap::ArgAction::SetTrue)
         )
          .arg(
-            Arg::new("code_flag")
-            .short('c')
-            .long("coderecent")
+            Arg::new("encode_flag")
+            .short('e')
+            .long("encode_recent")
             .required(false)
             .help("A flag signifying code all data downloaded since the last coding process")
             .action(clap::ArgAction::SetTrue)
         )
         .arg(
-            Arg::new("code_all_flag")
-            .short('C')
-            .long("codeall")
+            Arg::new("encode_all_flag")
+            .short('E')
+            .long("encode_all")
             .required(false)
             .help("A flag indicating signifying (re)code all data")
             .action(clap::ArgAction::SetTrue)
@@ -283,14 +315,13 @@ mod tests {
     use super::*;
     
     #[test]
-    fn check_cli_all_type_d_params() {
+    fn check_cli_all_type_r_params() {
         let target = "dummy target";
         let args: Vec<&str> = vec![target, "-r", "-s", "2020-12-04"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         let today = Utc::now().date_naive(); 
 
-        assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.download_type, DownloadType::Recent);
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.encoding_type, EncodingType::None);
@@ -302,12 +333,43 @@ mod tests {
     #[test]
    fn check_cli_all_type_b_params() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-b", "-s", "2020-12-04", "-e", "2021-02-06"];
+        let args : Vec<&str> = vec![target, "-b", "-s", "2020-12-04", "-t", "2021-02-06"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
 
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.download_type, DownloadType::BetweenDates);
+        assert_eq!(res.download_type, DownloadType::UdBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
+    }
+
+
+    #[test]
+   fn check_cli_all_type_c_params() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-c", "-s", "2020-12-04", "-t", "2021-02-06"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.download_type, DownloadType::CrBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
+    }
+
+
+    #[test]
+   fn check_cli_b_and_c_params() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-b", "-c", "-s", "2020-12-04", "-t", "2021-02-06"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.download_type, DownloadType::CrBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
         assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
     }
@@ -322,6 +384,7 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.download_type, DownloadType::ByYear);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 1, 1).unwrap()));
         assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()));
     }
@@ -336,21 +399,39 @@ mod tests {
 
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.download_type, DownloadType::Recent);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
         assert_eq!(res.end_date, Some(today));
     }
 
 
     #[test]
-    fn check_cli_with_too_early_start_date() {
+    fn check_cli_with_too_early_start_date_type_b() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-b", "-s", "2002-12-04", "-e", "2021-02-06"];
+        let args : Vec<&str> = vec![target, "-b", "-s", "2002-12-04", "-t", "2021-02-06"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
 
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.download_type, DownloadType::BetweenDates);
+        assert_eq!(res.download_type, DownloadType::UdBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
+        assert_eq!(res.start_date, Some(isrctn_start_date));
+        assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
+    }
+
+
+    #[test]
+    fn check_cli_with_too_early_start_date_type_c() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-c", "-s", "1992-12-04", "-t", "2021-02-06"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+        let isrctn_start_date = NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
+
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.download_type, DownloadType::CrBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, Some(isrctn_start_date));
         assert_eq!(res.end_date, Some(NaiveDate::from_ymd_opt(2021, 2, 6).unwrap()));
     }
@@ -359,25 +440,34 @@ mod tests {
     #[test]
     fn check_cli_with_too_late_end_date() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-b", "-s", "2020-12-04", "-e", "2030-02-06"];
+        let args : Vec<&str> = vec![target, "-b", "-s", "2020-12-04", "-t", "2030-02-06"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         let today = Utc::now().date_naive();
         
         assert_eq!(res.import_type, ImportType::None);
-        assert_eq!(res.download_type, DownloadType::BetweenDates);
+        assert_eq!(res.download_type, DownloadType::UdBetweenDates);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
         assert_eq!(res.end_date, Some(today));
     }
 
 
     #[test]
-    #[should_panic]
-    fn check_panics_with_no_valid_start_date() {
+    fn check_includes_dummy_date_with_no_valid_start_date() {
         let target = "dummy target";
-        let args : Vec<&str> = vec![target, "-d"];
+        let args : Vec<&str> = vec![target, "-r"];
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
-        let _res = fetch_valid_arguments(test_args).unwrap();
+        let res = fetch_valid_arguments(test_args).unwrap();
+        let today = Utc::now().date_naive();
+
+        assert_eq!(res.download_type, DownloadType::Recent);
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.encoding_type, EncodingType::None);
+        assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(1900, 1, 1).unwrap()));
+        assert_eq!(res.end_date, Some(today));
+
+
 
     }
 
@@ -406,8 +496,9 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         
-        assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::Recent);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, None);
         assert_eq!(res.end_date, None);
     }
@@ -419,8 +510,9 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         
-        assert_eq!(res.import_type, ImportType::All);
         assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::All);
+        assert_eq!(res.encoding_type, EncodingType::None);
         assert_eq!(res.start_date, None);
         assert_eq!(res.end_date, None);
     }
@@ -432,8 +524,52 @@ mod tests {
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let res = fetch_valid_arguments(test_args).unwrap();
         
-        assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::Recent);
+        assert_eq!(res.encoding_type, EncodingType::None);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
+    }
+
+    
+    #[test]
+    fn check_correct_pars_for_recent_code() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-e"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+        
+        assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.encoding_type, EncodingType::Recent);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
+    }
+
+    #[test]
+    fn check_correct_pars_for_all_code() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-E"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+        
+        assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.encoding_type, EncodingType::All);
+        assert_eq!(res.start_date, None);
+        assert_eq!(res.end_date, None);
+    }
+
+    #[test]
+    fn check_correct_pars_for_both_code_pars() {
+        let target = "dummy target";
+        let args : Vec<&str> = vec![target, "-e", "-E"];
+        let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
+        let res = fetch_valid_arguments(test_args).unwrap();
+        
+        assert_eq!(res.download_type, DownloadType::None);
+        assert_eq!(res.import_type, ImportType::None);
+        assert_eq!(res.encoding_type, EncodingType::Recent);
         assert_eq!(res.start_date, None);
         assert_eq!(res.end_date, None);
     }

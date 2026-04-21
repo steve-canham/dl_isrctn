@@ -140,21 +140,6 @@ CREATE TABLE sd.study_iec(
 );
 CREATE INDEX study_iec_sid ON sd.study_iec(sd_sid);
 
--- change of names to facility and address
-
-DROP TABLE IF EXISTS sd.study_locations;
-CREATE TABLE sd.study_locations(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, fac_name               VARCHAR         NULL
-, fac_address            VARCHAR         NULL
-, city_name              VARCHAR         NULL
-, disamb_name            VARCHAR         NULL
-, country_name           VARCHAR         NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_locations_sid ON sd.study_locations(sd_sid);
-
 
 DROP TABLE IF EXISTS sd.study_countries;
 CREATE TABLE sd.study_countries(
@@ -243,3 +228,19 @@ CREATE INDEX study_objects_sid ON sd.study_objects(sd_sid);
 
 
 SET client_min_messages TO NOTICE; 
+
+-- change of names to facility and address
+/*
+DROP TABLE IF EXISTS sd.study_locations;
+CREATE TABLE sd.study_locations(
+  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
+, sd_sid                 VARCHAR         NOT NULL
+, fac_name               VARCHAR         NULL
+, fac_address            VARCHAR         NULL
+, city_name              VARCHAR         NULL
+, disamb_name            VARCHAR         NULL
+, country_name           VARCHAR         NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+);
+CREATE INDEX study_locations_sid ON sd.study_locations(sd_sid);
+*/

@@ -1,5 +1,4 @@
 
-
 #[derive(serde::Deserialize, Debug, PartialEq)]
 #[serde(rename = "allTrials")]
 pub struct TrialsCount
@@ -55,7 +54,6 @@ pub struct Trial
     pub last_updated:  Option<String>,
     #[serde(rename = "@version")]
     pub version:  Option<String>,
-
     pub isrctn: Isrctn,
     #[serde(rename = "trialDescription")]
     pub trial_description: Description,
@@ -106,45 +104,11 @@ pub struct Description
     pub primary_outcomes: PrimOutcomesList,
     #[serde(rename = "primaryOutcome", default)]
     pub primary_outcome: Option<String>,
-
-    #[serde(rename = "secondaryOutcomes")]
-    pub secondary_outcomes: SecOutcomesList,
-    #[serde(rename = "secondaryOutcome")]
-    pub secondary_outcome: Option<String>,
-
     #[serde(rename = "trialWebsite")]
     pub trial_website: Option<String>,
-    #[serde(rename = "ethicsApprovalRequired")]
-    pub ethics_approval_required: Option<String>,
-    #[serde(rename = "ethicsCommittees")]
-    pub ethics_committee_list: EthicsCommitteeList,
-    #[serde(rename = "ethicsApproval")]
-    pub ethics_approval: Option<String>,
+
 }
 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct EthicsCommitteeList
-{
-    #[serde(rename = "ethicsCommittee", default)]
-    pub ethics_committees: Vec<EthicsCommittee>,
-}
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct EthicsCommittee
-{
-    #[serde(rename = "@id")]
-    pub id: Option<String>,
-    #[serde(rename = "@approvalStatus")]
-    pub approval_status: Option<String>,
-    #[serde(rename = "@statusDate")]
-    pub status_date: Option<String>,
-    #[serde(rename = "committeeName")]
-    pub committee_name: Option<String>,
-    #[serde(rename = "contactDetails")]
-    pub contact_details: Option<ContactDetails>,
-    #[serde(rename = "committeeReference")]
-    pub committee_reference: Option<String>,
-}
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct PrimOutcomesList
@@ -153,12 +117,6 @@ pub struct PrimOutcomesList
     pub outcome_measures: Vec<OutcomeMeasure>,
 }
 
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct SecOutcomesList
-{
-    #[serde(rename = "outcomeMeasure", default)]
-    pub outcome_measures: Vec<OutcomeMeasure>,
-}
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
 pub struct OutcomeMeasure
@@ -212,27 +170,11 @@ pub struct Design
     pub primary_study_design: Option<String>,
     #[serde(rename = "secondaryStudyDesign")]
     pub secondary_study_design: Option<String>,
-    #[serde(rename = "trialSettings")]
-    pub trial_setting_list: Option<TrialSettingList>,
+
     #[serde(rename = "trialTypes")]
     pub trial_type_list: Option<TrialTypeList>,
     #[serde(rename = "overallEndDate")]
     pub overall_end_date: Option<String>,
-}
-
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct TrialSettingList
-{
-    #[serde(rename = "trialSetting", default)]
-    pub trial_settings: Vec<TrialSetting>,
-}
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct TrialSetting
-{
-    #[serde(rename = "$value")]
-    pub trial_setting: Option<String>,
 }
 
 
@@ -255,10 +197,7 @@ pub struct Participants
 {
     #[serde(rename = "recruitmentCountries")]
     pub country_list: CountryList,
-
-    #[serde(rename = "trialCentres")]
-    pub centre_list: CentreList,
-   
+  
     #[serde(rename = "participantTypes")]
     pub participant_type_list: ParticipantTypeList,
 
@@ -303,27 +242,6 @@ pub struct Country
 {
     #[serde(rename = "$value")]
     pub country: Option<String>,
-}
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct CentreList
-{
-    #[serde(rename = "trialCentre", default)]
-    pub centres: Vec<Centre>,
-}
-
-#[derive(serde::Deserialize, Debug, PartialEq)]
-pub struct Centre
-{
-    #[serde(rename = "@id")]
-    pub id: Option<String>,
-    pub name: Option<String>,
-    pub address: Option<String>,
-    pub city: Option<String>,
-    pub state: Option<String>,
-    pub country: Option<String>,
-    pub zip: Option<String>,
-
 }
 
 #[derive(serde::Deserialize, Debug, PartialEq)]
@@ -612,6 +530,102 @@ pub struct Funder
 }
 
 
+// PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
+
+//    #[serde(rename = "trialCentres")]
+//    pub centre_list: CentreList,
+
+/*
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct SecOutcomesList
+{
+    #[serde(rename = "outcomeMeasure", default)]
+    pub outcome_measures: Vec<OutcomeMeasure>,
+}
+*/
+  //  #[serde(rename = "secondaryOutcomes")]
+  // pub secondary_outcomes: SecOutcomesList,
+  //  #[serde(rename = "secondaryOutcome")]
+  //  pub secondary_outcome: Option<String>,
+
+  //  #[serde(rename = "ethicsApprovalRequired")]
+  //   pub ethics_approval_required: Option<String>,
+  //   #[serde(rename = "ethicsCommittees")]
+  //   pub ethics_committee_list: EthicsCommitteeList,
+  //   #[serde(rename = "ethicsApproval")]
+  //  pub ethics_approval: Option<String>,
+
+/* 
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct EthicsCommitteeList
+{
+    #[serde(rename = "ethicsCommittee", default)]
+    pub ethics_committees: Vec<EthicsCommittee>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct EthicsCommittee
+{
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    #[serde(rename = "@approvalStatus")]
+    pub approval_status: Option<String>,
+    #[serde(rename = "@statusDate")]
+    pub status_date: Option<String>,
+    #[serde(rename = "committeeName")]
+    pub committee_name: Option<String>,
+    #[serde(rename = "contactDetails")]
+    pub contact_details: Option<ContactDetails>,
+    #[serde(rename = "committeeReference")]
+    pub committee_reference: Option<String>,
+}
+*/
+
+
+/* 
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct CentreList
+{
+    #[serde(rename = "trialCentre", default)]
+    pub centres: Vec<Centre>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct Centre
+{
+    #[serde(rename = "@id")]
+    pub id: Option<String>,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub country: Option<String>,
+    pub zip: Option<String>,
+
+}
+*/
+
+/* 
+
+#[serde(rename = "trialSettings")]
+pub trial_setting_list: Option<TrialSettingList>,
+    
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct TrialSettingList
+{
+    #[serde(rename = "trialSetting", default)]
+    pub trial_settings: Vec<TrialSetting>,
+}
+
+#[derive(serde::Deserialize, Debug, PartialEq)]
+pub struct TrialSetting
+{
+    #[serde(rename = "$value")]
+    pub trial_setting: Option<String>,
+}
+*/
+
+
 
 #[cfg(test)]
 mod tests {
@@ -776,37 +790,12 @@ mod tests {
                 </ethicsCommittee>
             </ethicsCommittees>
         </trialDescription>"#;
-
-        let cdets = ContactDetails {
-            address: Some("No.43 Renmin Avenue".to_string()),
-            city: Some("Haikou".to_string()),
-            state: Some("".to_string()),
-            country: Some("China".to_string()),
-            zip: Some("570208".to_string()),
-            telephone: Some("".to_string()),
-            email: Some("".to_string()),
-        };
-
-        let ecomm = EthicsCommittee {
-            id: Some("5247b77a-f096-40ed-9b87-e836ee9d7a68".to_string()),
-            approval_status: Some("approved".to_string()),
-            status_date: Some("2022-03-10T00:00:00.000Z".to_string()),
-            committee_name: Some("Haikou Municipal People's Hospital Biomedical Ethics Committee".to_string()),
-            contact_details: Some(cdets),
-            committee_reference: Some("2023-055".to_string()),
-        };
-
-        let eclist = EthicsCommitteeList { 
-            ethics_committees: vec![ecomm],
-        };
+       
 
         let po_list = PrimOutcomesList {
             outcome_measures: vec![],
         };
-        let so_list = SecOutcomesList {
-            outcome_measures: vec![],
-        };
-        
+       
         let td = Description {
             third_party_ack: Some("true".to_string()),
             acknowledgment: Some("true".to_string()),
@@ -817,12 +806,7 @@ mod tests {
             plain_english_summary: Some("Background and study aims In this study, patients with bladder cancer were examined".to_string()),
             primary_outcomes: po_list,
             primary_outcome: Some("Survival measured using data collected at an annual telephone call for 6 years".to_string()),
-            secondary_outcomes: so_list,
-            secondary_outcome: Some("Transfer or not measured using data collected during a telephone call every 6 months".to_string()),
             trial_website: Some("".to_string()),
-            ethics_approval_required: Some("Ethics approval required".to_string()),
-            ethics_committee_list: eclist,
-            ethics_approval: None,
         };
 
         let der_struct: Description = quick_xml::de::from_str(xml_string).unwrap();
@@ -890,29 +874,6 @@ mod tests {
             </ethicsCommittees>
         </trialDescription>"#;
 
-        let cdets = ContactDetails {
-            address: Some("No.43 Renmin Avenue".to_string()),
-            city: Some("Haikou".to_string()),
-            state: Some("".to_string()),
-            country: Some("China".to_string()),
-            zip: Some("570208".to_string()),
-            telephone: Some("".to_string()),
-            email: Some("".to_string()),
-        };
-
-        let ecomm = EthicsCommittee {
-            id: Some("5247b77a-f096-40ed-9b87-e836ee9d7a68".to_string()),
-            approval_status: Some("approved".to_string()),
-            status_date: Some("2022-03-10T00:00:00.000Z".to_string()),
-            committee_name: Some("Haikou Municipal People's Hospital Biomedical Ethics Committee".to_string()),
-            contact_details: Some(cdets),
-            committee_reference: Some("2023-055".to_string()),
-        };
-
-        let eclist = EthicsCommitteeList { 
-            ethics_committees: vec![ecomm],
-        };
-
         let pom1 = OutcomeMeasure {
             variable: Some("Recruitment rate (reach)".to_string()),
             method: Some("school recruitment rate: proportion of approached schools agreeing to participate (target: ≥60%); student recruitment".to_string()),
@@ -931,26 +892,10 @@ mod tests {
             timepoints: Some("during intervention delivery".to_string()),
         };
 
-        let som1 = OutcomeMeasure {
-            variable: Some("Depression and anxiety symptoms".to_string()),
-            method: Some("Revised Child Anxiety and Depression Scale, 25-item short version (RCADS-25)".to_string()),
-            timepoints: Some("Baseline (T0), 3 months (T1), 6 months (T2)".to_string()),
-        };
-
-        let som2 = OutcomeMeasure {
-            variable: Some("Suicide literacy (knowledge about suicide)".to_string()),
-            method: Some("Literacy of Suicide Scale short form (LOSS)".to_string()),
-            timepoints: Some("Baseline (T0), 3 months (T1), 6 months (T2)".to_string()),
-        };
-
         let po_list  = PrimOutcomesList { 
             outcome_measures: vec![pom1, pom2, pom3],
         };
-
-        let so_list  = SecOutcomesList { 
-            outcome_measures: vec![som1, som2],
-        };
-        
+         
         let td = Description {
             third_party_ack: Some("true".to_string()),
             acknowledgment: Some("true".to_string()),
@@ -961,12 +906,7 @@ mod tests {
             plain_english_summary: Some("Background and study aims In this study, patients with bladder cancer were examined".to_string()),
             primary_outcomes: po_list,
             primary_outcome: Some("".to_string()),
-            secondary_outcomes: so_list,
-            secondary_outcome: Some("".to_string()),
             trial_website: Some("".to_string()),
-            ethics_approval_required: Some("Ethics approval required".to_string()),
-            ethics_committee_list: eclist,
-            ethics_approval: None,
         };
 
         let der_struct: Description = quick_xml::de::from_str(xml_string).unwrap();
@@ -1002,16 +942,12 @@ mod tests {
             trial_types: vec![tt1, tt2],
         };
 
-        let ts_list = TrialSettingList {
-            trial_settings: vec![],
-        };
-
         let des = Design {
             study_design: Some("Observational cohort study".to_string()),
             primary_study_design: Some("Observational".to_string()),
             secondary_study_design: Some("Cohort study".to_string()),
             trial_type_list: Some(tt_list),
-            trial_setting_list: Some(ts_list),
+            //trial_setting_list: Some(ts_list),
             overall_end_date: Some("2024-06-12T00:00:00.000Z".to_string()),
         };
         
@@ -1078,30 +1014,6 @@ mod tests {
             countries: vec![cy1, cy2],
         };
 
-        let cn1 = Centre {
-            id: Some("d1b6a41f-06b2-47d3-a920-9758f4dadbcc".to_string()),
-            name: Some("Complife Italia srl".to_string()),
-            address: Some("Corso San Maurizio, 25A ".to_string()),
-            city: Some("Biella (BI)".to_string()),
-            state: Some("".to_string()),
-            country: Some("Italy".to_string()),
-            zip: Some("13900".to_string()),
-        };
-
-        let cn2 = Centre {
-            id: Some("d93398aa-14ab-447f-8d83-532dc4648fb9".to_string()),
-            name: Some("Complife Italia srl".to_string()),
-            address: Some("Via Fratelli Signorelli, 159".to_string()),
-            city: Some("Garbagnate Milanese (MI)".to_string()),
-            state: Some("".to_string()),
-            country: Some("Italy".to_string()),
-            zip: Some("20024".to_string()),
-        };
-
-        let cn_list = CentreList {
-            centres: vec![cn1, cn2],
-        };
-
         let pt1 = ParticipantType {
             participant_type: Some("Healthy volunteer".to_string()),
         };
@@ -1128,7 +1040,6 @@ mod tests {
    
         let partics = Participants {
             country_list: cy_list,
-            centre_list: cn_list,
             participant_type_list: pt_list,
             inclusion: Some("1. Medically stable adults aged 18–80 years 2. Experienced a first-ever ischemic or hemorrhagic stroke".to_string()),
             age_range: Some("Senior".to_string()),
@@ -1712,15 +1623,7 @@ mod tests {
         value:"14757012".to_string(),
     };
 
-    let eclist = EthicsCommitteeList { 
-            ethics_committees: vec![],
-        };
-
     let po_list = PrimOutcomesList {
-            outcome_measures: vec![],
-        };
-
-    let so_list = SecOutcomesList {
             outcome_measures: vec![],
         };
 
@@ -1734,12 +1637,7 @@ mod tests {
         plain_english_summary: Some("Background and study aims Based on clinical observations made...".to_string()), 
         primary_outcome: Some("Stye recurrence was determined by interview".to_string()), 
         primary_outcomes: po_list,
-        secondary_outcome: Some("1. Swelling was measured using the Vernier calliper".to_string()), 
-        secondary_outcomes: so_list,
         trial_website: Some("".to_string()),   
-        ethics_approval_required: Some("Old ethics approval format".to_string()), 
-        ethics_committee_list: eclist,
-        ethics_approval: Some("Approved 22/04/2013, Institutional Ethical Committee".to_string()),
     };
 
     let sec_num = vec![SecondaryNumber {
@@ -1761,11 +1659,6 @@ mod tests {
         secondary_number_list: secid_list,
     };
 
-    let setts: Vec<TrialSetting> = vec![];
-    let settings_list = TrialSettingList { 
-        trial_settings: setts,
-    };
-
     let trial_types_list = TrialTypeList {
         trial_types: vec![TrialType {
             trial_type: Some("Treatment".to_string()),
@@ -1776,7 +1669,6 @@ mod tests {
         study_design: Some("Randomised control parallel open trial".to_string()),
         primary_study_design: Some("Interventional".to_string()),
         secondary_study_design: Some("Randomised controlled trial".to_string()),
-        trial_setting_list: Some(settings_list), 
         trial_type_list: Some(trial_types_list),
         overall_end_date: Some("2015-05-07T00:00:00.000Z".to_string()),
     };
@@ -1784,18 +1676,6 @@ mod tests {
     let country_list = CountryList {
         countries: vec![Country {
             country: Some("India".to_string()),
-        }],
-    };
-
-    let centre_list = CentreList {
-        centres: vec![Centre{
-            id: Some("1da42984-9eec-43cf-9246-401eeb8c7447".to_string()),
-            name: Some("Government Ayurveda College Hospital".to_string()),
-            address: Some("Department of Shalakyatantra".to_string()),
-            city: Some("Kerala".to_string()),
-            state: Some("".to_string()),
-            country: Some("India".to_string()),
-            zip: Some("695001".to_string()),
         }],
     };
 
@@ -1808,7 +1688,6 @@ mod tests {
 
     let partics = Participants {
         country_list: country_list,
-        centre_list: centre_list,
         participant_type_list: partic_type_list, 
         inclusion: Some("1. Aged 10 - 50 years".to_string()),
         age_range: Some("Mixed".to_string()),
@@ -2292,10 +2171,4 @@ mod tests {
         assert_eq!(ta, der_struct);
     }  
 
-
-    /*
-
-
-
-    */
 }

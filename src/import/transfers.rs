@@ -120,7 +120,7 @@ pub async fn transfer_study_iec_data(src_pool: &Pool<Postgres>) -> Result<(), Ap
 }
 
 // relevance if any of fac_address, may be the fac sometimes?
-
+/*
 pub async fn transfer_study_locations_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
     let sql = r#"insert into ad.study_locations (sd_sid, fac_name, city_name
@@ -131,7 +131,7 @@ pub async fn transfer_study_locations_data(src_pool: &Pool<Postgres>) -> Result<
                 order by sd_sid"#;
     execute_sql(sql, src_pool).await
 }
-
+*/
 
 pub async fn transfer_study_countries_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
