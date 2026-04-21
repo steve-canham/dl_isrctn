@@ -87,10 +87,10 @@ pub async fn update_dl_event_record (dl_id: i32, dl_res: DownloadResult, params:
 }
 
 
-pub async fn get_last_dl_event_date (source_id: i32, mon_pool: &Pool<Postgres>) -> Option<NaiveDate> {
+pub async fn get_last_dl_recent_type_date (source_id: i32, mon_pool: &Pool<Postgres>) -> Option<NaiveDate> {
 
         let sql = format!(r#"SELECT max(time_ended)::date FROM evs.dl_events
-                where source_id = {}"#, source_id);
+                where source_id = {} and dl_type = 'Recently updated'"#, source_id);
         let res: Option<NaiveDate> = sqlx::query_scalar(&sql).fetch_optional(mon_pool)
                         .await.map_err(|e| AppError::SqlxError(e, sql.to_string())).ok()?; 
         res

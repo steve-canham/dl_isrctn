@@ -23,26 +23,27 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // The dl_isrctn program uses the API of the ISRCTN web site (https://www.isrctn.com/)
     // to download data about the trials registered on the site.
     // That data is then used to construct json files, that are stored locally, and 
-    // which can then later be used to construct a database of the data.
+    // which can then later be used by the import and coding processes to construct a 
+    // database of the data.
 
-    // There are three types of download.
-    // 'Recent' (-d in the CLI) identifies and downloads studies edited since a cut-off date, 
+    // There are four types of download.
+    // 'Recent' (-r in the CLI) identifies and downloads studies edited since a cut-off date, 
     // usually from the previous week (i.e., the date of the most recent download). It must be 
-    // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18")
+    // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18"), or be able to obtain such
+    // a parameter from the database record of previous downloads of the same type.
    
-    // 'BetweenDates' (-b in the CLI) downloads all records that were last edited
-    // between two dates. Running against this type in batches allows all ISRCTN records to be
-    // re-downloaded, if and when necessary. Calling -t 115 requires two date
-    // parmameters, for the start and end dates respectively, e.g. 
-    // -s "2023-10-01" -e "2023-10-31"
+    // 'UdBetweenDates' (-b in the CLI) downloads all records that were last edited
+    // between two dates. 
+    // 'CrBetweenDates' (-c in the CLI) downloads all records that were created (more exactly,)
+    // applied for inclusion in ISRCTN) between two dates. 
 
-    // Both procedures need a start and end date, but in the case of type 'Recent' the
-    // end date is taken as the current date.
+    // 'ByYear' (-y in the CLI) can be used to download all studies that applied for inclusion 
+    // to ISRTCN in a specified year, and is designed for bulk download scenarios, such as 
+    // rebuilding the whole ISRCTN dataset from scratch.
 
-    // 'ByYear' (-w in the CLI) can be used to download all records for a specified year,
-    // and is designed for bulk download scenarios. It takes a single parameter (e.g. -y 2009),
-    // and constructs start and end dates for that year, calling the -w routine with those dates.
-    // It therefore wraps the -b download type.
+    // All procedures need a start and end date, but in the case of type 'Recent' the
+    // end date is taken as the current date, and the case of 'ByYear' the dates are the first
+    // date of the year, and the first date of the following year.
 
     // Imports can be of recently downloaded files, i.e. since the last import (-i in the CLI)
     // or can be of all downloaded files (-I in the CLI).
@@ -67,7 +68,7 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     if params.download_type == DownloadType::Recent 
         && params.start_date == NaiveDate::from_ymd_opt(1900, 1, 1) {
 
-        if let Some(nd) = get_last_dl_event_date (100126, &mon_pool).await {
+        if let Some(nd) = get_last_dl_recent_type_date (100126, &mon_pool).await {
             params.start_date = Some(nd);
         }
         else {
@@ -79,7 +80,7 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
     if params.download_type != DownloadType::None {
 
-        // a download reuested
+        // a download requested
 
         let dl_id = get_next_download_id(100126, &params.download_type, &mon_pool).await?;
         let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
