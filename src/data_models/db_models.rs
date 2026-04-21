@@ -127,6 +127,8 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
+// FIXME - ensure that the object structures match those described in the object document
+
 pub struct DBPublication {
     pub pub_type: String,
     pub pub_id: String,

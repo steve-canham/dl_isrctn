@@ -877,7 +877,6 @@ pub struct PublicationVecs {
     pub date_createds: Vec<Option<NaiveDate>>,
     pub date_uploadeds: Vec<Option<NaiveDate>>,
 
-
 }
 
 
@@ -959,6 +958,55 @@ impl PublicationVecs{
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
 }
+
+
+pub struct ImportUpdateVecs {
+    pub sd_sids: Vec<String>,
+    pub imp_ids: Vec<i32>,
+    pub datetime_importeds: Vec<NaiveDateTime>,
+}
+
+
+impl ImportUpdateVecs{
+    pub fn new(vsize: usize) -> Self {
+        ImportUpdateVecs { 
+            sd_sids: Vec::with_capacity(vsize),
+            imp_ids: Vec::with_capacity(vsize),
+            datetime_importeds: Vec::with_capacity(vsize),
+        }
+    }
+
+    pub fn add(&mut self, sd_sid:&String, imp_id: i32, dt: &NaiveDateTime) 
+    {
+        self.sd_sids.push(sd_sid.clone());
+        self.imp_ids.push(imp_id);
+        self.datetime_importeds.push(dt.clone());
+    }
+
+    pub fn shrink_to_fit(&mut self) -> () {
+       
+            self.sd_sids.shrink_to_fit();
+            self.imp_ids.shrink_to_fit();
+            self.datetime_importeds.shrink_to_fit();
+    }
+
+    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+
+        // Row already exists - update with new details.
+
+        let sql = r#"Update mn.source_data s 
+                set
+                last_import_id = u.dl_id,
+                last_imported = u.datetime_imported
+                from UNNEST($1::text[], $2::int[], $3::datetime[]) 
+                     as u(sd_sid, imp_id, datetime_imported) 
+                where s.sd_sid = u.sd_sid  "#;
+        sqlx::query(&sql).bind(&self.sd_sids).bind(&self.imp_ids).bind(&self.datetime_importeds)
+        .execute(pool).await
+        .map_err(|e| AppError::SqlxError(e, sql.to_string()))
+    }
+}
+
 
 
 

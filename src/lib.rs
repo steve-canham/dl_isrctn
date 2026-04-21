@@ -8,7 +8,7 @@ mod data_models;
 mod helpers;
 mod iec;
 
-use download::monitoring::{get_next_download_id, update_dl_event_record, get_last_dl_event_date};
+use download::monitoring::{get_next_download_id, update_dl_event_record, get_last_dl_recent_type_date};
 use import::monitoring::{get_next_import_id, update_imp_event_record};
 use crate::base_types::{DownloadType, ImportType, EncodingType};
 use setup::cli_reader;

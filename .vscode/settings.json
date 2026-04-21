@@ -1,3 +1,25 @@
 {
-  "editor.renderWhitespace": "all"
+  "editor.renderWhitespace": "all",
+
+  "todo-tree.regex.regex": "(//)\\s*($TAGS).*(\\n\\s*//\\s{2,}.*)*", 
+  "todo-tree.highlights.defaultHighlight": {
+      "icon": "alert",
+      "type": "text",
+      "foreground": "#aa0000",
+      "background": "#ffff00",
+      "opacity": 80,
+      "iconColour": "#9090ff"
+  },
+  "todo-tree.highlights.customHighlight": {
+      "TODO": {
+          "icon": "check",
+          "type": "line"
+      },
+      "FIXME": {
+          "foreground": "#000000",
+          "iconColour": "#ffff00",
+          "gutterIcon": true
+      }
+  }
+
 }

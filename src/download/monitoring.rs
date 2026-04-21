@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use chrono::{Utc, NaiveDate};
 
 
-pub async fn update_isrctn_mon(sd_sid: &String, remote_url: &String, dl_id: i32,
+pub async fn update_mon_table(sd_sid: &String, remote_url: &String, dl_id: i32,
                      record_date: &Option<String>, full_path: &PathBuf, src_pool: &Pool<Postgres>) -> Result<bool, AppError> {
 
         let mut added = false;          // indicates if will be a new record or update of an existing one

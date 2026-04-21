@@ -13,7 +13,7 @@ use transfers::*;
 use crate::AppError;
 use sqlx::{Pool, Postgres};
 use crate::base_types::{ImportType, ImportResult};
-use chrono::Local;
+use chrono::Utc;
 use log::info;
 
 
@@ -24,7 +24,7 @@ struct FilePath {
     local_path: String,
 }
 
-pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: &Pool<Postgres>) -> Result<ImportResult, AppError> {
+pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &Pool<Postgres>) -> Result<ImportResult, AppError> {
 
     // First recreate the staging schema tables - sqlscript in file (path is relative)
 
@@ -47,6 +47,9 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         ImportType::None => ""
     };
 
+    // TODO - Make sure date-times are consistent (to Utc) so that date-times can be compared correctly, 
+    // TODO - Apply this date checking especially to download and import monitoring
+
     let num_files: i64 = sqlx::query_scalar(count_sql).fetch_one(src_pool).await
                     .map_err(|e| AppError::SqlxError(e, count_sql.to_string()))?;
 
@@ -67,7 +70,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_idents_dv = IdentifierVecs::new(3*batch_size);
         let mut study_orgs_dv = OrgVecs::new(3*batch_size);
         let mut study_people_dv = PeopleVecs::new(3*batch_size);
-        //let mut study_locs_dv = LocationVecs::new(3*batch_size);
         let mut study_cnts_dv = CountryVecs::new(3*batch_size);
         let mut study_conds_dv = ConditionVecs::new(2*batch_size);
         let mut study_feats_dv = FeatureVecs::new(4*batch_size);
@@ -75,7 +77,8 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         let mut study_iec_dv = IECVecs::new(20*batch_size);
         let mut study_obs_dv = ObjectVecs::new(3*batch_size);
         let mut study_pubs_dv = PublicationVecs::new(3*batch_size);
-   
+        let mut import_update_dv = ImportUpdateVecs::new(batch_size);
+
         // get the list of json files relevant to this pass
 
         let file_sql = match import_type {
@@ -99,7 +102,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
 
         for path in file_list {
             
-            // Deserialise the file beiung referenhced and pass for processing
+            // Deserialise the file being referenced and pass for processing
 
             let p= PathBuf::from(&path.local_path);
             let json_data = fs::read_to_string(&p)?;
@@ -121,7 +124,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
             if let Some(orgs) = dbs.orgs { study_orgs_dv.add(sd_sid, &orgs); }
             if let Some(peop) = dbs.people { study_people_dv.add(sd_sid, &peop); }
-            //if let Some(locs) = dbs.locations { study_locs_dv.add(sd_sid, &locs); }
             if let Some(cies) = dbs.countries { study_cnts_dv.add(sd_sid, &cies); }
             if let Some(conds) = dbs.conditions { study_conds_dv.add(sd_sid, &conds); }
             if let Some(feats) = dbs.features { study_feats_dv.add(sd_sid, &feats); }
@@ -129,18 +131,16 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
             if let Some(iecs) = dbs.ie_crit { study_iec_dv.add(sd_sid, &iecs); }
             if let Some(obs) = dbs.objects { study_obs_dv.add(sd_sid, &obs); }
             if let Some(pubs) = dbs.publications { study_pubs_dv.add(sd_sid, &pubs); }
-                    
-            //i += 1;
-            //if i > 40 { break;}
 
-
+            let imp_dt = Utc::now().naive_utc();
+            import_update_dv.add(sd_sid, imp_event_id, &imp_dt );
+            
         } 
 
         study_titles_dv.shrink_to_fit();
         study_idents_dv.shrink_to_fit();
         study_orgs_dv.shrink_to_fit();
         study_people_dv.shrink_to_fit();
-      //  study_locs_dv.shrink_to_fit();
         study_cnts_dv.shrink_to_fit();
         study_conds_dv.shrink_to_fit();
         study_feats_dv.shrink_to_fit();
@@ -148,7 +148,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.shrink_to_fit();
         study_obs_dv.shrink_to_fit();
         study_pubs_dv.shrink_to_fit();
-
+        import_update_dv.shrink_to_fit();
 
         studies_dv.store_data(src_pool).await?;
         study_dates_dv.store_data(src_pool).await?;
@@ -157,7 +157,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_idents_dv.store_data(src_pool).await?;
         study_orgs_dv.store_data(src_pool).await?;
         study_people_dv.store_data(src_pool).await?;
-      //  study_locs_dv.store_data(src_pool).await?;
         study_cnts_dv.store_data(src_pool).await?;
         study_conds_dv.store_data(src_pool).await?;
         study_feats_dv.store_data(src_pool).await?;
@@ -165,6 +164,7 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
         study_iec_dv.store_data(src_pool).await?;
         study_obs_dv.store_data(src_pool).await?;
         study_pubs_dv.store_data(src_pool).await?;
+        import_update_dv.store_data(src_pool).await?;
 
         if n % 250 == 0 {
             info!("number of files processed: {}",  n);
@@ -198,7 +198,6 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
     transfer_study_orgs_data(src_pool).await?;
     transfer_study_people_data(src_pool).await?;
     transfer_study_iec_data(src_pool).await?;
-   // transfer_study_locations_data(src_pool).await?;
     transfer_study_countries_data(src_pool).await?;
     transfer_study_topics_data(src_pool).await?;
     transfer_study_conditions_data2(src_pool).await?;
@@ -207,12 +206,10 @@ pub async fn import_data(import_type: &ImportType, _imp_event_id:i32, src_pool: 
     transfer_study_objects_data(src_pool).await?;
     transfer_study_pubs_data(src_pool).await?;
 
-    // Need a bulk update of import data in the mn table as well...
-
     Ok(ImportResult {
         num_available: num_files,
         num_imported: 0,
-        earliest_dl_date: Local::now().date_naive(),
-        latest_dl_date: Local::now().date_naive(),
+        earliest_dl_date: Utc::now().date_naive(),
+        latest_dl_date: Utc::now().date_naive(),
     })
 }

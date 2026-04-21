@@ -194,6 +194,9 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
 }
 
+// TODO - Make pause function more generic by including the base interval and range input parameters
+
+
 fn pause_about_500ms() -> () {
     
     // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
@@ -227,7 +230,7 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
             let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
             let full_path = write_out_file(&sd_sid, &t, &params.json_data_path).await?;
 
-            let added = monitoring::update_isrctn_mon(sd_sid, &remote_url, dl_id,
+            let added = monitoring::update_mon_table(sd_sid, &remote_url, dl_id,
                      record_date, &full_path, src_pool).await?;
 
             res.num_downloaded += 1;
