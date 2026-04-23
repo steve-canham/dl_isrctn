@@ -25,26 +25,26 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     // The base url, json file folder, log folder, and start and end dates have
     // already been checked as being present and reasonable.
 
-    // If the download type is 'Recent' or 'UdBetweenDates' the process downloads all records with 
-    // last edited dates >= start date and < end date, with conventionally the start date being the date of 
-    // the last download of that type, and the end date being today. 
+    // If the download type is 'Recent' or 'UdBetweenDates' the process downloads all records with
+    // last edited dates >= start date and < end date, with conventionally the start date being the date of
+    // the last download of that type, and the end date being today.
 
-    // The range is set up as GE start date AND LT end date, so this will 
-    // download records updated up to midnight on the previous day. All records updated on the date of the 
+    // The range is set up as GE start date AND LT end date, so this will
+    // download records updated up to midnight on the previous day. All records updated on the date of the
     // last download will be included, however, as these were not included in the download of that day.
-    // This avoids duplications when stepping through the full set in the API. 
-    // It also means that the best time for regular downloading is in the very 
+    // This avoids duplications when stepping through the full set in the API.
+    // It also means that the best time for regular downloading is in the very
     // early morning (European time) as this means a minimal number of records are missed.
 
     // if the download type is 'CrBetweenDates' or 'ByYear', the records downloaded are those created
-    // in the specified period. The parameter used is therefor 'dateApplied' rather than 'lastEdited'. These 
+    // in the specified period. The parameter used is therefor 'dateApplied' rather than 'lastEdited'. These
     // optrions are chiefly used when doing a full reconstruction of the dataset.
 
-    // In either case, each period is broken up into periods of 4 days. There does not appear to be 
+    // In either case, each period is broken up into periods of 4 days. There does not appear to be
     // a way to rank or order results and select from within a returned set, so record sets are returned 'as is'.
-    // If the number of available records for a selected 4-day period is > 100 records the call is 
-    // broken down into calls for individual days. 
-    
+    // If the number of available records for a selected 4-day period is > 100 records the call is
+    // broken down into calls for individual days.
+
     let base_url = params.base_url.clone();
 
     let mut sd = match params.start_date {
@@ -58,12 +58,12 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     };
 
     let mut res = DownloadResult::new();
-    
+
     while sd < edate  {
 
-        // For each pass, set end date to be 4 days later than start date. 
+        // For each pass, set end date to be 4 days later than start date.
         // If that goes past the overall end date set end date back to the overall end date.
-         
+
         let mut ed = sd.checked_add_days(Days::new(4)).unwrap();  // unwrap should be safe!
         if ed > edate {
             ed = edate // ensure does not go beyond end of range
@@ -91,7 +91,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
         let record_num = get_study_count(&url).await?;
 
         // If over 100 records split processing to by day, else process all.
-        
+
         if record_num > 0 {
             if record_num > 100 {    // Split the (up to) 4 days up into single days
 
@@ -104,7 +104,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
                 }
             }
             else {    // Process all records.
-                                
+
                 let url = format!("{}{}", dated_url, 100);
                 let studies: AllTrials = get_studies(&url).await?;
                 let this_res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
@@ -117,9 +117,9 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
         }
 
         sd = ed;    // make the start date the old end date
-         
+
     }
-    
+
     info!("{} records checked in total. {} Files written ({} of them new)", res.num_checked, res.num_downloaded, res.num_added);
 
     Ok(res)
@@ -130,7 +130,6 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 async fn process_single_day(params: &InitParams, range_parameter: &str, date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
 {
     let date_param = date.format("%Y-%m-%d").to_string();
-
 
     let query_start_param = format!("{}%20GE%20{}T00:00:00%20AND%20", range_parameter, date_param);
     let query_end_param = format!("{}%20LT%20{}T23:59:59%20&limit=", range_parameter, date_param);
@@ -149,7 +148,7 @@ async fn process_single_day(params: &InitParams, range_parameter: &str, date: &N
         let studies: AllTrials = get_studies(&url).await?;
         let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
 
-        Ok(res) 
+        Ok(res)
     }
     else {
         Ok(DownloadResult::new())
@@ -168,7 +167,7 @@ async fn get_study_count(url: &String) -> Result<i32, AppError> {
 
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-   
+
     let trials_count: TrialsCount = de::from_str(&xml_content)
         .map_err(|e| AppError::QuickXMLError(url.clone(), e))?;
 
@@ -181,14 +180,14 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-   
+
     pause_about_500ms();  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
 
     // Extract api text and deserialise it to the xml model
 
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-   
+
     de::from_str(&xml_content)
         .map_err(|e| AppError::QuickXMLError(url.clone(), e))
 
@@ -196,11 +195,10 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
 // TODO - Make pause function more generic by including the base interval and range input parameters
 
-
 fn pause_about_500ms() -> () {
-    
+
     // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-    
+
     let mut rng = rand::rng();
     let num = &rng.random_range(1..=1000);
     let millis = 500 + num;
@@ -214,10 +212,10 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
     let mut res = DownloadResult::new();
 
         // Iterate through studies, the vector of FullTrials
-        // For each, call the process_studyroutine that goes through the xml 
+        // For each, call the process_studyroutine that goes through the xml
         // derived structure and which produces a much more mdr compliant model
         // That includes tidying up many of the fields, removing spaces and carriage returns...
-        // Once that model has been returned Write it out as a json file, for 
+        // Once that model has been returned Write it out as a json file, for
         // later import and further processing.
 
         for s in studies {
@@ -257,11 +255,11 @@ pub async fn write_out_file(sd_sid: &String, t: &json_models::Study, json_folder
             "Odd".to_string()
         }
     };
-    let file_folder: PathBuf = [json_folder, &PathBuf::from(&reg_year_string)].iter().collect(); 
+    let file_folder: PathBuf = [json_folder, &PathBuf::from(&reg_year_string)].iter().collect();
     if !folder_exists(&file_folder) {
         fs::create_dir_all(&file_folder)?;
     }
- 
+
     let file_name = format!("{}.json", t.sd_sid);
     let file_path: PathBuf= [&file_folder, &PathBuf::from(&file_name)].iter().collect();
     let json_string = to_string_pretty(&t).unwrap();
@@ -276,8 +274,8 @@ pub async fn write_out_file(sd_sid: &String, t: &json_models::Study, json_folder
 fn folder_exists(folder_name: &PathBuf) -> bool {
     let res = match folder_name.try_exists() {
         Ok(true) => true,
-        Ok(false) => false, 
-        Err(_e) => false,           
+        Ok(false) => false,
+        Err(_e) => false,
     };
     res
 }
@@ -289,7 +287,7 @@ fn folder_exists(folder_name: &PathBuf) -> bool {
 // Retained in case similar use case arises in the future
 
 pub async fn correct_data(params: &InitParams, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
-    
+
     // get the dataset of individual ids to correct
     // In this instance the correcvtion is of studies with incorrect IDs, that were
     // 'tagged' in the database by insertring specific values in the last_aggregation_id field
@@ -304,8 +302,8 @@ pub async fn correct_data(params: &InitParams, src_pool: &Pool<Postgres>) -> Res
             ORDER BY sd_sid"#;
 
     let ids: Vec<SdSid> = sqlx::query_as(&sql).fetch_all(src_pool).await
-                    .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;       
-    
+                    .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
+
     let dl_id = 101970;  // static, indicates successful re-processing, change if re-used
     let mut res = DownloadResult::new();
     let mut n = 0;
@@ -339,10 +337,10 @@ async fn get_study(url: &String) -> Result<FullTrial, AppError> {
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
 
     // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-    
+
     let mut rng = rand::rng();
     let num = &rng.random_range(1..=1000);
-    let millis = 800 + num;   
+    let millis = 800 + num;
     let pause = time::Duration::from_millis(millis);
     thread::sleep(pause);
 
@@ -350,7 +348,7 @@ async fn get_study(url: &String) -> Result<FullTrial, AppError> {
 
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-   
+
     de::from_str(&xml_content)
         .map_err(|e| AppError::QuickXMLError(url.clone(), e))
 

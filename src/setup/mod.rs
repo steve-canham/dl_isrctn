@@ -1,10 +1,10 @@
 /**********************************************************************************
-The setup module, and the get_params function in this file in particular, 
-orchestrates the collection and fusion of parameters as provided in 
-1) a config toml file, and 
-2) command line arguments. 
-The module also checks the parameters for completeness. If possible, defaults are 
-used to stand in for mising parameters. If not possible the program stops with 
+The setup module, and the get_params function in this file in particular,
+orchestrates the collection and fusion of parameters as provided in
+1) a config toml file, and
+2) command line arguments.
+The module also checks the parameters for completeness. If possible, defaults are
+used to stand in for mising parameters. If not possible the program stops with
 a message explaining the problem.
 The module also provides a database connection pool on demand.
 ***********************************************************************************/
@@ -28,20 +28,20 @@ pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
 
 pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParams, AppError> {
 
-    let config_file: Config = config_reader::populate_config_vars(&config_string)?; 
+    let config_file: Config = config_reader::populate_config_vars(&config_string)?;
 
     let base_url = config_file.api.base_url;
-    let json_data_path = config_file.folders.json_data_path; 
+    let json_data_path = config_file.folders.json_data_path;
 
-    if !folder_exists(&json_data_path) { 
+    if !folder_exists(&json_data_path) {
         fs::create_dir_all(&json_data_path)?;
     }
 
-    let log_folder_path = config_file.folders.log_folder_path;  
+    let log_folder_path = config_file.folders.log_folder_path;
     if !folder_exists(&log_folder_path) {
         fs::create_dir_all(&log_folder_path)?;
     }
-           
+
     Ok(InitParams {
         base_url: base_url,
         json_data_path: json_data_path,
@@ -60,29 +60,29 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
 fn folder_exists(folder_name: &PathBuf) -> bool {
     let res = match folder_name.try_exists() {
         Ok(true) => true,
-        Ok(false) => false, 
-        Err(_e) => false,           
+        Ok(false) => false,
+        Err(_e) => false,
     };
     res
 }
 
 
-pub async fn get_db_pool(db: &str) -> Result<PgPool, AppError> {  
+pub async fn get_db_pool(db: &str) -> Result<PgPool, AppError> {
 
     // Use DB name to get the connection string
-    // Use the string to set up a connection options object and change 
-    // the time threshold for warnings. Set up a DB pool option and 
+    // Use the string to set up a connection options object and change
+    // the time threshold for warnings. Set up a DB pool option and
     // connect using the connection options object.
 
     let db_name = config_reader::fetch_db_name(db)?;
-    let db_conn_string = config_reader::fetch_db_conn_string(&db_name)?;  
-   
+    let db_conn_string = config_reader::fetch_db_conn_string(&db_name)?;
+
     let mut opts: PgConnectOptions = db_conn_string.parse()
                     .map_err(|e| AppError::DBPoolError("Problem with parsing conection string".to_string(), e))?;
     opts = opts.log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(3));
 
     PgPoolOptions::new()
-        .max_connections(5) 
+        .max_connections(5)
         .connect_with(opts).await
         .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db_name), e))
 }
@@ -114,7 +114,7 @@ mod tests {
 
     use super::*;
     use std::ffi::OsString;
-    use chrono::{NaiveDate, Local};
+    use chrono::{NaiveDate, Utc};
     use crate::base_types::{DownloadType, ImportType};
 
     #[test]
@@ -144,7 +144,7 @@ cxt_db_name="cxt"
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
         let res = get_params(cli_pars, &config_string).unwrap();
-        let today = Local::now().date_naive();
+        let today = Utc::now().date_naive();
 
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
@@ -184,7 +184,7 @@ cxt_db_name="cxt"
         let test_args = args.iter().map(|x| x.to_string().into()).collect::<Vec<OsString>>();
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
         let res = get_params(cli_pars, &config_string).unwrap();
- 
+
         assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));

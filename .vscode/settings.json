@@ -20,6 +20,21 @@
           "iconColour": "#ffff00",
           "gutterIcon": true
       }
-  }
+  },
+
+  "workbench.colorCustomizations": {
+        "titleBar.activeBackground": "#1d252b",
+        "titleBar.inactiveBackground": "#1d252b",
+        "titleBar.activeForeground": "#70bb00",
+        "titleBar.inactiveForeground": "#70bb00",
+        "activityBar.background": "#1d252b",
+        "icon.foreground": "#70bb00",
+        "symbolIcon.colorForeground": "#ff0000",
+        "activityBar.inactiveForeground": "#70bb00",
+        "activityBar.foreground": "#a0dd33",
+        "sideBar.background": "#2d353b",
+        "sideBar.border": "#555",
+        "tree.inactiveIndentGuidesStroke": "#555",
+    },
 
 }

@@ -1,28 +1,27 @@
 use crate::AppError;
 use sqlx::{Pool, Postgres};
 
-
 pub async fn execute_sql(sql: &str, src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
     sqlx::raw_sql(sql)
         .execute(src_pool).await
-        .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;       
-        
+        .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
+
     Ok(())
 }
 
 
 pub async fn transfer_study_core_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
-    let sql = r#"insert into ad.studies (sd_sid, display_title, brief_description, 
+    let sql = r#"insert into ad.studies (sd_sid, display_title, brief_description,
                 type_id, status_id, is_ipd_sharing, ipd_sharing_plan, date_last_revised,
                 dt_of_data_fetch)
-                select sd_sid, display_title, brief_description, 
-                type_id, status_id, 
-                case 
-                when is_ipd_sharing = true then 'Yes' 
-                when is_ipd_sharing = false then 'No' 
-                else 'Not provided' end, 
+                select sd_sid, display_title, brief_description,
+                type_id, status_id,
+                case
+                when is_ipd_sharing = true then 'Yes'
+                when is_ipd_sharing = false then 'No'
+                else 'Not provided' end,
                 ipd_sharing_plan, date_last_revised,
                 dt_of_data_fetch
                 from sd.studies
@@ -33,13 +32,13 @@ pub async fn transfer_study_core_data(src_pool: &Pool<Postgres>) -> Result<(), A
 
 pub async fn transfer_study_date_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
-    let sql = r#"insert into ad.study_dates (sd_sid, reg_year, reg_month, reg_date_type, 
-                start_year, start_month, start_date_type, 
-                comp_year, comp_month, comp_date_type, 
+    let sql = r#"insert into ad.study_dates (sd_sid, reg_year, reg_month, reg_date_type,
+                start_year, start_month, start_date_type,
+                comp_year, comp_month, comp_date_type,
                 res_year, res_month, res_date_type)
-                select sd_sid, reg_year, reg_month, reg_date_type, 
-                start_year, start_month, start_date_type, 
-                comp_year, comp_month, comp_date_type, 
+                select sd_sid, reg_year, reg_month, reg_date_type,
+                start_year, start_month, start_date_type,
+                comp_year, comp_month, comp_date_type,
                 res_year, res_month, res_date_type
                 from sd.study_dates
                 order by sd_sid"#;
@@ -49,11 +48,11 @@ pub async fn transfer_study_date_data(src_pool: &Pool<Postgres>) -> Result<(), A
 
 pub async fn transfer_study_participants_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
-    let sql = r#"insert into ad.study_participants (sd_sid, enrolment, enrolment_type, 
-                gender_flag, min_age, min_age_units_id, 
+    let sql = r#"insert into ad.study_participants (sd_sid, enrolment, enrolment_type,
+                gender_flag, min_age, min_age_units_id,
                 max_age, max_age_units_id, age_group_flag, iec_flag)
-                select sd_sid, enrolment, enrolment_type, 
-                gender_flag, min_age, min_age_units_id, 
+                select sd_sid, enrolment, enrolment_type,
+                gender_flag, min_age, min_age_units_id,
                 max_age, max_age_units_id, age_group_flag, iec_flag
                 from sd.study_participants
                 order by sd_sid"#;
@@ -154,7 +153,7 @@ pub async fn transfer_study_topics_data(src_pool: &Pool<Postgres>) -> Result<(),
 
 // convert 'Topic...' garbage first in sd table
 // usefulness of class1???
-/* 
+/*
 pub async fn transfer_study_conditions_data1(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
     let sql = r#"insert into ad.study_conditions (sd_sid, original_value)
@@ -221,5 +220,3 @@ pub async fn transfer_study_pubs_data(src_pool: &Pool<Postgres>) -> Result<(), A
                 order by sd_sid"#;
     execute_sql(sql, src_pool).await
 }
-
-
