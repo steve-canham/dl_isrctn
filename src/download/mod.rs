@@ -59,7 +59,6 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     };
 
     let mut res = DownloadResult::new();
-
     while sd < edate  {
 
         // For each pass, set end date to be 4 days later than start date.
