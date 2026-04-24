@@ -20,6 +20,7 @@ use rand::prelude::*;
 use sqlx::{Pool, Postgres};
 use log::info;
 
+
 pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
 
     // The base url, json file folder, log folder, and start and end dates have
