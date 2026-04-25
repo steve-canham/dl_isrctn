@@ -1,5 +1,5 @@
 /***************************************************************************
- * Establishes the log for the programme's operation using log and log4rs, 
+ * Establishes the log for the programme's operation using log and log4rs,
  * and includes various helper functions.
  * Once established the log file appears to be accessible to any log
  * statement within the rest of the program (after 'use log:: ...').
@@ -27,15 +27,15 @@ pub fn setup_log (data_folder: &PathBuf) -> Result<log4rs::Handle, AppError> {
 }
 
 fn get_log_file_path(data_folder: &PathBuf) -> PathBuf {
-    
+
     let datetime_string = Local::now().format("%m-%d %H%M%S").to_string();
     let log_file_name = format!("ISRCTN DL {} ", datetime_string);
     [data_folder, &PathBuf::from(&log_file_name)].iter().collect()
-    
+
 }
 
 fn config_log (log_file_path: &PathBuf) -> Result<log4rs::Handle, AppError> {
-    
+
     // Initially establish a pattern for each log line.
 
     let log_pattern = "{d(%d/%m %H:%M:%S)}  {h({l})}  {({M}.{L}):>38.48}:  {m}\n";
@@ -50,7 +50,7 @@ fn config_log (log_file_path: &PathBuf) -> Result<log4rs::Handle, AppError> {
     let logfile = FileAppender::builder().encoder(Box::new(PatternEncoder::new(log_pattern)))
             .build(log_file_path)
             .map_err(|e| AppError::IoWriteErrorWithPath(e, log_file_path.to_owned()))?;
-    
+
     // Configure and build log4rs instance, using the two appenders described above
 
     let config = Config::builder()
@@ -72,14 +72,16 @@ fn config_log (log_file_path: &PathBuf) -> Result<log4rs::Handle, AppError> {
 
 
 pub fn log_startup_params (ip : &InitParams) {
-    
+
     // Called at the end of set up to record the input parameters
-    
+
     info!("PROGRAM START");
     info!("");
     info!("************************************");
     info!("");
-    info!("base_url: {:?}", ip.base_url);
+    info!("source id: {}", ip.source_id.to_string());
+    info!("source name: {}", ip.source_name);
+    info!("base_url: {:?}", ip.api_base_url);
     info!("json data path: {:?}", ip.json_data_path);
     info!("log folder path: {:?}", ip.log_folder_path);
 
@@ -89,7 +91,7 @@ pub fn log_startup_params (ip : &InitParams) {
     let sd = if ip.start_date == None {"none".to_string()} else {ip.start_date.unwrap().format("%Y-%m-%d").to_string()};
     info!("start date: {}", sd);
     let ed = if ip.end_date == None {"none".to_string()} else {ip.end_date.unwrap().format("%Y-%m-%d").to_string()};
-    info!("start date: {}", ed);
+    info!("end date: {}", ed);
 
     info!("");
     info!("************************************");

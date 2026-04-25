@@ -28,16 +28,16 @@ pub trait OptionStringExtensions {
     fn is_not_a_place_holder(&self) -> bool;
 }
 
-// Extensions for Option<String>, some specific to 
+// Extensions for Option<String>, some specific to
 // the ISRCTN data derived from deserialisation of its XML.
 
 // The XML deserialises to Option<String> because most elements
 // and attributes are optional, and may be empty or completely missing.
-// The generated json also has to support Options, both to make missing 
+// The generated json also has to support Options, both to make missing
 // data clearer, and for it to be more easily transferred to a database.
-// It is useful, however, to introduce different types as appropriate, 
-// (e.g. Option<bool>, Option<f32>), and also to put dates into 
-// appropriate levels of accuracy, by truncating the over precise 
+// It is useful, however, to introduce different types as appropriate,
+// (e.g. Option<bool>, Option<f32>), and also to put dates into
+// appropriate levels of accuracy, by truncating the over precise
 // ISO strings. In the json dates are still strings, but
 // in a form more easily convertable to the correct DB type.
 
@@ -45,9 +45,9 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_text_opt(&self) -> Option<String> {
          match self {
-            Some(s) => { 
+            Some(s) => {
                     let st = s.trim();  // trims all whitespace
-                    if st == "" 
+                    if st == ""
                     {
                         None
                     } else {
@@ -62,13 +62,13 @@ impl OptionStringExtensions for Option<String> {
 
         match self {
             Some(s) => {
-                
+
                 // Trim all whitespace and then any enclosing quotes
 
                 let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
                 let low_ref = lower.as_str();
-                
+
                 // Check for common 'null value' values
 
                 if low_ref == "null" || low_ref == "n/a"
@@ -98,14 +98,14 @@ impl OptionStringExtensions for Option<String> {
         // Filtering here is to translate 'n/a', 'null' or 'nil'
         // type entries as None. the options used are ISRCTN specific -
         // other choices might be necessary in other systems.
-        
+
         match self {
-            Some(s) => { 
+            Some(s) => {
                 let st = s.trim();
                 if st == "" || st.len() < 2  // 1 character ids not meaningful or useful
                 {
                     None
-                } 
+                }
                 else {
                     let stl = st.to_ascii_lowercase();
                     if stl == "n/a" || stl == "na" || stl == "no" || stl == "none"
@@ -129,19 +129,19 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_date_opt(&self) -> Option<String> {
 
-    // dates are kept as strings but truncated to the 
+    // dates are kept as strings but truncated to the
     // short ISO YYYY-MM-DD format. It is assumed that the
     // fields using this extension are written as short ISO dates.
     // The regex checks that this is the case.
     // N.B. Only checks foremat is correvt - may be invalid as a date
 
         match self {
-            Some(s) => { 
+            Some(s) => {
                     let st = s.trim();
-                    if st == "" 
+                    if st == ""
                     {
                         None
-                    } 
+                    }
                     else {
                         static ISO_DATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}").unwrap());
                         if ISO_DATE.is_match(st) {
@@ -158,19 +158,19 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_datetime_opt(&self) -> Option<String> {
 
-    // datetimes are kept as strings but truncated to the 
+    // datetimes are kept as strings but truncated to the
     // ISO YYY-MM-DDThh:mm::ss format. It is assumed that the
     // fields using this extension are written as long ISO dates.
     // The regex checks that this is the case.
-    // N.B. Only checks foremat is correvt - may be invalid as a datetime
+    // N.B. Only checks foremat is correct - may be invalid as a datetime
 
         match self {
-            Some(s) => { 
+            Some(s) => {
                     let st = s.trim();
-                    if st == "" 
+                    if st == ""
                     {
                         None
-                    } 
+                    }
                     else {
                         static ISO_DATETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}").unwrap());
                         if ISO_DATETIME.is_match(st) {
@@ -184,18 +184,18 @@ impl OptionStringExtensions for Option<String> {
                 None => None
         }
     }
-    
+
     fn as_i32_opt(&self) -> Option<i32> {
         match self {
-            Some(s) => { 
+            Some(s) => {
                 let st = s.trim();
-                if st == "" 
+                if st == ""
                 {
                     None
-                } 
-                else 
+                }
+                else
                 {
-                    match st.parse::<i32>() 
+                    match st.parse::<i32>()
                     {
                         Ok(n) => Some(n),
                         Err(_e) => None
@@ -208,15 +208,15 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_f32_opt(&self) -> Option<f32> {
         match self {
-            Some(s) => { 
+            Some(s) => {
                 let st = s.trim();
-                if st == "" 
+                if st == ""
                 {
                     None
-                } 
-                else 
+                }
+                else
                 {
-                    match st.parse::<f32>() 
+                    match st.parse::<f32>()
                     {
                         Ok(n) => Some(n),
                         Err(_e) => None
@@ -229,12 +229,12 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_bool_opt(&self) -> Option<bool> {
         match self {
-            Some(s) => { 
+            Some(s) => {
                 let st = s.trim();
-                if st == "" 
+                if st == ""
                 {
                     None
-                } 
+                }
                 else {
                     let stl = st.to_ascii_lowercase();
                     if stl == "true" || stl == "yes" {
@@ -255,9 +255,9 @@ impl OptionStringExtensions for Option<String> {
 
     fn regularise_hyphens(&self) -> Option<String> {
 
-        // assumed this call is immediately after a 'tidy' call, 
+        // assumed this call is immediately after a 'tidy' call,
         // on a string option, so only basic null check required.
-        // Mostly applicable to identifiers where consistency 
+        // Mostly applicable to identifiers where consistency
         // hyphens is needed for comparison purposes.
 
 
@@ -269,11 +269,11 @@ impl OptionStringExtensions for Option<String> {
                 }
                 else {
                     st = st.replace("\u{00AD}", "");  // soft hyphen
-                    st = st.replace("\u{2010}", "-"); 
-                    st = st.replace("\u{2011}", "-"); 
-                    st = st.replace("\u{2012}", "-"); 
-                    st = st.replace("\u{2013}", "-"); 
-                    st = st.replace("\u{2212}", "-"); 
+                    st = st.replace("\u{2010}", "-");
+                    st = st.replace("\u{2011}", "-");
+                    st = st.replace("\u{2012}", "-");
+                    st = st.replace("\u{2013}", "-");
+                    st = st.replace("\u{2212}", "-");
 
                     Some(st)
                 }
@@ -282,7 +282,7 @@ impl OptionStringExtensions for Option<String> {
         }
     }
 
-    
+
     fn regularise_nb_spaces(&self) -> Option<String> {
 
         // Assumed this call is immediately after a 'tidy' call
@@ -312,17 +312,17 @@ impl OptionStringExtensions for Option<String> {
 
 
     fn replace_escaped(&self) -> Option<String> {
-        
+
         match self {
             Some(s) => {
-                
+
                 // Top portion is the same as 'as_tidied_text_opt'
                 // Trim all whitespace and then any enclosing quotes
 
                 let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
                 let low_ref = lower.as_str();
-                
+
                 // Check for common 'null value' values as well  as empty string
 
                 if low_ref == "" || low_ref == "null" || low_ref == "n/a"
@@ -372,11 +372,11 @@ impl OptionStringExtensions for Option<String> {
                             tr = tr.replace("&#44;", ",").replace("&#45;", "-");
                             tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
                             tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
-                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
+                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");
                             tr = tr.replace("&gt;", ">").replace("&lt;", "<");
 
                             tr = tr.trim_matches(&[';', ' ']).to_string()
-                            
+
                         }
 
                         tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
@@ -384,7 +384,7 @@ impl OptionStringExtensions for Option<String> {
                         tr = tr.replace('\u{0081}', "");   // remove control character that can (very rarely) appear in string
 
                         Some(tr)
-   
+
                     }
                 }
             },
@@ -392,22 +392,22 @@ impl OptionStringExtensions for Option<String> {
             None => None
 
         }
-        
+
     }
 
 
     fn replace_apostrophes(&self) -> Option<String> {
-    
+
           match self {
             Some(s) => {
-                
+
                 // Top portion is the same as 'as_tidied_text_opt'
                 // Trim all whitespace and then any enclosing quotes
 
                 let quoteless = s.trim().trim_matches('"');
                 let lower = quoteless.to_lowercase();
                 let low_ref = lower.as_str();
-                
+
                 // Check for common 'null value' values as well  as empty string
 
                 if low_ref == "" || low_ref == "null" || low_ref == "n/a"
@@ -459,11 +459,11 @@ impl OptionStringExtensions for Option<String> {
                             tr = tr.replace("&#44;", ",").replace("&#45;", "-");
                             tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
                             tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
-                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");       
+                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");
                             tr = tr.replace("&gt;", ">").replace("&lt;", "<");
 
                             tr = tr.trim_matches(&[';', ' ']).to_string()
-                            
+
                         }
 
                         tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
@@ -479,7 +479,7 @@ impl OptionStringExtensions for Option<String> {
                             // Then deal with situations where a LSQ applies
 
                             tr = tr.replace("'", "’");
-                            
+
                             if tr.starts_with('’') {
                                 let mut chars = tr.chars();
                                 chars.next();
@@ -491,7 +491,7 @@ impl OptionStringExtensions for Option<String> {
                         }
 
                         Some(tr)
-                
+
                     }
                 }
             },
@@ -502,14 +502,14 @@ impl OptionStringExtensions for Option<String> {
 
 
     fn replace_tags(&self) -> Option<String> {
-    
+
         // Assumed will normally be called in the context of 'clean' or 'clean_multiline'
         // and therefore string will already have been tidied, apostrophes sorted etc.
         // The null check is therefore rudimentary.
 
         match self {
             Some(sf) => {
-               
+
                let mut s= sf.trim().to_string();
 
                if s == "".to_string()
@@ -532,12 +532,12 @@ impl OptionStringExtensions for Option<String> {
                         if !(s.contains('<') && s.contains('>')) {
                             Some(s)
                         }
-                        else {    
+                        else {
 
                             // Need to go through the characters and remove the 'islands' of tags
                             // and their included text, but - - consider
-                            // a) genuine < and > signs; b) sub and superscripted text, and 
-                            // c) the need to make bullet tags into text based bullets 
+                            // a) genuine < and > signs; b) sub and superscripted text, and
+                            // c) the need to make bullet tags into text based bullets
 
                             s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
                             s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
@@ -555,7 +555,7 @@ impl OptionStringExtensions for Option<String> {
 
                             static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
                             s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
-                                                                        
+
                             // Now go through characters and create new string (new_s)
 
                             let mut inside = false;
@@ -646,11 +646,11 @@ impl OptionStringExtensions for Option<String> {
                             }
 
                             new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
-                            
+
                             Some(new_s)
 
                         }
-                    }        
+                    }
                 }
             },
             None => None,
@@ -660,7 +660,7 @@ impl OptionStringExtensions for Option<String> {
 
 
     fn replace_gaps(&self) -> Option<String> {
-    
+
         // Assummed normally called after a clean process, as the final stage for trimming multiline
         // strings. Null check is therefore basic. Regularises line endings and removes double spaces
         // and double carriage returns.
@@ -677,7 +677,7 @@ impl OptionStringExtensions for Option<String> {
 
                     // Regularise endings
 
-                    s = s.replace("\r\n", "\n").replace("\r", "\n");    
+                    s = s.replace("\r\n", "\n").replace("\r", "\n");
 
                     // Regularise carriage returns
 
@@ -704,20 +704,20 @@ impl OptionStringExtensions for Option<String> {
             None => None,
        }
     }
-  
-  
+
+
     fn clean(&self) -> Option<String> {
-       
-       // replace_apostrophes includes 'as_tidied_text_opt' and 
+
+       // replace_apostrophes includes 'as_tidied_text_opt' and
        // replace unicodes as a second step. There is therefore
-       // no need to call these routines before hand. 
+       // no need to call these routines before hand.
 
        // replace tags normally assumed to be used in this context
        // rather than called independently. If it is then
        // dome initial cleaning may be required.
 
        self.replace_apostrophes().replace_tags()
-    }    
+    }
 
     fn clean_multiline(&self) -> Option<String> {
 
@@ -732,7 +732,7 @@ impl OptionStringExtensions for Option<String> {
     fn is_not_a_place_holder(&self) -> bool {
 
         match self {
-            
+
             Some(s) => {
 
                 let mut result = true;
@@ -746,22 +746,22 @@ impl OptionStringExtensions for Option<String> {
 
                 else if low_s.starts_with("n") {
 
-                    if low_s == "n.a." || low_s == "na" || low_s == "n/a"  
+                    if low_s == "n.a." || low_s == "na" || low_s == "n/a"
                     || low_s == "no" || low_s == "nil"  || low_s == "nill" || low_s == "non" {
                         result = false;
                     }
                     else if low_s.starts_with("not ") || low_s.starts_with("non ")
-                    || low_s.starts_with("no ") 
+                    || low_s.starts_with("no ")
                     {
                         result = false;
                     }
-                    else if low_s == "none" || low_s == "nd" 
+                    else if low_s == "none" || low_s == "nd"
                     || low_s == "nothing" || low_s == "n.a" || low_s == "n/a."
                     {
                         result = false;
                     }
                     else if low_s.starts_with("not-") || low_s.starts_with("not_")
-                    || low_s.starts_with("notapplic") ||  low_s.starts_with("notavail") 
+                    || low_s.starts_with("notapplic") ||  low_s.starts_with("notavail")
                     || low_s.starts_with("nonfun") || low_s.starts_with("noneno")
                     {
                         result = false;
@@ -825,8 +825,8 @@ mod tests {
 
         let t_opt = Some("\t \t foo \r\n     ".to_string());
         assert_eq!(t_opt.as_text_opt(), Some("foo".to_string()));
-    } 
-    
+    }
+
     #[test]
     fn check_as_tidied_text_opt() {
 
@@ -841,7 +841,7 @@ mod tests {
 
         let t_opt = Some("   -foo  - \n".to_string());
         assert_eq!(t_opt.as_tidied_text_opt(), Some("foo".to_string()));
-    } 
+    }
 
     #[test]
     fn check_as_filtered_text_opt() {
@@ -863,7 +863,7 @@ mod tests {
 
         let t_opt = Some("1111-000".to_string());
         assert_eq!(t_opt.as_filtered_ident_opt(), None);
-       
+
         let t_opt = Some("foo  \n".to_string());
         assert_eq!(t_opt.as_filtered_ident_opt(), Some("foo".to_string()));
 
@@ -888,7 +888,7 @@ mod tests {
 
         let t_opt = Some("2020-04-23T12:34:45".to_string());
         assert_eq!(t_opt.as_date_opt(), Some("2020-04-23".to_string()));
-    } 
+    }
 
     #[test]
     fn check_as_datetime_opt() {
@@ -910,7 +910,7 @@ mod tests {
 
         let t_opt = Some("2020-04-23T33:99:99.12345".to_string());
         assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T33:99:99".to_string()));
-    } 
+    }
 
      #[test]
     fn check_as_i32_opt() {
@@ -935,7 +935,7 @@ mod tests {
 
         let t_opt = Some("-12".to_string());
         assert_eq!(t_opt.as_i32_opt(), Some(-12));
-    } 
+    }
 
     #[test]
     fn check_as_f32_opt() {
@@ -960,7 +960,7 @@ mod tests {
 
         let t_opt = Some("-12".to_string());
         assert_eq!(t_opt.as_f32_opt(), Some(-12.0));
-    } 
+    }
 
     #[test]
     fn check_as_bool_opt() {
@@ -982,7 +982,7 @@ mod tests {
 
         let t_opt = Some("False".to_string());
         assert_eq!(t_opt.as_bool_opt(), Some(false));
-    } 
+    }
 
     #[test]
     fn check_regularise_hyphens() {
@@ -995,8 +995,8 @@ mod tests {
 
         let t_opt = Some("foo\u{2012}bar".to_string());
         assert_eq!(t_opt.regularise_hyphens(), Some("foo-bar".to_string()));
-    } 
-    
+    }
+
     #[test]
     fn check_regularise_nb_spaces() {
 
@@ -1008,8 +1008,8 @@ mod tests {
 
         let t_opt = Some("foo\u{2009}bar".to_string());
         assert_eq!(t_opt.regularise_nb_spaces(), Some("foo bar".to_string()));
-    } 
-    
+    }
+
     #[test]
     fn check_replace_escaped() {
 
@@ -1021,7 +1021,7 @@ mod tests {
 
         let t_opt = Some("foo &gt; fie and foe #lt; fum".to_string());
         assert_eq!(t_opt.replace_escaped(), Some("foo > fie and foe < fum".to_string()));
-    } 
+    }
 
     #[test]
     fn check_replace_apostrophes() {
@@ -1037,7 +1037,7 @@ mod tests {
 
         let t_opt = Some("They call it 'el grande' ('the big one')".to_string());
         assert_eq!(t_opt.replace_apostrophes(), Some("They call it ‘el grande’ (‘the big one’)".to_string()));
-    } 
+    }
 
     #[test]
     fn check_replace_tags() {
@@ -1059,7 +1059,7 @@ mod tests {
 
         let t_opt = Some("this is <b class=\"foo\">about</b> 29kgm<sup>-3</sup>s<sup>-1</sup>, and it applies to K<sub>0</sub> and K<sub>max</sub>".to_string());
         assert_eq!(t_opt.replace_tags(), Some("this is about 29kgm\u{207B}\u{00B3}s\u{207B}\u{00B9}, and it applies to K\u{2080} and K\u{2098}\u{2090}\u{2093}".to_string()));
-    } 
+    }
 
     #[test]
     fn check_replace_gaps() {
@@ -1072,7 +1072,6 @@ mod tests {
 
         let t_opt = Some("one funny line \r\n second    line \r\n  third    bit \n\n:\n:  \r".to_string());
         assert_eq!(t_opt.replace_gaps(), Some("one funny line \nsecond line \n third bit :\n:".to_string()));
-    } 
-  
-}
+    }
 
+}

@@ -1,7 +1,8 @@
+
 use sqlx::{Pool, Postgres};
 use crate::err::AppError;
 use chrono::{Utc};
-use super::{ImportType, ImportResult};
+//use super::{ImportType, ImportResult};
 
 #[allow(dead_code)]
 pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Pool<Postgres>) -> Result<(), AppError> {
@@ -20,7 +21,7 @@ pub async fn update_isrctn_mon(sd_sid: &String, imp_event_id: i32, src_pool: &Po
     Ok(())
 }
 
-
+/*
 pub async fn get_next_import_id(import_type: &ImportType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
     let sql = "select coalesce(max(id), 10001) from evs.imp_events ";
@@ -57,3 +58,4 @@ pub async fn update_imp_event_record (imp_event_id: i32, imp_res: ImportResult, 
     Ok(res.rows_affected() == 1)
 }
 
+*/

@@ -1,10 +1,10 @@
-use crate::base_types::*;
+//use crate::base_types::*;
 use crate::AppError;
-use crate::helpers::date_extensions::*;
+//use crate::helpers::date_extensions::*;
 
 use sqlx::{Pool, Postgres};
 use std::path::PathBuf;
-use chrono::{Utc, NaiveDate};
+use chrono::Utc;
 
 
 pub async fn update_mon_table(sd_sid: &String, remote_url: &String, dl_id: i32,
@@ -44,7 +44,7 @@ pub async fn update_mon_table(sd_sid: &String, remote_url: &String, dl_id: i32,
         Ok(added)
 }
 
-
+/*
 pub async fn get_next_download_id(source_id: i32, dl_type: &DownloadType, mon_pool: &Pool<Postgres>) -> Result<i32, AppError>{
 
     let sql = "select coalesce(max(id), 10001) from evs.dl_events ";
@@ -95,3 +95,4 @@ pub async fn get_last_dl_recent_type_date (source_id: i32, mon_pool: &Pool<Postg
                         .await.map_err(|e| AppError::SqlxError(e, sql.to_string())).ok()?;
         res
 }
+*/

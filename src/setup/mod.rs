@@ -12,14 +12,15 @@ The module also provides a database connection pool on demand.
 pub mod cli_reader;
 pub mod config_reader;
 pub mod log_helper;
+pub mod db_pars;
 
 use std::fs;
 use std::sync::OnceLock;
 use crate::err::AppError;
-use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
+//use sqlx::postgres::{PgPoolOptions, PgConnectOptions, PgPool};
 use std::path::PathBuf;
-use std::time::Duration;
-use sqlx::ConnectOptions;
+//use std::time::Duration;
+//use sqlx::ConnectOptions;
 use config_reader::Config;
 use cli_reader::CliPars;
 use crate::base_types::InitParams;
@@ -30,7 +31,8 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
 
     let config_file: Config = config_reader::populate_config_vars(&config_string)?;
 
-    let base_url = config_file.api.base_url;
+    let base_url = config_file.data.api_base_url;
+    let source_id = config_file.data.source_id;
     let json_data_path = config_file.folders.json_data_path;
 
     if !folder_exists(&json_data_path) {
@@ -43,7 +45,9 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     }
 
     Ok(InitParams {
-        base_url: base_url,
+        source_id: source_id,
+        source_name: "".to_string(),
+        api_base_url: base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
         download_type: cli_pars.download_type,
@@ -56,7 +60,6 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
 
 }
 
-
 fn folder_exists(folder_name: &PathBuf) -> bool {
     let res = match folder_name.try_exists() {
         Ok(true) => true,
@@ -64,27 +67,6 @@ fn folder_exists(folder_name: &PathBuf) -> bool {
         Err(_e) => false,
     };
     res
-}
-
-
-pub async fn get_db_pool(db: &str) -> Result<PgPool, AppError> {
-
-    // Use DB name to get the connection string
-    // Use the string to set up a connection options object and change
-    // the time threshold for warnings. Set up a DB pool option and
-    // connect using the connection options object.
-
-    let db_name = config_reader::fetch_db_name(db)?;
-    let db_conn_string = config_reader::fetch_db_conn_string(&db_name)?;
-
-    let mut opts: PgConnectOptions = db_conn_string.parse()
-                    .map_err(|e| AppError::DBPoolError("Problem with parsing conection string".to_string(), e))?;
-    opts = opts.log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(3));
-
-    PgPoolOptions::new()
-        .max_connections(5)
-        .connect_with(opts).await
-        .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db_name), e))
 }
 
 
@@ -120,8 +102,9 @@ mod tests {
     #[test]
     fn check_results_with_min_download_params() {
         let config = r#"
-[api]
-base_url = "https://www.isrctn.com/api/query/format/default?q="
+[data]
+api_base_url = "https://www.isrctn.com/api/query/format/default?q="
+source_id = "100126"
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
@@ -132,10 +115,9 @@ db_host="localhost"
 db_user="pg_user"
 db_password="foo"
 db_port="5432"
-
-db_name="isrctn"
-mon_db_name="mon"
-cxt_db_name="cxt"
+source_db="isrctn"
+monitor_db="mon"
+context_db="cxt"
         "#;
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
@@ -146,22 +128,23 @@ cxt_db_name="cxt"
         let res = get_params(cli_pars, &config_string).unwrap();
         let today = Utc::now().date_naive();
 
-        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.api_base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.source_id, 100126);
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
         assert_eq!(res.download_type, DownloadType::Recent);
         assert_eq!(res.start_date, Some(NaiveDate::from_ymd_opt(2020, 12, 4).unwrap()));
         assert_eq!(res.end_date, Some(today));
-
     }
 
 
     #[test]
     fn check_results_with_year_download_params() {
         let config = r#"
-[api]
-base_url = "https://www.isrctn.com/api/query/format/default?q="
+[data]
+api_base_url = "https://www.isrctn.com/api/query/format/default?q="
+source_id = "100126"
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
@@ -172,10 +155,9 @@ db_host="localhost"
 db_user="pg_user"
 db_password="foo"
 db_port="5432"
-
-db_name="isrctn"
-mon_db_name="mon"
-cxt_db_name="cxt"
+source_db="isrctn"
+monitor_db="mon"
+context_db="cxt"
         "#;
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
@@ -185,7 +167,8 @@ cxt_db_name="cxt"
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
         let res = get_params(cli_pars, &config_string).unwrap();
 
-        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.api_base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.source_id, 100126);
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::None);
@@ -199,8 +182,9 @@ cxt_db_name="cxt"
     #[test]
     fn check_results_with_import_recent_params() {
         let config = r#"
-[api]
-base_url = "https://www.isrctn.com/api/query/format/default?q="
+[data]
+api_base_url = "https://www.isrctn.com/api/query/format/default?q="
+source_id = "100126"
 
 [folders]
 json_data_path="/home/steve/Data/MDR json files/isrctn"
@@ -211,10 +195,9 @@ db_host="localhost"
 db_user="pg_user"
 db_password="foo"
 db_port="5432"
-
-db_name="isrctn"
-mon_db_name="mon"
-cxt_db_name="cxt"
+source_db="isrctn"
+monitor_db="mon"
+context_db="cxt"
         "#;
         let config_string = config.to_string();
         config_reader::populate_config_vars(&config_string).unwrap();
@@ -224,14 +207,14 @@ cxt_db_name="cxt"
         let cli_pars = cli_reader::fetch_valid_arguments(test_args).unwrap();
         let res = get_params(cli_pars, &config_string).unwrap();
 
-        assert_eq!(res.base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.api_base_url, "https://www.isrctn.com/api/query/format/default?q=");
+        assert_eq!(res.source_id, 100126);
         assert_eq!(res.json_data_path, PathBuf::from("/home/steve/Data/MDR json files/isrctn"));
         assert_eq!(res.log_folder_path, PathBuf::from("/home/steve/Data/MDR logs/isrctn"));
         assert_eq!(res.import_type, ImportType::Recent);
         assert_eq!(res.download_type, DownloadType::None);
         assert_eq!(res.start_date, None);
         assert_eq!(res.end_date, None);
-
     }
 
 }

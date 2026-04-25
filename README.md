@@ -29,10 +29,8 @@ In both of the cases above the two date parameters must be supplied (as  -s and 
 to ISRCTN in a specified year, and is designed for bulk download scenarios, such as 
 rebuilding the whole ISRCTN dataset from scratch.<br/><br/>
 In fact all procedures work in a similar way and need a start and end date, but in the case of 
-type 'Recent' the end date is taken as the current date, and in the case of 'ByYear' the dates are 
-the first date of the year, and the first date of the following year.<br/><br/>
-During any download, each period is broken up into periods of 4 days. The API does not appear to offer a way to rank or 
-order results and select from within a returned set, so record sets are returned and processed as a complete block of xml. The program first checks the number of records associated with each 4 day block, however, and if that number is greater than 100 the 4 day period is broken up into separate days - i.e. each day's records are downloaded individually. The default number of records provided by the API is 10, so the program requests 100 for each 4 day period, unless it is operating in 'single day' mode, in which case the limit is set as the number last edited / created on that day.
+type 'Recent' the end date is taken as the current date, and in the case of 'ByYear' the dates are the first date of the year, and the first date of the following year.<br/><br/>
+During any download, each period is broken up into periods of 4 days. The API does not appear to offer a way to rank or order results and select from within a returned set, so record sets are returned and processed as a complete block of xml. The program first checks the number of records associated with each 4 day block, however, and if that number is greater than 100 the 4 day period is broken up into separate days - i.e. each day's records are downloaded individually. The default number of records provided by the API is 10, so the program requests 100 for each 4 day period, unless it is operating in 'single day' mode, in which case the limit is set as the number last edited / created on that day.
 Each xml block is deserialised using the Xml_quick and Serde crates, and the resulting rust struct is processed and serialised back to json and written out.
 
 <h3>Import to the Database</h3>

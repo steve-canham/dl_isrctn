@@ -5,17 +5,15 @@ mod transfers;
 
 use std::fs;
 use std::path::PathBuf;
-
+use crate::setup::db_pars::get_db_pool;
 use crate::data_models::json_models::*;
 use crate::data_models::data_vecs::*;
 use transfers::*;
 
 use crate::AppError;
-use sqlx::{Pool, Postgres};
 use crate::base_types::{ImportType, ImportResult};
 use chrono::Utc;
 use log::info;
-
 
 #[derive(sqlx::FromRow)]
 #[allow(dead_code)]
@@ -24,7 +22,9 @@ struct FilePath {
     local_path: String,
 }
 
-pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &Pool<Postgres>) -> Result<ImportResult, AppError> {
+pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<ImportResult, AppError> {
+
+    let src_pool = &get_db_pool("source").await?; // pool for the source specific db
 
     // First recreate the staging schema tables - sqlscript in file (path is relative)
 
@@ -32,13 +32,13 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
     sqlx::raw_sql(sql).execute(src_pool)
         .await
         .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
-    
+
     // get the total number of records to be processed (depends on import type)
 
     let count_sql = match import_type {
         ImportType::Recent => {
             r#"select count(*) from mn.source_data
-            where last_imported is null 
+            where last_imported is null
             or last_downloaded > last_imported"#
         },
         ImportType::All => {
@@ -47,7 +47,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
         ImportType::None => ""
     };
 
-    // TODO - Make sure date-times are consistent (to Utc) so that date-times can be compared correctly, 
+    // TODO - Make sure date-times are consistent (to Utc) so that date-times can be compared correctly,
     // TODO - Apply this date checking especially to download and import monitoring
 
     let num_files: i64 = sqlx::query_scalar(count_sql).fetch_one(src_pool).await
@@ -59,7 +59,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
 
     let batch_size = 250;
 
-    for n in (0..num_files).step_by(batch_size) { 
+    for n in (0..num_files).step_by(batch_size) {
 
         // iniitalise the data vectors
 
@@ -84,7 +84,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
         let file_sql = match import_type {
             ImportType::Recent => {
                     format!(r#"select sd_sid, local_path from mn.source_data
-                    where last_imported is null 
+                    where last_imported is null
                     or last_downloaded > last_imported
                     ORDER BY sd_sid
                     offset {} limit {}"#, n, batch_size)
@@ -98,17 +98,17 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
         };
 
         let file_list: Vec<FilePath> = sqlx::query_as(&file_sql).fetch_all(src_pool).await
-                        .map_err(|e| AppError::SqlxError(e, file_sql))?;      
+                        .map_err(|e| AppError::SqlxError(e, file_sql))?;
 
         for path in file_list {
-            
+
             // Deserialise the file being referenced and pass for processing
 
             let p= PathBuf::from(&path.local_path);
             let json_data = fs::read_to_string(&p)?;
             let s: Study = serde_json::from_str(&json_data)?;
 
-            // pass s to the procesor and receive a 'database friendly' version, 
+            // pass s to the procesor and receive a 'database friendly' version,
             // with the data arranged to match the tables in the DB.
             // Rather than immediately store for each study individually,
             // acummulate the data intothe data vectgors and store them
@@ -134,8 +134,8 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
 
             let imp_dt = Utc::now().naive_utc();
             import_update_dv.add(sd_sid, imp_event_id, &imp_dt );
-            
-        } 
+
+        }
 
         study_titles_dv.shrink_to_fit();
         study_idents_dv.shrink_to_fit();
@@ -188,7 +188,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32, src_pool: &
 
     // need to import some foreign tables to handle
     // cross-ref org ids
-    // and domain names of people 
+    // and domain names of people
 
     transfer_study_core_data(src_pool).await?;
     transfer_study_date_data(src_pool).await?;

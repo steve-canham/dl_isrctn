@@ -2,6 +2,7 @@ mod processor;
 pub mod monitoring;
 mod support_fns;
 
+use crate::setup::db_pars::get_db_pool;
 use crate::data_models::xml_models;
 use crate::data_models::json_models;
 
@@ -21,7 +22,7 @@ use sqlx::{Pool, Postgres};
 use log::info;
 
 
-pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadResult, AppError> {
 
     // The base url, json file folder, log folder, and start and end dates have
     // already been checked as being present and reasonable.
@@ -46,7 +47,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
     // If the number of available records for a selected 4-day period is > 100 records the call is
     // broken down into calls for individual days.
 
-    let base_url = params.base_url.clone();
+    let base_url = params.api_base_url.clone();
 
     let mut sd = match params.start_date {
         Some(nd) => nd,
@@ -57,6 +58,8 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
         Some(nd) => nd,
         None => {return Err(AppError::MissingProgramParameter("End date required but not provided".to_string()))},
     };
+    
+    let src_pool = get_db_pool("source").await?; // pool for the source specific db
 
     let mut res = DownloadResult::new();
     while sd < edate  {
@@ -97,7 +100,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 
                 let mut d = sd;
                 while d < ed {
-                    let this_res = process_single_day(params, range_parameter, &d, dl_id, src_pool).await?;
+                    let this_res = process_single_day(params, range_parameter, &d, dl_id, &src_pool).await?;
                     info!("For single day {}, records checked:{}", d, this_res.num_checked);
                     res = res + this_res;
                     d = d.checked_add_days(Days::new(1)).unwrap();
@@ -107,7 +110,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32, src_pool: &Pool<Postg
 
                 let url = format!("{}{}", dated_url, 100);
                 let studies: AllTrials = get_studies(&url).await?;
-                let this_res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+                let this_res = process_studies(params, studies.full_trials, dl_id, &src_pool).await?;
                 info!("For period GE {}, to LT {}, records checked:{}", start_date_param, end_date_param, this_res.num_checked);
                 res = res + this_res;
             }
@@ -136,7 +139,7 @@ async fn process_single_day(params: &InitParams, range_parameter: &str, date: &N
 
     // See how many records there are this day.
 
-    let base_url = params.base_url.clone();
+    let base_url = params.api_base_url.clone();
     let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, 1);
     let limit = get_study_count(&url).await?;
 
@@ -161,7 +164,7 @@ async fn get_study_count(url: &String) -> Result<i32, AppError> {
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
 
-    pause_about_500ms();  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
+    pause(500, 1000);  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
 
     // Extract api text and deserialise it to the xml model
 
@@ -181,7 +184,7 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
 
-    pause_about_500ms();  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
+    pause(500, 1000); // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
 
     // Extract api text and deserialise it to the xml model
 
@@ -193,15 +196,13 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
 }
 
-// TODO - Make pause function more generic by including the base interval and range input parameters
+fn pause(base_num:u64, range_num:u64) -> () {
 
-fn pause_about_500ms() -> () {
-
-    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
+    // Add a pause  - used after any api access - random value between 0.5 and 1.5 seconds...
 
     let mut rng = rand::rng();
-    let num = &rng.random_range(1..=1000);
-    let millis = 500 + num;
+    let random_component = &rng.random_range(1..=range_num);
+    let millis = base_num + random_component;
     let pause = time::Duration::from_millis(millis);
     thread::sleep(pause);
 }

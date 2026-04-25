@@ -2,16 +2,17 @@
 pub mod setup;
 pub mod err;
 pub mod base_types;
+pub mod recording;
 mod download;
 mod import;
 mod data_models;
 mod helpers;
 mod iec;
 
-use download::monitoring::{get_next_download_id, update_dl_event_record, get_last_dl_recent_type_date};
-use import::monitoring::{get_next_import_id, update_imp_event_record};
 use crate::base_types::{DownloadType, ImportType, EncodingType};
+use crate::recording::events::EventRepo;
 use setup::cli_reader;
+use setup::db_pars::get_db_pool;
 use err::AppError;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -20,92 +21,69 @@ use chrono::NaiveDate;
 
 pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
 
-    // The dl_isrctn program uses the API of the ISRCTN web site (https://www.isrctn.com/)
-    // to download data about the trials registered on the site.
-    // That data is then used to construct json files, that are stored locally, and 
-    // which can then later be used by the import and coding processes to construct a 
-    // database of the data.
+    // Obtain starting parameters from the CLi and the config file.
+    // See the Readme.md file for details of the various types of download availaable, and
+    // the types of import and coding, and the flags and parameters associated with them.
 
-    // There are four types of download.
-    // 'Recent' (-r in the CLI) identifies and downloads studies edited since a cut-off date, 
-    // usually from the previous week (i.e., the date of the most recent download). It must be 
-    // accompanied by a date parameter in ISO format (e.g. -s "2025-10-18"), or be able to obtain such
-    // a parameter from the database record of previous downloads of the same type.
-   
-    // 'UdBetweenDates' (-b in the CLI) downloads all records that were last edited
-    // between two dates. 
-    // 'CrBetweenDates' (-c in the CLI) downloads all records that were created (more exactly,)
-    // applied for inclusion in ISRCTN) between two dates. 
-
-    // 'ByYear' (-y in the CLI) can be used to download all studies that applied for inclusion 
-    // to ISRTCN in a specified year, and is designed for bulk download scenarios, such as 
-    // rebuilding the whole ISRCTN dataset from scratch.
-
-    // All procedures need a start and end date, but in the case of type 'Recent' the
-    // end date is taken as the current date, and the case of 'ByYear' the dates are the first
-    // date of the year, and the first date of the following year.
-
-    // Imports can be of recently downloaded files, i.e. since the last import (-i in the CLI)
-    // or can be of all downloaded files (-I in the CLI).
-
-    // Coding can be of just uncoded data, or be a recoding of all data
-    
     let cli_pars = cli_reader::fetch_valid_arguments(args)?;
-
     let config_file = PathBuf::from("./app_config.toml");
     let config_string: String = fs::read_to_string(&config_file)
                                 .map_err(|e| AppError::IoReadErrorWithPath(e, config_file))?;
-        let mut params = setup::get_params(cli_pars, &config_string)?;
+    let mut params = setup::get_params(cli_pars, &config_string)?;
 
-    let src_pool = setup::get_db_pool("db").await?; // pool for the source specific db
-    let mon_pool = setup::get_db_pool("mon").await?;  // pool for the monitoring db
+    // Set up the access to the monitoring database using an 'events' database repository
+    // object. This is necesary for the following two steps, which involve DB access.
 
-    // Here, possibly modify start date for a 'recent' download type
-    // If date not given in CLI it may be available from the DB....
-    // Check to see if this is the case - if not post an error and stop program
-    // If date present use it as the start date parameter...
+    let mon_pool = get_db_pool("monitor").await?;  // pool for the events db
+    let events = recording::events::EventRepo::new(mon_pool.clone());  // events repo object
 
-    if params.download_type == DownloadType::Recent 
+    // Obtain the source name, (will stop execution if the source id cannot be matched).
+    // Then for the 'download recent' types, try and find a start date if one was missing.
+
+    params.source_name = get_source_name(&events, params.source_id).await?;
+    if params.download_type == DownloadType::Recent
         && params.start_date == NaiveDate::from_ymd_opt(1900, 1, 1) {
-
-        if let Some(nd) = get_last_dl_recent_type_date (100126, &mon_pool).await {
-            params.start_date = Some(nd);
-        }
-        else {
-            return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
-        }
+        params.start_date = get_start_date_from_db(&events, params.source_id).await?;
     }
+
+    // If reached here we are good to go. Establish log and then carry out download,
+    // and / or import and / or coding as directed by the starting parameters.
 
     setup::establish_log(&params)?;
+    if params.download_type != DownloadType::None {   // a download requested
 
-    if params.download_type != DownloadType::None {
+        let dl_id = events.get_next_download_id(params.source_id, &params.download_type).await?;
+        let dl_res = download::download_data(&params, dl_id).await?;
+        events.update_dl_event_record (dl_id, dl_res, &params).await?;
+    }
+    if params.import_type != ImportType::None {     // an import requested
 
-        // a download requested
+        let imp_id = events.get_next_import_id(&params.import_type).await?;
+        let imp_res = import::import_data(&params.import_type, imp_id).await?;
+        events.update_imp_event_record (imp_id, imp_res).await?;
+    }
+    if params.encoding_type != EncodingType::None {     // coding requested
 
-        let dl_id = get_next_download_id(100126, &params.download_type, &mon_pool).await?;
-        let dl_res = download::download_data(&params, dl_id, &src_pool).await?;
-        update_dl_event_record (dl_id, dl_res, &params, &mon_pool).await?;
+
+
     }
 
-
-    if params.import_type != ImportType::None {
-        
-        // an import requested
-
-        let imp_id = get_next_import_id(&params.import_type, &mon_pool).await?;
-        let imp_res = import::import_data(&params.import_type, imp_id, &src_pool).await?;
-        update_imp_event_record (imp_id, imp_res, &mon_pool).await?;
-    }
-
-
-    if params.encoding_type != EncodingType::None {
-        
-        // coding requested
-
-    }
-    
-    Ok(())  
+    Ok(())
 }
 
 
+async fn get_source_name(events: &EventRepo, source_id: i32) -> Result<String, AppError> {
 
+    match events.get_source_name (source_id).await {
+        Some(srce_name) => Ok(srce_name),
+        None => Err(AppError::MissingProgramParameter("valid source id".to_string())),
+    }
+}
+
+async fn get_start_date_from_db(events: &EventRepo, source_id: i32) -> Result<Option<NaiveDate>, AppError> {
+
+    match events.get_last_dl_recent_type_date (source_id).await {
+        Some(start_date) => Ok(Some(start_date)),
+        None => Err(AppError::MissingProgramParameter("valid start date".to_string())),
+    }
+}
