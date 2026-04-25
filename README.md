@@ -5,6 +5,7 @@ This program is designed to download and import ISRCTN data. It uses the ISRCTN 
 <br/>During the download, some prelimiinary processing of secondarty identifiers and link and file data also takes place, to make subsequent inmport easier.
 <br/>The import takes place in three stages. The first brings the data into a staging database schema (sd), whose structure partly reflects that of the original data, partly that of the MDR schema. The second brings it into an 'accumulated data' schema (ad), which fully conforms to the standard MDR schema for source databases. The third attempts to code some of the key entities in the ad data, such as sponsors and conditions under study. The ad data can then be aggregated with data from other MDR sources.
 
+
 <h2>Using the program</h2>
 
 <h3>Initial Download</h3>
