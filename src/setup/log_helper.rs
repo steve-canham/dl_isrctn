@@ -21,18 +21,26 @@ use log4rs::{
 };
 
 
-pub fn setup_log (data_folder: &PathBuf) -> Result<log4rs::Handle, AppError> {
-    let log_file_path = get_log_file_path(data_folder);
-    config_log (&log_file_path)
-}
+pub fn setup_log (params: &InitParams) -> Result<log4rs::Handle, AppError> {
 
-fn get_log_file_path(data_folder: &PathBuf) -> PathBuf {
+    // First derive log file name, then path, then call log configuration.
 
     let datetime_string = Local::now().format("%m-%d %H%M%S").to_string();
-    let log_file_name = format!("ISRCTN DL {} ", datetime_string);
-    [data_folder, &PathBuf::from(&log_file_name)].iter().collect()
-
+    let mut process_type = String::new();
+    if params.download_type != DownloadType::None {
+        process_type.push_str(" DL");
+    }
+    if params.import_type != ImportType::None {
+        process_type.push_str(" IM");
+    }
+    if params.encoding_type != EncodingType::None {
+        process_type.push_str(" CD");
+    }
+    let log_file_name = format!("ISRCTN{} {}", process_type, datetime_string);
+    let log_file_path = [params.log_folder_path.clone(), PathBuf::from(&log_file_name)].iter().collect();
+    config_log(&log_file_path)
 }
+
 
 fn config_log (log_file_path: &PathBuf) -> Result<log4rs::Handle, AppError> {
 

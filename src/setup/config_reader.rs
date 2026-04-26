@@ -6,26 +6,26 @@ use std::path::PathBuf;
 use log::info;
 
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct TomlConfig {
     pub data: Option<TomlDataPars>,
     pub folders: Option<TomlFolderPars>,
     pub database: Option<TomlDBPars>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct TomlDataPars {
     pub api_base_url: Option<String>,
     pub source_id: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct TomlFolderPars {
     pub json_data_path: Option<String>,
     pub log_folder_path: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct TomlDBPars {
     pub db_host: Option<String>,
     pub db_user: Option<String>,
@@ -36,26 +36,23 @@ pub struct TomlDBPars {
     pub context_db: Option<String>,
 }
 
-#[derive(Debug, Clone)]
 pub struct Config {
     pub data: DataPars,
     pub folders: FolderPars,
     pub db_pars: DBPars,
 }
 
-#[derive(Debug, Clone)]
 pub struct DataPars {
     pub api_base_url: String,
     pub source_id: i32,
 }
 
-#[derive(Debug, Clone)]
 pub struct FolderPars {
     pub json_data_path: PathBuf,
     pub log_folder_path: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DBPars {
     pub db_host: String,
     pub db_user: String,
@@ -73,18 +70,10 @@ pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> 
     let toml_config = toml::from_str::<TomlConfig>(&config_string)
         .map_err(|_| {AppError::ConfigurationError("Unable to parse config file.".to_string(),
                                        "File (app_config.toml) may be malformed.".to_string())})?;
- 
-    let toml_data = toml_config.data
-        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-            "Cannot find a section called '[data]'.".to_string()))?;
-    
-    let toml_database = toml_config.database
-        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-            "Cannot find a section called '[database]'.".to_string()))?;
 
-    let toml_folders = toml_config.folders
-        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-            "Cannot find a section called '[folders]'.".to_string()))?;
+    let toml_data = check_existence(toml_config.data, "data")?;
+    let toml_folders = check_existence(toml_config.folders, "folders")?;
+    let toml_database = check_existence(toml_config.database, "database")?;
 
     let config_data = verify_data_parameters(toml_data)?;
     let config_folders = verify_folder_parameters(toml_folders)?;
@@ -99,12 +88,11 @@ pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> 
     })
 }
 
-
 fn verify_data_parameters(toml_api: TomlDataPars) -> Result<DataPars, AppError> {
 
     let base_url = check_essential_string (toml_api.api_base_url, "api base url", "base_url")?;
     let source_id_as_string = check_essential_string (toml_api.source_id, "source id", "source_id")?;
-    let source_id: i32 = source_id_as_string.parse().unwrap_or_else(|_| 0);   // zero detected later
+    let source_id: i32 = source_id_as_string.parse().unwrap_or_else(|_| 0);   // zero detected later in setup/mod
 
     Ok(DataPars {
         api_base_url: base_url,
@@ -149,20 +137,18 @@ fn verify_db_parameters(toml_database: TomlDBPars) -> Result<DBPars, AppError> {
     })
 }
 
+fn check_existence<T>(section: Option<T>, section_name: &str) -> Result<T, AppError> {
+    section.ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
+        format!("Cannot find a section called '[{}]'",section_name)))
+}
+
 fn check_essential_string (src_name: Option<String>, value_name: &str, config_name: &str) -> Result<String, AppError> {
-
-    let s = match src_name {
-        Some(s) => s,
-        None => "none".to_string(),
-    };
-
-    if s == "none".to_string() || s.trim() == "".to_string()
-    {
-        Err(AppError::ConfigurationError("Essential configuration value missing or misspelt.".to_string(),
-        format!("Cannot find a value for {} ({}).", value_name, config_name)))
-    }
-    else {
-        Ok(s)
+    match src_name {
+        Some(s) if !s.trim().is_empty() => Ok(s),
+        _ => {
+            Err(AppError::ConfigurationError("Essential configuration value missing or empty.".to_string(),
+                format!("Cannot find a non-empty value for {} ({}).", value_name, config_name)))
+        },
     }
 }
 

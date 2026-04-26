@@ -19,50 +19,44 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 { 
     let parse_result = parse_args(args.to_vec())?;
 
-    let do_all_recent = parse_result.get_flag("do_all_recent");
-
+    // Allocate individual booleans from flags
+    
     let mut dl_updated_recently = parse_result.get_flag("dl_recent");
     let mut dl_updated_between_dates = parse_result.get_flag("dl_updated_between_dates");
     let dl_created_between_dates = parse_result.get_flag("dl_created_between_dates");
     let dl_created_in_year = parse_result.get_flag("dl_created_in_year");
-
     let mut imp_recent_flag = parse_result.get_flag("imp_flag");
     let mut imp_all_flag = parse_result.get_flag("imp_all_flag");
     let mut code_recent_flag = parse_result.get_flag("encode_flag");
     let mut code_all_flag = parse_result.get_flag("encode_all_flag");
-
     let test_flag = parse_result.get_flag("test_flag");
 
-    // dates have default values of "" so can be unwrapped
+    // Dates have default values of "" so can be unwrapped
 
     let start_date_as_string = parse_result.get_one::<String>("start_date").unwrap();
     let end_date_as_string = parse_result.get_one::<String>("terminal_date").unwrap();
-
-    if do_all_recent {
+    
+    // Check if a (do all recent) flag has been set 
+    
+    if parse_result.get_flag("do_all_recent") {
         dl_updated_recently = true;
         imp_recent_flag = true;
         code_recent_flag = true;
     }
 
-    // if no (non-test) flags set a 'dl_updated_recently' flag is assumed.
-    // This still requires a start date but that requirement
-    // could be dropped if the program can use the day of the last 
-    // download date as the start date    
+    // If no (non-test) flags set the 'dl_updated_recently' flag.
+    // This still requires an explicit or DB derived start date   
 
-    if !imp_recent_flag && !imp_all_flag  
-    && !dl_updated_recently && !dl_updated_between_dates  && !dl_created_between_dates && !dl_created_in_year 
-    && !code_recent_flag && !code_all_flag
+    if !dl_updated_recently && !dl_updated_between_dates  
+    && !dl_created_between_dates && !dl_created_in_year 
+    && !imp_recent_flag && !imp_all_flag && !code_recent_flag && !code_all_flag
     {
         dl_updated_recently = true;
     }
 
-    let mut download_type = DownloadType::None;
-    let mut import_type = ImportType::None;
-    let mut encoding_type = EncodingType::None;
-    let mut start_date = None;
-    let mut end_date = None;
-    let today = Utc::now().date_naive();
+    // Derive types of import, coding, downloadiung required.
     
+    let mut import_type = ImportType::None;
     if imp_recent_flag || imp_all_flag {
 
         if imp_recent_flag && imp_all_flag {
@@ -71,6 +65,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
         import_type = if imp_all_flag {ImportType::All} else {ImportType::Recent};
     }
 
+    let mut encoding_type = EncodingType::None;
     if code_recent_flag || code_all_flag {
 
         if code_recent_flag && code_all_flag {
@@ -78,70 +73,73 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
         }
         encoding_type = if code_all_flag {EncodingType::All} else {EncodingType::Recent};
     }
-
-    if dl_updated_recently || dl_updated_between_dates || dl_created_between_dates || dl_created_in_year {
-
-        // No need to check combinations of these as in most cases need for accompanying date parameter(s) 
-        // means that only one of them can be run legitimately at a time - any additional params will error
-
-        if dl_updated_recently {
-            download_type = DownloadType::Recent;
-            let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
-            start_date = get_start_date(start_date_as_string, dl_updated_recently, today, isrctn_start_date)?;
-            end_date = Some(Utc::now().date_naive());
-        }
-
-        if dl_updated_between_dates || dl_created_between_dates {
-
-            if dl_updated_between_dates && dl_created_between_dates {
-                dl_updated_between_dates = false;  // the created between dates option takes precedence
-            }
-
-            let mut isrctn_start_date =  NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
-            if dl_updated_between_dates  {
-                download_type = DownloadType::UdBetweenDates;
-            }
-            else {
-                download_type = DownloadType::CrBetweenDates;
-                isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
-            }
-            // Both start and end date parameters are essential.
-
-            start_date = get_start_date(start_date_as_string, false, today, isrctn_start_date)?;
-            end_date = get_end_date(end_date_as_string, today)?;
-        }
-
-        if dl_created_in_year {
-
-            download_type = DownloadType::ByYear;
-            let year: i32 = start_date_as_string.parse().unwrap_or_else(|_| 0);
-            let current_year = Utc::now().year();
-
-            if year == 0 {
-                return Result::Err(AppError::MissingProgramParameter("year not provided for download".to_string()));
-            }
-            else if year < 2000 || year > current_year {
-                return Result::Err(AppError::MissingProgramParameter("year provided is invalid".to_string()));
-            }
-            else {
-                let mut s_date =  NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
-                let mut e_date =  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
-
-                let isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
-                if s_date < isrctn_start_date {
-                    s_date = isrctn_start_date
-                }
-
-                if e_date > today {
-                    e_date = today;
-                }
-
-                start_date = Some(s_date);
-                end_date = Some(e_date);
-            }
-        }
- 
+    
+    let mut download_type = DownloadType::None;
+    let mut start_date = None;
+    let mut end_date = None;
+    let today = Utc::now().date_naive();
+    
+    // Download options are mostly mutually exclusive, as they have different date parameters.
+       
+    if dl_updated_recently {
+        download_type = DownloadType::Recent;
+        let isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+        start_date = Some(get_start_date(start_date_as_string, dl_updated_recently, today, isrctn_start_date)?);
+        end_date = Some(Utc::now().date_naive());
     }
+
+    if dl_updated_between_dates || dl_created_between_dates {
+
+        if dl_updated_between_dates && dl_created_between_dates {
+            dl_updated_between_dates = false;  // the created between dates option takes precedence
+        }
+
+        let isrctn_start_date: NaiveDate;
+        if dl_updated_between_dates  {
+            download_type = DownloadType::UdBetweenDates;
+            isrctn_start_date = NaiveDate::from_ymd_opt(2005, 11, 1).unwrap();
+        }
+        else {
+            download_type = DownloadType::CrBetweenDates;
+            isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
+        }
+        
+        // Both start and end date parameters are essential.
+
+        start_date = Some(get_start_date(start_date_as_string, false, today, isrctn_start_date)?);
+        end_date = Some(get_end_date(end_date_as_string, today)?);
+    }
+
+    if dl_created_in_year {
+
+        download_type = DownloadType::ByYear;
+        let year: i32 = start_date_as_string.parse().unwrap_or_else(|_| 0);
+        let current_year = Utc::now().year();
+
+        if year == 0 {
+            return Result::Err(AppError::MissingProgramParameter("year not provided for download".to_string()));
+        }
+        else if year < 2000 || year > current_year {
+            return Result::Err(AppError::MissingProgramParameter("year provided is invalid".to_string()));
+        }
+        else {
+            let mut s_date =  NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
+            let mut e_date =  NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
+
+            let isrctn_start_date =  NaiveDate::from_ymd_opt(2000, 4, 1).unwrap();
+            if s_date < isrctn_start_date {
+                s_date = isrctn_start_date
+            }
+
+            if e_date > today {
+                e_date = today;
+            }
+
+            start_date = Some(s_date);
+            end_date = Some(e_date);
+        }
+    }
+
         
     Ok(CliPars {
         download_type: download_type,
@@ -155,7 +153,7 @@ pub fn fetch_valid_arguments(args: Vec<OsString>) -> Result<CliPars, AppError>
 }
 
 
-fn get_start_date(sd_param: &String, dl_updated_recently: bool, today: NaiveDate, isrctn_start_date: NaiveDate) -> Result<Option<NaiveDate>, AppError> {
+fn get_start_date(sd_param: &String, dl_updated_recently: bool, today: NaiveDate, isrctn_start_date: NaiveDate) -> Result<NaiveDate, AppError> {
 
     if dl_updated_recently && sd_param == "" {
 
@@ -163,35 +161,39 @@ fn get_start_date(sd_param: &String, dl_updated_recently: bool, today: NaiveDate
         // Cannot check this now (no db access yet) - instead put in a specific value to act as 
         // a trigger for check at later stage (within the mod.rs get+params routine)
 
-        Ok(NaiveDate::from_ymd_opt(1900, 1, 1))
+        Ok(NaiveDate::from_ymd_opt(1900, 1, 1).unwrap())
     }
     else {
-        let mut start_date = match NaiveDate::parse_from_str(sd_param, "%Y-%m-%d") {
-            Ok(date) => {if date >= today {   // invalid
-                                        return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()));
-                                    }
-                                    else {date}},
-            Err(_) => {
-                return Result::Err(AppError::MissingProgramParameter("valid start date".to_string()))},
-        };
-        if start_date < isrctn_start_date {
-            start_date = isrctn_start_date;
-        }
-        Ok(Some(start_date))
+        let start_date = match NaiveDate::parse_from_str(sd_param, "%Y-%m-%d") {
+            Ok(mut date) => {
+                if date >= today {   // invalid
+                     Err(AppError::MissingProgramParameter("valid start date".to_string()))
+                }
+                else {
+                    if date < isrctn_start_date {
+                        date = isrctn_start_date;
+                    }
+                    Ok(date)
+                }
+            },
+            Err(_) => Err(AppError::MissingProgramParameter("valid start date".to_string())),
+        }?;
+        Ok(start_date)
     }
 }
 
+fn get_end_date(ed_param: &String, today: NaiveDate) -> Result<NaiveDate, AppError> {
 
-fn get_end_date(ed_param: &String, today: NaiveDate) -> Result<Option<NaiveDate>, AppError> {
-
-    let mut end_date = match NaiveDate::parse_from_str(ed_param, "%Y-%m-%d") {
-        Ok(date) => date,
-        Err(_) => {return Result::Err(AppError::MissingProgramParameter("valid end date".to_string()))},
-    };
-    if end_date > today {
-        end_date = today;
-    }
-    Ok(Some(end_date))
+    let end_date = match NaiveDate::parse_from_str(ed_param, "%Y-%m-%d") {
+        Ok(mut date) => {
+            if date >= today {  
+                 date = today
+            }
+            Ok(date)
+        },
+        Err(_) => Err(AppError::MissingProgramParameter("valid end date".to_string())),
+    }?;
+    Ok(end_date)
 }
 
 

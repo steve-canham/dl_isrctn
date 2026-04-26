@@ -1,4 +1,3 @@
-pub mod monitoring;
 mod processor;
 mod support_fns;
 mod transfers;
@@ -25,7 +24,7 @@ struct FilePath {
 pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<ImportResult, AppError> {
 
     let src_pool = &get_db_pool("source").await?; // pool for the source specific db
-
+    
     // First recreate the staging schema tables - sqlscript in file (path is relative)
 
     let sql = include_str!("../../sql/sd_tables.sql");

@@ -29,12 +29,12 @@ pub async fn get_db_pool(db: &str) -> Result<PgPool, AppError> {
 
     let db_conn_string = fetch_db_conn_string(&db)?;
 
-    let mut opts: PgConnectOptions = db_conn_string.parse()
+    let mut conn_object: PgConnectOptions = db_conn_string.parse()
         .map_err(|e| AppError::DBPoolError("Problem with parsing conection string".to_string(), e))?;
-    opts = opts.log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(3));
+    conn_object = conn_object.log_slow_statements(log::LevelFilter::Warn, Duration::from_secs(3));
 
     PgPoolOptions::new()
         .max_connections(5)
-        .connect_with(opts).await
+        .connect_with(conn_object).await
         .map_err(|e| AppError::DBPoolError(format!("Problem with connecting to database {} and obtaining Pool", db), e))
 }

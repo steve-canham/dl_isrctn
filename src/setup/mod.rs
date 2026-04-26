@@ -1,13 +1,3 @@
-/**********************************************************************************
-The setup module, and the get_params function in this file in particular,
-orchestrates the collection and fusion of parameters as provided in
-1) a config toml file, and
-2) command line arguments.
-The module also checks the parameters for completeness. If possible, defaults are
-used to stand in for mising parameters. If not possible the program stops with
-a message explaining the problem.
-The module also provides a database connection pool on demand.
-***********************************************************************************/
 
 pub mod cli_reader;
 pub mod config_reader;
@@ -29,12 +19,15 @@ pub static LOG_RUNNING: OnceLock<bool> = OnceLock::new();
 
 pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParams, AppError> {
 
+    // The call from lib includes the CLI flags and parameters, previously processed,
+    // and the toml config data as a string derived from the toml file.
+    // The config data is analysed to create a Config object, and parent folders for
+    // logs and json data are created if not already in existence.
+    // CLI and config data are then combined into a struct with all the initial parameters.
+    
     let config_file: Config = config_reader::populate_config_vars(&config_string)?;
-
-    let base_url = config_file.data.api_base_url;
-    let source_id = config_file.data.source_id;
+    
     let json_data_path = config_file.folders.json_data_path;
-
     if !folder_exists(&json_data_path) {
         fs::create_dir_all(&json_data_path)?;
     }
@@ -45,9 +38,9 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
     }
 
     Ok(InitParams {
-        source_id: source_id,
-        source_name: "".to_string(),
-        api_base_url: base_url,
+        source_id: config_file.data.source_id,
+        source_name: "".to_string(), // to be added later, in lib
+        api_base_url: config_file.data.api_base_url,
         json_data_path: json_data_path,
         log_folder_path: log_folder_path,
         download_type: cli_pars.download_type,
@@ -61,19 +54,17 @@ pub fn get_params(cli_pars: CliPars, config_string: &String) -> Result<InitParam
 }
 
 fn folder_exists(folder_name: &PathBuf) -> bool {
-    let res = match folder_name.try_exists() {
+    match folder_name.try_exists() {
         Ok(true) => true,
-        Ok(false) => false,
-        Err(_e) => false,
-    };
-    res
+        _ => false,   // includes Ok(false) as well as Err
+    }
 }
 
 
 pub fn establish_log(params: &InitParams) -> Result<(), AppError> {
 
     if !log_set_up() {  // can be called more than once in context of integration tests
-        log_helper::setup_log(&params.log_folder_path)?;
+        log_helper::setup_log(params)?;
         LOG_RUNNING.set(true).unwrap(); // should always work
         log_helper::log_startup_params(&params);
     }

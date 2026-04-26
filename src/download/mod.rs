@@ -1,11 +1,10 @@
 mod processor;
-pub mod monitoring;
 mod support_fns;
 
 use crate::setup::db_pars::get_db_pool;
 use crate::data_models::xml_models;
 use crate::data_models::json_models;
-
+use crate::recording::processes::MonitorRepo;
 use crate::AppError;
 use crate::base_types::*;
 
@@ -18,7 +17,6 @@ use std::path::PathBuf;
 use serde_json::to_string_pretty;
 use std::{thread, time};
 use rand::prelude::*;
-use sqlx::{Pool, Postgres};
 use log::info;
 
 
@@ -60,6 +58,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
     };
     
     let src_pool = get_db_pool("source").await?; // pool for the source specific db
+    let monitor = MonitorRepo::new(src_pool.clone());  // events repo object
 
     let mut res = DownloadResult::new();
     while sd < edate  {
@@ -100,7 +99,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
 
                 let mut d = sd;
                 while d < ed {
-                    let this_res = process_single_day(params, range_parameter, &d, dl_id, &src_pool).await?;
+                    let this_res = process_single_day(params, range_parameter, &d, dl_id, &monitor).await?;
                     info!("For single day {}, records checked:{}", d, this_res.num_checked);
                     res = res + this_res;
                     d = d.checked_add_days(Days::new(1)).unwrap();
@@ -110,7 +109,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
 
                 let url = format!("{}{}", dated_url, 100);
                 let studies: AllTrials = get_studies(&url).await?;
-                let this_res = process_studies(params, studies.full_trials, dl_id, &src_pool).await?;
+                let this_res = process_studies(params, studies.full_trials, dl_id, &monitor).await?;
                 info!("For period GE {}, to LT {}, records checked:{}", start_date_param, end_date_param, this_res.num_checked);
                 res = res + this_res;
             }
@@ -130,7 +129,7 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
 }
 
 
-async fn process_single_day(params: &InitParams, range_parameter: &str, date: &NaiveDate, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError>
+async fn process_single_day(params: &InitParams, range_parameter: &str, date: &NaiveDate, dl_id: i32, monitor: &MonitorRepo) -> Result<DownloadResult, AppError>
 {
     let date_param = date.format("%Y-%m-%d").to_string();
 
@@ -149,7 +148,7 @@ async fn process_single_day(params: &InitParams, range_parameter: &str, date: &N
 
         let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, limit);
         let studies: AllTrials = get_studies(&url).await?;
-        let res = process_studies(params, studies.full_trials, dl_id, src_pool).await?;
+        let res = process_studies(params, studies.full_trials, dl_id, monitor).await?;
 
         Ok(res)
     }
@@ -208,7 +207,7 @@ fn pause(base_num:u64, range_num:u64) -> () {
 }
 
 
-async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
+async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i32, monitor: &MonitorRepo) -> Result<DownloadResult, AppError> {
 
     let mut res = DownloadResult::new();
 
@@ -229,8 +228,8 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
             let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
             let full_path = write_out_file(&sd_sid, &t, &params.json_data_path).await?;
 
-            let added = monitoring::update_mon_table(sd_sid, &remote_url, dl_id,
-                     record_date, &full_path, src_pool).await?;
+            let added = monitor.update_dl_details(sd_sid, &remote_url, dl_id,
+                     record_date, &full_path).await?;
 
             res.num_downloaded += 1;
             if added {

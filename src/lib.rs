@@ -35,7 +35,7 @@ pub async fn run(args: Vec<OsString>) -> Result<(), AppError> {
     // object. This is necesary for the following two steps, which involve DB access.
 
     let mon_pool = get_db_pool("monitor").await?;  // pool for the events db
-    let events = recording::events::EventRepo::new(mon_pool.clone());  // events repo object
+    let events = EventRepo::new(mon_pool.clone());  // events repo object
 
     // Obtain the source name, (will stop execution if the source id cannot be matched).
     // Then for the 'download recent' types, try and find a start date if one was missing.
