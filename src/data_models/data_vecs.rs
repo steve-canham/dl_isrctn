@@ -21,7 +21,7 @@ pub struct StudyVecs {
 
 impl StudyVecs{
     pub fn new(vsize: usize) -> Self {
-        StudyVecs { 
+        StudyVecs {
             sd_sids: Vec::with_capacity(vsize),
             display_titles: Vec::with_capacity(vsize),
             brief_descriptions: Vec::with_capacity(vsize),
@@ -35,8 +35,8 @@ impl StudyVecs{
 	        dt_of_datas: Vec::with_capacity(vsize),
         }
     }
-    
-    pub fn add(&mut self, sd_sid:&String, r: &DBSummary) 
+
+    pub fn add(&mut self, sd_sid:&String, r: &DBSummary)
     {
         self.sd_sids.push(sd_sid.clone());
         self.display_titles.push(r.display_title.clone());
@@ -54,8 +54,8 @@ impl StudyVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.studies (sd_sid, display_title, brief_description, type_id, status_id, status_override, start_status_override,
-                        is_ipd_sharing, ipd_sharing_plan, date_last_revised, dt_of_data_fetch) 
-                        SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::int[], $5::int[], $6::text[], $7::text[], 
+                        is_ipd_sharing, ipd_sharing_plan, date_last_revised, dt_of_data_fetch)
+                        SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::int[], $5::int[], $6::text[], $7::text[],
                         $8::bool[], $9::text[], $10::date[], $11::timestamp[])"#;
 
         sqlx::query(sql)
@@ -78,40 +78,40 @@ impl StudyVecs{
 
 pub struct StudyDatesVecs {
     pub sd_sids: Vec<String>,
-    pub reg_years: Vec<Option<i32>>,  
+    pub reg_years: Vec<Option<i32>>,
 	pub reg_months: Vec<Option<i32>>,
-    pub reg_date_types: Vec<Option<String>>,         
-	pub start_years: Vec<Option<i32>>, 
-	pub start_months: Vec<Option<i32>>,   
-    pub start_date_types: Vec<Option<String>>,       
+    pub reg_date_types: Vec<Option<String>>,
+	pub start_years: Vec<Option<i32>>,
+	pub start_months: Vec<Option<i32>>,
+    pub start_date_types: Vec<Option<String>>,
 	pub comp_years: Vec<Option<i32>>,
-	pub comp_months: Vec<Option<i32>>,  
-	pub comp_date_types: Vec<Option<String>>,      
-	pub res_years: Vec<Option<i32>>,  
-	pub res_months: Vec<Option<i32>>,   
-    pub res_date_types: Vec<Option<String>>,    
+	pub comp_months: Vec<Option<i32>>,
+	pub comp_date_types: Vec<Option<String>>,
+	pub res_years: Vec<Option<i32>>,
+	pub res_months: Vec<Option<i32>>,
+    pub res_date_types: Vec<Option<String>>,
 }
 
 impl StudyDatesVecs{
     pub fn new(vsize: usize) -> Self {
-        StudyDatesVecs { 
+        StudyDatesVecs {
             sd_sids: Vec::with_capacity(vsize),
-            reg_years: Vec::with_capacity(vsize),  
+            reg_years: Vec::with_capacity(vsize),
             reg_months: Vec::with_capacity(vsize),
-            reg_date_types: Vec::with_capacity(vsize),        
+            reg_date_types: Vec::with_capacity(vsize),
             start_years: Vec::with_capacity(vsize),
-            start_months: Vec::with_capacity(vsize),   
-            start_date_types: Vec::with_capacity(vsize),       
+            start_months: Vec::with_capacity(vsize),
+            start_date_types: Vec::with_capacity(vsize),
             comp_years: Vec::with_capacity(vsize),
             comp_months: Vec::with_capacity(vsize),
-            comp_date_types: Vec::with_capacity(vsize),     
-            res_years: Vec::with_capacity(vsize), 
-            res_months: Vec::with_capacity(vsize),   
-            res_date_types: Vec::with_capacity(vsize), 
+            comp_date_types: Vec::with_capacity(vsize),
+            res_years: Vec::with_capacity(vsize),
+            res_months: Vec::with_capacity(vsize),
+            res_date_types: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, r: &DBStudyDates) 
+    pub fn add(&mut self, sd_sid:&String, r: &DBStudyDates)
     {
         self.sd_sids.push(sd_sid.clone());
         self.reg_years.push(r.reg_year);
@@ -131,8 +131,8 @@ impl StudyDatesVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.study_dates (sd_sid, reg_year, reg_month, reg_date_type, start_year, start_month, start_date_type,
-                        comp_year, comp_month, comp_date_type, res_year, res_month, res_date_type) 
-            SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::int[], $6::int[], $7::text[], 
+                        comp_year, comp_month, comp_date_type, res_year, res_month, res_date_type)
+            SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::int[], $6::int[], $7::text[],
                                  $8::int[], $9::int[], $10::text[], $11::int[], $12::int[], $13::text[])"#;
 
         sqlx::query(sql)
@@ -156,28 +156,28 @@ impl StudyDatesVecs{
 
 pub struct StudyParticsVecs {
     pub sd_sids: Vec<String>,
-    pub enrolment_targets: Vec<Option<String>>, 
-    pub enrolment_finals: Vec<Option<String>>, 
-    pub enrolment_totals: Vec<Option<String>>, 
-    pub enrolments: Vec<Option<String>>, 
+    pub enrolment_targets: Vec<Option<String>>,
+    pub enrolment_finals: Vec<Option<String>>,
+    pub enrolment_totals: Vec<Option<String>>,
+    pub enrolments: Vec<Option<String>>,
 	pub enrolment_types: Vec<Option<String>>,
     pub gender_strings: Vec<Option<String>>,
 	pub gender_flags: Vec<Option<String>>,
     pub min_age_strings: Vec<Option<String>>,
-	pub min_ages: Vec<Option<f64>>,  
+	pub min_ages: Vec<Option<f64>>,
 	pub min_age_units_ids: Vec<Option<String>>,
     pub max_age_strings: Vec<Option<String>>,
-	pub max_ages: Vec<Option<f64>>,  
-	pub max_age_units_ids: Vec<Option<String>>, 
-	pub age_group_flags: Vec<i32>, 
+	pub max_ages: Vec<Option<f64>>,
+	pub max_age_units_ids: Vec<Option<String>>,
+	pub age_group_flags: Vec<i32>,
     pub iec_flags: Vec<i32>,
 }
 
 impl StudyParticsVecs{
     pub fn new(vsize: usize) -> Self {
-        StudyParticsVecs { 
+        StudyParticsVecs {
             sd_sids: Vec::with_capacity(vsize),
-            enrolment_targets: Vec::with_capacity(vsize), 
+            enrolment_targets: Vec::with_capacity(vsize),
             enrolment_finals: Vec::with_capacity(vsize),
             enrolment_totals: Vec::with_capacity(vsize),
             enrolments: Vec::with_capacity(vsize),
@@ -185,17 +185,17 @@ impl StudyParticsVecs{
             gender_strings: Vec::with_capacity(vsize),
             gender_flags: Vec::with_capacity(vsize),
             min_age_strings: Vec::with_capacity(vsize),
-            min_ages: Vec::with_capacity(vsize), 
+            min_ages: Vec::with_capacity(vsize),
             min_age_units_ids: Vec::with_capacity(vsize),
             max_age_strings: Vec::with_capacity(vsize),
-            max_ages: Vec::with_capacity(vsize),  
-            max_age_units_ids: Vec::with_capacity(vsize), 
+            max_ages: Vec::with_capacity(vsize),
+            max_age_units_ids: Vec::with_capacity(vsize),
             age_group_flags: Vec::with_capacity(vsize),
             iec_flags: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, r: &DBStudyPartics) 
+    pub fn add(&mut self, sd_sid:&String, r: &DBStudyPartics)
     {
         self.sd_sids.push(sd_sid.clone());
         self.enrolment_targets.push(r.enrolment_target.clone());
@@ -219,12 +219,12 @@ impl StudyParticsVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.study_participants (sd_sid, enrolment_target, enrolment_final,
-                enrolment_total, enrolment, enrolment_type, gender_string, gender_flag,  
-                min_age_string, min_age, min_age_units_id, 
-                max_age_string, max_age, max_age_units_id, age_group_flag, iec_flag) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], 
-                    $7::text[], $8::text[], $9::text[], 
-                    $10::float[], $11::text[], $12::text[], $13::float[], $14::text[], 
+                enrolment_total, enrolment, enrolment_type, gender_string, gender_flag,
+                min_age_string, min_age, min_age_units_id,
+                max_age_string, max_age, max_age_units_id, age_group_flag, iec_flag)
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[],
+                    $7::text[], $8::text[], $9::text[],
+                    $10::float[], $11::text[], $12::text[], $13::float[], $14::text[],
                     $15::int[], $16::int[])"#;
 
         sqlx::query(sql)
@@ -262,13 +262,13 @@ pub struct TitleVecs {
 
 impl TitleVecs{
     pub fn new(vsize: usize) -> Self {
-        TitleVecs { 
+        TitleVecs {
             sd_sids: Vec::with_capacity(vsize),
             title_texts: Vec::with_capacity(vsize),
             is_publics: Vec::with_capacity(vsize),
             is_scientifics: Vec::with_capacity(vsize),
-            is_acronyms: Vec::with_capacity(vsize), 
-            is_displays: Vec::with_capacity(vsize),         
+            is_acronyms: Vec::with_capacity(vsize),
+            is_displays: Vec::with_capacity(vsize),
             comments: Vec::with_capacity(vsize),
         }
     }
@@ -278,13 +278,13 @@ impl TitleVecs{
         self.title_texts.shrink_to_fit();
         self.is_publics.shrink_to_fit();
         self.is_scientifics.shrink_to_fit();
-        self.is_acronyms.shrink_to_fit();  
-        self.is_displays.shrink_to_fit();     
+        self.is_acronyms.shrink_to_fit();
+        self.is_displays.shrink_to_fit();
         self.comments.shrink_to_fit();
     }
 
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTitle>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTitle>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -299,7 +299,7 @@ impl TitleVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_titles (sd_sid, title_text, is_public, is_scientific, is_acronym, is_display, comments) 
+        let sql = r#"INSERT INTO sd.study_titles (sd_sid, title_text, is_public, is_scientific, is_acronym, is_display, comments)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::bool[], $4::bool[], $5::bool[], $6::bool[], $7::text[])"#;
 
         sqlx::query(sql)
@@ -308,7 +308,7 @@ impl TitleVecs{
         .bind(&self.is_publics)
         .bind(&self.is_scientifics)
         .bind(&self.is_acronyms)
-        .bind(&self.is_displays)       
+        .bind(&self.is_displays)
         .bind(&self.comments)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
@@ -325,7 +325,7 @@ pub struct IdentifierVecs {
 
 impl IdentifierVecs{
     pub fn new(vsize: usize) -> Self {
-        IdentifierVecs { 
+        IdentifierVecs {
             sd_sids: Vec::with_capacity(vsize),
             id_values: Vec::with_capacity(vsize),
             id_type_ids: Vec::with_capacity(vsize),
@@ -333,7 +333,7 @@ impl IdentifierVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBIdentifier>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBIdentifier>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -352,7 +352,7 @@ impl IdentifierVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_identifiers (sd_sid, id_value, id_type_id, id_type) 
+        let sql = r#"INSERT INTO sd.study_identifiers (sd_sid, id_value, id_type_id, id_type)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::int[], $4::text[])"#;
 
         sqlx::query(sql)
@@ -370,9 +370,9 @@ impl IdentifierVecs{
 pub struct OrgVecs {
     pub sd_sids: Vec<String>,
     pub org_names: Vec<Option<String>>,
-    pub is_sponsors: Vec<Option<bool>>,   
-    pub is_funders: Vec<Option<bool>>,  
-    pub is_collaborators: Vec<Option<bool>>,  
+    pub is_sponsors: Vec<Option<bool>>,
+    pub is_funders: Vec<Option<bool>>,
+    pub is_collaborators: Vec<Option<bool>>,
     pub org_countries: Vec<Option<String>>,
     pub org_ror_ids: Vec<Option<String>>,
     pub org_cref_ids: Vec<Option<String>>,
@@ -380,24 +380,24 @@ pub struct OrgVecs {
 
 impl OrgVecs{
     pub fn new(vsize: usize) -> Self {
-        OrgVecs { 
+        OrgVecs {
             sd_sids: Vec::with_capacity(vsize),
             org_names: Vec::with_capacity(vsize),
-            is_sponsors: Vec::with_capacity(vsize),   
+            is_sponsors: Vec::with_capacity(vsize),
             is_funders: Vec::with_capacity(vsize),
-            is_collaborators: Vec::with_capacity(vsize), 
+            is_collaborators: Vec::with_capacity(vsize),
             org_countries: Vec::with_capacity(vsize),
             org_ror_ids: Vec::with_capacity(vsize),
             org_cref_ids: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBOrganisation>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBOrganisation>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.org_names.push(r.org_name.clone());
-            self.is_sponsors.push(r.is_sponsor); 
+            self.is_sponsors.push(r.is_sponsor);
             self.is_funders.push(r.is_funder);
             self.is_collaborators.push(r.is_collaborator);
             self.org_countries.push(r.org_country.clone());
@@ -419,9 +419,9 @@ impl OrgVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_orgs (sd_sid, org_name, is_sponsor, is_funder, 
-                          is_collaborator, org_country, org_ror_id, org_cref_id) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::bool[], $4::bool[], $5::bool[], 
+        let sql = r#"INSERT INTO sd.study_orgs (sd_sid, org_name, is_sponsor, is_funder,
+                          is_collaborator, org_country, org_ror_id, org_cref_id)
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::bool[], $4::bool[], $5::bool[],
                      $6::text[], $7::text[], $8::text[])"#;
 
         sqlx::query(sql)
@@ -450,22 +450,22 @@ pub struct PeopleVecs {
 
 impl PeopleVecs{
     pub fn new(vsize: usize) -> Self {
-        PeopleVecs { 
+        PeopleVecs {
             sd_sids: Vec::with_capacity(vsize),
             full_names: Vec::with_capacity(vsize),
-            listed_ass: Vec::with_capacity(vsize),  
+            listed_ass: Vec::with_capacity(vsize),
             orcid_ids: Vec::with_capacity(vsize),
             affiliations: Vec::with_capacity(vsize),
             email_domains: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPerson>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPerson>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.full_names.push(r.full_name.clone());
-            self.listed_ass.push(r.listed_as.clone()); 
+            self.listed_ass.push(r.listed_as.clone());
             self.orcid_ids.push(r.orcid_id.clone());
             self.affiliations.push(r.affiliation.clone());
             self.email_domains.push(r.email_domain.clone());
@@ -484,8 +484,8 @@ impl PeopleVecs{
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
         let sql = r#"INSERT INTO sd.study_people (sd_sid, full_name, listed_as,
-                        orcid_id, affiliation, email_domain) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], 
+                        orcid_id, affiliation, email_domain)
+            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[],
                         $4::text[], $5::text[], $6::text[])"#;
 
         sqlx::query(sql)
@@ -509,13 +509,13 @@ pub struct CountryVecs {
 
 impl CountryVecs{
     pub fn new(vsize: usize) -> Self {
-        CountryVecs { 
+        CountryVecs {
             sd_sids: Vec::with_capacity(vsize),
             country_names: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCountry>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCountry>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -530,7 +530,7 @@ impl CountryVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_countries (sd_sid, country_name) 
+        let sql = r#"INSERT INTO sd.study_countries (sd_sid, country_name)
             SELECT * FROM UNNEST($1::text[], $2::text[])"#;
 
         sqlx::query(sql)
@@ -551,7 +551,7 @@ pub struct ConditionVecs {
 impl ConditionVecs {
 
     pub fn new(vsize: usize) -> Self {
-        ConditionVecs { 
+        ConditionVecs {
             sd_sids: Vec::with_capacity(vsize),
             class1s: Vec::with_capacity(vsize),
             class2s: Vec::with_capacity(vsize),
@@ -559,7 +559,7 @@ impl ConditionVecs {
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCondition>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCondition>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -578,7 +578,7 @@ impl ConditionVecs {
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_conditions (sd_sid, class1, class2, specific) 
+        let sql = r#"INSERT INTO sd.study_conditions (sd_sid, class1, class2, specific)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
@@ -601,7 +601,7 @@ pub struct FeatureVecs {
 
 impl FeatureVecs{
     pub fn new(vsize: usize) -> Self {
-        FeatureVecs { 
+        FeatureVecs {
             sd_sids: Vec::with_capacity(vsize),
             sources: Vec::with_capacity(vsize),
             feature_types: Vec::with_capacity(vsize),
@@ -609,7 +609,7 @@ impl FeatureVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBFeature>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBFeature>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -628,7 +628,7 @@ impl FeatureVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_features(sd_sid, source, feature_type, feature_value) 
+        let sql = r#"INSERT INTO sd.study_features(sd_sid, source, feature_type, feature_value)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
@@ -644,14 +644,14 @@ impl FeatureVecs{
 
 pub struct TopicVecs {
     pub sd_sids: Vec<String>,
-    pub sources: Vec<String>,  
+    pub sources: Vec<String>,
     pub topic_types: Vec<String>,
     pub topic_values: Vec<String>,
 }
 
 impl TopicVecs{
     pub fn new(vsize: usize) -> Self {
-        TopicVecs { 
+        TopicVecs {
             sd_sids: Vec::with_capacity(vsize),
             sources: Vec::with_capacity(vsize),
             topic_types: Vec::with_capacity(vsize),
@@ -659,7 +659,7 @@ impl TopicVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTopic>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBTopic>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -678,7 +678,7 @@ impl TopicVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_topics (sd_sid, source, topic_type, topic_value) 
+        let sql = r#"INSERT INTO sd.study_topics (sd_sid, source, topic_type, topic_value)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[])"#;
 
         sqlx::query(sql)
@@ -705,7 +705,7 @@ pub struct IECVecs {
 
 impl IECVecs{
     pub fn new(vsize: usize) -> Self {
-        IECVecs { 
+        IECVecs {
             sd_sids: Vec::with_capacity(vsize),
             seq_nums: Vec::with_capacity(vsize),
             ie_type_ids: Vec::with_capacity(vsize),
@@ -718,7 +718,7 @@ impl IECVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<IECLine>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<IECLine>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -734,7 +734,7 @@ impl IECVecs{
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
-       
+
             self.sd_sids.shrink_to_fit();
             self.seq_nums.shrink_to_fit();
             self.ie_type_ids.shrink_to_fit();
@@ -748,7 +748,7 @@ impl IECVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_iec (sd_sid, seq_num, ie_type_id, split_type, tag, indent_level, indent_seq_num, sequence_string, criterion) 
+        let sql = r#"INSERT INTO sd.study_iec (sd_sid, seq_num, ie_type_id, split_type, tag, indent_level, indent_seq_num, sequence_string, criterion)
             SELECT * FROM UNNEST($1::text[], $2::int[], $3::int[], $4::text[], $5::text[], $6::int[], $7::int[], $8::text[], $9::text[])"#;
 
         sqlx::query(sql)
@@ -767,138 +767,140 @@ impl IECVecs{
     }
 }
 
-
 pub struct ObjectVecs {
     pub sd_sids: Vec<String>,
     pub object_types: Vec<String>,
-    pub object_ids: Vec<String>,   
-    pub object_id_types: Vec<String>,
-    pub object_notess: Vec<Option<String>>,
+    pub object_ids: Vec<Option<String>>,
+    pub object_id_types: Vec<Option<String>>,
     pub display_names: Vec<Option<String>>,
+    pub date_createds: Vec<Option<NaiveDate>>,
+    pub date_publisheds: Vec<Option<NaiveDate>>,
+    pub date_updateds: Vec<Option<NaiveDate>>,
+    pub publication_years: Vec<Option<i32>>,
+    pub object_notess: Vec<Option<String>>,
     pub access_urls: Vec<Option<String>>,
     pub access_types: Vec<Option<String>>,
-    pub instance_types: Vec<Option<String>>,
+    pub url_target_type: Vec<Option<String>>,
     pub instance_notess: Vec<Option<String>>,
-    pub date_createds: Vec<Option<NaiveDate>>,
-    pub date_uploadeds: Vec<Option<NaiveDate>>,
 }
 
 impl ObjectVecs{
     pub fn new(vsize: usize) -> Self {
-        ObjectVecs { 
+        ObjectVecs {
             sd_sids: Vec::with_capacity(vsize),
             object_types: Vec::with_capacity(vsize),
-            object_ids: Vec::with_capacity(vsize),   
+            object_ids: Vec::with_capacity(vsize),
             object_id_types: Vec::with_capacity(vsize),
-            object_notess: Vec::with_capacity(vsize),
             display_names: Vec::with_capacity(vsize),
+            date_createds: Vec::with_capacity(vsize),
+            date_publisheds: Vec::with_capacity(vsize),
+            date_updateds: Vec::with_capacity(vsize),
+            publication_years: Vec::with_capacity(vsize),
+            object_notess: Vec::with_capacity(vsize),
             access_urls: Vec::with_capacity(vsize),
             access_types: Vec::with_capacity(vsize),
-            instance_types:  Vec::with_capacity(vsize),
+            url_target_type:  Vec::with_capacity(vsize),
             instance_notess: Vec::with_capacity(vsize),
-            date_createds: Vec::with_capacity(vsize),
-            date_uploadeds: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBObject>) 
+
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBObject>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
             self.object_types.push(r.object_type.clone());
             self.object_ids.push(r.object_id.clone());
             self.object_id_types.push(r.object_id_type.clone());
-            self.object_notess.push(r.object_notes.clone());
             self.display_names.push(r.display_name.clone());
+            self.date_createds.push(r.date_created.clone());
+            self.date_publisheds.push(r.date_published.clone());
+            self.date_updateds.push(r.date_updated.clone());
+            self.publication_years.push(r.publication_year);
+            self.object_notess.push(r.object_notes.clone());
             self.access_urls.push(r.access_url.clone());
             self.access_types.push(r.access_type.clone());
-            self.instance_types.push(r.instance_type.clone());
+            self.url_target_type.push(r.url_target_type.clone());
             self.instance_notess.push(r.instance_notes.clone());
-            self.date_createds.push(r.date_created.clone());
-            self.date_uploadeds.push(r.date_uploaded.clone());
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
-       
-            self.sd_sids.shrink_to_fit();
-            self.object_types.shrink_to_fit();
-            self.object_ids.shrink_to_fit();
-            self.object_id_types.shrink_to_fit();
-            self.object_notess.shrink_to_fit();
-            self.display_names.shrink_to_fit();
-            self.access_urls.shrink_to_fit();
-            self.access_types.shrink_to_fit();
-            self.instance_types.shrink_to_fit();
-            self.instance_notess.shrink_to_fit();
-            self.date_createds.shrink_to_fit();
-            self.date_uploadeds.shrink_to_fit();
+
+        self.sd_sids.shrink_to_fit();
+        self.object_types.shrink_to_fit();
+        self.object_ids.shrink_to_fit();
+        self.object_id_types.shrink_to_fit();
+        self.display_names.shrink_to_fit();
+        self.date_createds.shrink_to_fit();
+        self.date_publisheds.shrink_to_fit();
+        self.date_updateds.shrink_to_fit();
+        self.publication_years.shrink_to_fit();
+        self.object_notess.shrink_to_fit();
+        self.access_urls.shrink_to_fit();
+        self.access_types.shrink_to_fit();
+        self.url_target_type.shrink_to_fit();
+        self.instance_notess.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_objects (sd_sid, object_type, object_id,
-                         object_id_type, object_notes, display_name, access_url, 
-                         access_type, instance_type, instance_notes, date_created, date_published) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], 
-                         $7::text[], $8::text[], $9::text[], $10::text[], $11::date[], $12::date[])"#;
+        let sql = r#"INSERT INTO sd.study_objects (sd_sid, object_type, object_id, object_id_type, display_name,
+                        date_created, date_published, date_updated, publication_year,
+                        object_notes, access_url, access_type, url_target_type, instance_notes)
+                SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::date[],
+                         $7::date[], $8::date[], $9::int[], $10::text[], $11::text[], $12::text[], $13::text[], $14::text[])"#;
 
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.object_types)
         .bind(&self.object_ids)
         .bind(&self.object_id_types)
-        .bind(&self.object_notess)
         .bind(&self.display_names)
+        .bind(&self.date_createds)
+        .bind(&self.date_publisheds)
+        .bind(&self.date_updateds)
+        .bind(&self.publication_years)
+        .bind(&self.object_notess)
         .bind(&self.access_urls)
         .bind(&self.access_types)
-        .bind(&self.instance_types)
+        .bind(&self.url_target_type)
         .bind(&self.instance_notess)
-        .bind(&self.date_createds)
-        .bind(&self.date_uploadeds)
+
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
 }
 
-
-
 pub struct PublicationVecs {
     pub sd_sids: Vec<String>,
-    pub pub_types: Vec<String>,
-    pub pub_ids: Vec<String>,
-    pub pub_id_types: Vec<String>,
+    pub pub_types: Vec<Option<String>>,
+    pub pub_ids: Vec<Option<String>>,
+    pub pub_id_types: Vec<Option<String>>,
     pub pub_notes: Vec<Option<String>>,
-    pub external_urls: Vec<Option<String>>,
-    pub dois: Vec<Option<String>>,
-    pub pmids: Vec<Option<String>>,
-    pub pmcids: Vec<Option<String>>,
-    pub pubsite_urls: Vec<Option<String>>,
     pub date_createds: Vec<Option<NaiveDate>>,
-    pub date_uploadeds: Vec<Option<NaiveDate>>,
-
+    pub date_publisheds: Vec<Option<NaiveDate>>,
+    pub date_updateds: Vec<Option<NaiveDate>>,
+    pub publication_years: Vec<Option<i32>>,
 }
 
 
 impl PublicationVecs{
     pub fn new(vsize: usize) -> Self {
-        PublicationVecs { 
+        PublicationVecs {
             sd_sids: Vec::with_capacity(vsize),
             pub_types: Vec::with_capacity(vsize),
             pub_ids: Vec::with_capacity(vsize),
             pub_id_types: Vec::with_capacity(vsize),
             pub_notes: Vec::with_capacity(vsize),
-            external_urls: Vec::with_capacity(vsize),
-            dois: Vec::with_capacity(vsize),
-            pmids: Vec::with_capacity(vsize),
-            pmcids: Vec::with_capacity(vsize),
-            pubsite_urls: Vec::with_capacity(vsize),
             date_createds: Vec::with_capacity(vsize),
-            date_uploadeds: Vec::with_capacity(vsize),
+            date_publisheds: Vec::with_capacity(vsize),
+            date_updateds: Vec::with_capacity(vsize),
+            publication_years: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPublication>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPublication>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -906,54 +908,119 @@ impl PublicationVecs{
             self.pub_ids.push(r.pub_id.clone());
             self.pub_id_types.push(r.pub_id_type.clone());
             self.pub_notes.push(r.pub_notes.clone());
-            self.external_urls.push(r.external_url.clone());
-            self.dois.push(r.doi.clone());
-            self.pmids.push(r.pmid.clone());
-            self.pmcids.push(r.pmcid.clone());
-            self.pubsite_urls.push(r.pubsite_url.clone());
             self.date_createds.push(r.date_created.clone());
-            self.date_uploadeds.push(r.date_uploaded.clone());
+            self.date_publisheds.push(r.date_uploaded.clone());
+            self.date_updateds.push(r.date_created.clone());
+            self.publication_years.push(r.publication_year);
         }
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
-       
+
             self.sd_sids.shrink_to_fit();
             self.pub_types.shrink_to_fit();
             self.pub_ids.shrink_to_fit();
             self.pub_id_types.shrink_to_fit();
             self.pub_notes.shrink_to_fit();
-            self.external_urls.shrink_to_fit();
-            self.dois.shrink_to_fit();
-            self.pmids.shrink_to_fit();
-            self.pmcids.shrink_to_fit();
-            self.pubsite_urls.shrink_to_fit();
             self.date_createds.shrink_to_fit();
-            self.date_uploadeds.shrink_to_fit();
+            self.date_publisheds.shrink_to_fit();
+            self.date_updateds.shrink_to_fit();
+            self.publication_years.shrink_to_fit();
     }
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_pubs (sd_sid, pub_type, pub_id, pub_id_type, pub_notes, external_url,
-                         doi, pmid, pmcid, pubsite_url, date_created, date_published) 
-            SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], 
-                         $6::text[], $7::text[], $8::text[], $9::text[], $10::text[], $11::date[], $12::date[])"#;
-
+        let sql = r#"INSERT INTO sd.study_pubs (sd_sid, pub_type, pub_id, pub_id_type, pub_notes,
+                    date_created, date_published, date_updated, publication_year)
+                    SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+                         $6::date[], $7::date[], $8::date[], $9::int[])"#;
         sqlx::query(sql)
         .bind(&self.sd_sids)
         .bind(&self.pub_types)
         .bind(&self.pub_ids)
         .bind(&self.pub_id_types)
         .bind(&self.pub_notes)
-        .bind(&self.external_urls)
-        .bind(&self.dois)
-        .bind(&self.pmids)
-        .bind(&self.pmcids)
-        .bind(&self.pubsite_urls)
         .bind(&self.date_createds)
-        .bind(&self.date_uploadeds)
+        .bind(&self.date_publisheds)
+        .bind(&self.date_updateds)
+        .bind(&self.publication_years)       
+        .execute(pool)
+        .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
+    }
+}
 
+pub struct PubInstanceVecs {
+    pub sd_sids: Vec<String>,
+    pub pub_ids: Vec<String>,
+    pub instance_types: Vec<Option<String>>,
+    pub instance_ids: Vec<Option<String>>,
+    pub instance_langs: Vec<Option<String>>,
+    pub instance_notess: Vec<Option<String>>,
+    pub access_urls: Vec<Option<String>>,
+    pub access_types: Vec<Option<String>>,
+    pub url_target_types: Vec<Option<String>>,
+}
 
+#[allow(dead_code)]
+impl PubInstanceVecs{
+    pub fn new(vsize: usize) -> Self {
+        PubInstanceVecs {
+            sd_sids: Vec::with_capacity(vsize),
+            pub_ids: Vec::with_capacity(vsize),
+            instance_types: Vec::with_capacity(vsize),
+            instance_ids: Vec::with_capacity(vsize),
+            instance_langs: Vec::with_capacity(vsize),
+            instance_notess: Vec::with_capacity(vsize),
+            access_urls: Vec::with_capacity(vsize),
+            access_types: Vec::with_capacity(vsize),
+            url_target_types: Vec::with_capacity(vsize),
+        }
+    }
+
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBPublicationInstance>)
+    {
+        for r in v {
+            self.sd_sids.push(sd_sid.clone());
+            self.pub_ids.push(r.pub_id.clone());
+            self.instance_types.push(r.instance_type.clone());
+            self.instance_ids.push(r.instance_id.clone());
+            self.instance_langs.push(r.instance_lang.clone());
+            self.instance_notess.push(r.instance_notes.clone());
+            self.access_urls.push(r.access_url.clone());
+            self.access_types.push(r.access_type.clone());
+            self.url_target_types.push(r.url_target_type.clone());
+        }
+    }
+
+    pub fn shrink_to_fit(&mut self) -> () {
+
+            self.sd_sids.shrink_to_fit();
+            self.pub_ids.shrink_to_fit();
+            self.instance_types.shrink_to_fit();
+            self.instance_ids.shrink_to_fit();
+            self.instance_langs.shrink_to_fit();
+            self.instance_notess.shrink_to_fit();
+            self.access_urls.shrink_to_fit();
+            self.access_types.shrink_to_fit();
+            self.url_target_types.shrink_to_fit();
+    }
+
+    pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
+
+        let sql = r#"INSERT INTO sd.study_pub_instances(sd_sid, pub_id, instance_type, instance_id,  
+                    instance_lang, instance_notes, access_url, access_type, url_target_type)
+                    SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+                         $6::text[], $7::text[], $8::text[], $9::text[])"#;
+        sqlx::query(sql)
+        .bind(&self.sd_sids)
+        .bind(&self.pub_ids)
+        .bind(&self.instance_types)
+        .bind(&self.instance_ids)
+        .bind(&self.instance_langs)
+        .bind(&self.instance_notess)
+        .bind(&self.access_urls)
+        .bind(&self.access_types)
+        .bind(&self.url_target_types)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
@@ -969,14 +1036,14 @@ pub struct ImportUpdateVecs {
 
 impl ImportUpdateVecs{
     pub fn new(vsize: usize) -> Self {
-        ImportUpdateVecs { 
+        ImportUpdateVecs {
             sd_sids: Vec::with_capacity(vsize),
             imp_ids: Vec::with_capacity(vsize),
             datetime_importeds: Vec::with_capacity(vsize),
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, imp_id: i32, dt: &NaiveDateTime) 
+    pub fn add(&mut self, sd_sid:&String, imp_id: i32, dt: &NaiveDateTime)
     {
         self.sd_sids.push(sd_sid.clone());
         self.imp_ids.push(imp_id);
@@ -984,7 +1051,7 @@ impl ImportUpdateVecs{
     }
 
     pub fn shrink_to_fit(&mut self) -> () {
-       
+
             self.sd_sids.shrink_to_fit();
             self.imp_ids.shrink_to_fit();
             self.datetime_importeds.shrink_to_fit();
@@ -994,12 +1061,12 @@ impl ImportUpdateVecs{
 
         // Row already exists - update with new details.
 
-        let sql = r#"Update mn.source_data s 
+        let sql = r#"Update mn.source_data s
                 set
                 last_import_id = u.dl_id,
                 last_imported = u.datetime_imported
-                from UNNEST($1::text[], $2::int[], $3::datetime[]) 
-                     as u(sd_sid, imp_id, datetime_imported) 
+                from UNNEST($1::text[], $2::int[], $3::datetime[])
+                     as u(sd_sid, imp_id, datetime_imported)
                 where s.sd_sid = u.sd_sid  "#;
         sqlx::query(&sql).bind(&self.sd_sids).bind(&self.imp_ids).bind(&self.datetime_importeds)
         .execute(pool).await
@@ -1012,7 +1079,7 @@ impl ImportUpdateVecs{
 
 // PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
 
-/* 
+/*
 pub struct LocationVecs {
     pub sd_sids: Vec<String>,
     pub fac_names: Vec<Option<String>>,
@@ -1024,7 +1091,7 @@ pub struct LocationVecs {
 
 impl LocationVecs{
     pub fn new(vsize: usize) -> Self {
-        LocationVecs { 
+        LocationVecs {
             sd_sids: Vec::with_capacity(vsize),
             fac_names: Vec::with_capacity(vsize),
             fac_addresses: Vec::with_capacity(vsize),
@@ -1034,7 +1101,7 @@ impl LocationVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBLocation>) 
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBLocation>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
@@ -1057,7 +1124,7 @@ impl LocationVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_locations (sd_sid, fac_name, fac_address, city_name, disamb_name, country_name) 
+        let sql = r#"INSERT INTO sd.study_locations (sd_sid, fac_name, fac_address, city_name, disamb_name, country_name)
             SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[])"#;
 
         sqlx::query(sql)

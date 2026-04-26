@@ -18,6 +18,7 @@ use regex::Regex;
 // dates and participants respectively), and vector fields for each of the 
 // 1:n data types, that will be stored as separate tables.
 
+#[allow(dead_code)]
 pub fn process_study_data(s: &Study) -> DBStudy {
     
     let sd_sid =  s.sd_sid.clone();
@@ -962,13 +963,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     // Outputs
 
-    let mut db_pubs: Vec<DBPublication> = Vec::new();
-    let mut db_objects: Vec<DBObject> = Vec::new();
+    let db_pubs: Vec<DBPublication> = Vec::new();  // should be mut realy
+    let db_objects: Vec<DBObject> = Vec::new();   // should be mut realy
 
     if let Some(links) = &s.links{
         for lk in links {
 
-            let creation_dt = match lk.date_created.clone() {
+            let _creation_dt = match lk.date_created.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
@@ -976,7 +977,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 None => None,
             };
 
-            let upload_dt = match lk.date_uploaded.clone() {
+            let _upload_dt = match lk.date_uploaded.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
@@ -1046,24 +1047,24 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     _ => "?",
                 };
 
-                let mut notes: Option<String> = None;
+                let mut _notes: Option<String> = None;
                 if let Some(mut d) = lk.description.clone() {
                     d = d.trim().trim_matches(':').to_string();
                     if d.to_lowercase() != link_type.to_lowercase() {
-                        notes = Some(capitalize_first(&d));
+                        _notes = Some(capitalize_first(&d));
                     }
                 }
 
                 let low_url =  external_url.to_lowercase();
 
-                let mut pub_id = "".to_string();
-                let mut pub_id_type = "".to_string();
+                let mut _pub_id = "".to_string();
+                let mut _pub_id_type = "".to_string();
 
-                let mut doi_as_str= "".to_string();
-                let mut pmid_as_str= "".to_string();
-                let mut pmcid_as_str= "".to_string();
-                let mut pubsite_url_as_str= "".to_string();
-                let mut categorised = false;
+                let mut _doi_as_str= "".to_string();
+                let mut _pmid_as_str= "".to_string();
+                let mut _pmcid_as_str= "".to_string();
+                let mut _pubsite_url_as_str= "".to_string();
+                let mut _categorised = false;
 
                 static RE_PM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[0-9]{6,8}").unwrap());
                 static RE_PMC: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"PMC[0-9]{6,7}").unwrap());
@@ -1075,11 +1076,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
                     match RE_PM.captures(&external_url.clone()) {
                         Some(s) => {
-                            pmid_as_str = s[0].to_string();
-                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmid_as_str);
-                            pub_id = pmid_as_str.clone();
-                            pub_id_type = "PMID".to_string();
-                            categorised =true;
+                            _pmid_as_str = s[0].to_string();
+                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", _pmid_as_str);
+                            _pub_id = _pmid_as_str.clone();
+                            _pub_id_type = "PMID".to_string();
+                            _categorised =true;
                         },
                         None => {}, 
                     }
@@ -1101,35 +1102,35 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     }
                     if ! doi.is_empty() {
                         external_url = format!("https://doi.org/{}", doi);  
-                        doi_as_str = external_url.clone();  
-                        pub_id = doi_as_str.clone(); 
-                        pub_id_type = "doi".to_string();
-                        categorised =true;  
+                        _doi_as_str = external_url.clone();  
+                        _pub_id = _doi_as_str.clone(); 
+                        _pub_id_type = "doi".to_string();
+                        _categorised =true;  
                      }
                 }
                 
-                if low_url.contains("pmc") && !categorised {
+                if low_url.contains("pmc") && !_categorised {
 
                     // extract pmc id and redo the url to ensure in current form
 
                     match RE_PMC.captures(&external_url.clone()) {
                         Some(s) => {
-                            pmcid_as_str = s[0].to_string();
-                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", pmcid_as_str);
-                            pub_id = pmcid_as_str.clone(); 
-                            pub_id_type = "PMC ID".to_string();
-                            categorised =true;
+                            _pmcid_as_str = s[0].to_string();
+                            external_url = format!("https://pubmed.ncbi.nlm.nih.gov/{}/", _pmcid_as_str);
+                            _pub_id = _pmcid_as_str.clone(); 
+                            _pub_id_type = "PMC ID".to_string();
+                            _categorised =true;
                         },
                         None => {},  
                     }
                 }
 
-                if !categorised {  // probably a publisher's web site URL
-                    pubsite_url_as_str = external_url.clone();
-                    pub_id = pubsite_url_as_str.clone(); 
-                    pub_id_type = "pub site URL".to_string();
+                if !_categorised {  // probably a publisher's web site URL
+                    _pubsite_url_as_str = external_url.clone();
+                    _pub_id = _pubsite_url_as_str.clone(); 
+                    _pub_id_type = "pub site URL".to_string();
                 }
-               
+               /*
                 db_pubs.push(DBPublication { 
                     pub_type: link_type.to_string(), 
                     pub_id: pub_id,
@@ -1143,23 +1144,24 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
                 });
+                 */
             }
             else {
 
                 // a non publication link
 
-                let mut details: Option<String> = None;
+                let mut _details: Option<String> = None;
                 if let Some(mut d) = lk.description.clone() {
                     d = d.trim().trim_matches(':').to_string();
                     if d.to_lowercase() != link_type.to_lowercase() {
-                        details = Some(capitalize_first(&d));
+                        _details = Some(capitalize_first(&d));
                     }
                 }
 
                 // may be a web page or a file if has a file ending in url
 
-                let mut access_url= lk.link_url.clone();
-                let instance_type: Option<String>;
+                let mut _access_url= lk.link_url.clone();
+                let _instance_type: Option<String>;
                
                 if external_url.ends_with("pdf")
                 || external_url.ends_with("zip")  
@@ -1169,20 +1171,20 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 || external_url.ends_with("xls")  
                 || external_url.ends_with("doc") {
 
-                    instance_type = Some("File download".to_string()); 
+                    _instance_type = Some("File download".to_string()); 
 
-                    let mut access_url_string = access_url.clone().unwrap_or_default();
+                    let mut access_url_string = _access_url.clone().unwrap_or_default();
                     if access_url_string.contains("articles/PMC") {
                         access_url_string = access_url_string.replace("articles/PMC", "articles/instance/");
-                        access_url = Some(access_url_string);
+                        _access_url = Some(access_url_string);
                     }
                 }
                 else {
-                    instance_type = Some("Web page".to_string()); 
+                    _instance_type = Some("Web page".to_string()); 
                 }
 
 
-
+                /* 
                 db_objects.push(DBObject { 
                     object_type: link_type.to_string(), 
                     object_id: format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), link_type_string),
@@ -1196,6 +1198,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     date_created: creation_dt, 
                     date_uploaded: upload_dt, 
                 });
+                */
             }
         }
     }
@@ -1204,7 +1207,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     if let Some(files) = &s.files{
         for f in files {
 
-            let creation_dt = match f.date_created.clone() {
+            let _creation_dt = match f.date_created.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
@@ -1212,7 +1215,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 None => None,
             };
 
-            let upload_dt = match f.date_uploaded.clone() {
+            let _upload_dt = match f.date_uploaded.clone() {
                 Some(ds) => match NaiveDate::parse_from_str(&ds, "%Y-%m-%d") {
                     Ok(d) => Some(d),
                     Err(_) => None,
@@ -1246,11 +1249,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 _ => "?",
             };
 
-            let mut details: Option<String> = None;
+            let mut _details: Option<String> = None;
             if let Some(mut d) = f.description.clone() {
                 d = d.trim().trim_matches(':').to_string();
                 if d.to_lowercase() != file_type.to_lowercase() {
-                    details = Some(capitalize_first(&d));
+                    _details = Some(capitalize_first(&d));
                 }
             }
 
@@ -1312,7 +1315,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 }
             }
 
-            let instance_notes = 
+            let _instance_notes = 
                 if i_notes == String::new() 
                 {None} else {Some(i_notes)};
 
@@ -1369,21 +1372,22 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                                      
             };
 
-            let display_name: Option<String>;
-            let object_id: String;     
-            let object_id_type: String;  
+            let _display_name: Option<String>;
+            let _object_id: String;     
+            let _object_id_type: String;  
 
             if df == String::new() {
-                display_name = None;
-                object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), file_type);
-                object_id_type =  "Constructed from type".to_string(); 
+                _display_name = None;
+                _object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), file_type);
+                _object_id_type =  "Constructed from type".to_string(); 
             }
             else {
-                display_name = Some(df.clone());
-                object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), df);
-                object_id_type =  "Constructed from name".to_string(); 
+                _display_name = Some(df.clone());
+                _object_id = format!("{}/{}", sd_sid.replace("ISRCTN", "isrctn-"), df);
+                _object_id_type =  "Constructed from name".to_string(); 
             }
            
+            /* 
             db_objects.push(DBObject { 
                 object_type: file_type.to_string(), 
                 object_id: object_id,
@@ -1397,7 +1401,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                 date_created: creation_dt, 
                 date_uploaded: upload_dt, 
            });
-
+           */
         }
     }
 
@@ -1418,8 +1422,9 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         features: option_from_count(db_feats),
         topics: option_from_count(db_tops),
         ie_crit: option_from_count(db_iec),
-        publications: option_from_count(db_pubs),
         objects: option_from_count(db_objects),
+        publications: option_from_count(db_pubs),
+        //pub_instances: None,
     }
 
 }

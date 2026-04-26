@@ -1,5 +1,5 @@
 
-SET client_min_messages TO WARNING; 
+SET client_min_messages TO WARNING;
 create schema if not exists sd;
 
 
@@ -61,7 +61,7 @@ CREATE TABLE sd.study_participants(
 , max_age                float           NULL
 , max_age_units_id       CHAR(1)         NULL
 , age_group_flag         INT             NOT NULL default 0
-, iec_flag               INT             NOT NULL default 0 
+, iec_flag               INT             NOT NULL default 0
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_participants_sid ON sd.study_participants(sd_sid);
@@ -129,9 +129,9 @@ CREATE TABLE sd.study_iec(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , seq_num                INT             NULL
-, ie_type_id             INT             NULL    
+, ie_type_id             INT             NULL
 , split_type             VARCHAR         NULL
-, tag                    VARCHAR         NULL  
+, tag                    VARCHAR         NULL
 , indent_level           INT             NULL
 , indent_seq_num         INT             NULL
 , sequence_string        VARCHAR         NULL
@@ -155,9 +155,9 @@ DROP TABLE IF EXISTS sd.study_topics;
 CREATE TABLE sd.study_topics(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
-, source                 VARCHAR         NULL    
+, source                 VARCHAR         NULL
 , topic_type             VARCHAR         NULL
-, topic_value            VARCHAR         NULL       
+, topic_value            VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_topics_sid ON sd.study_topics(sd_sid);
@@ -187,26 +187,6 @@ CREATE TABLE sd.study_features(
 CREATE INDEX study_features_sid ON sd.study_features(sd_sid);
 
 
-DROP TABLE IF EXISTS sd.study_pubs;
-CREATE TABLE sd.study_pubs(
-  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-, sd_sid                 VARCHAR         NULL
-, pub_type               VARCHAR         NULL
-, pub_id                 VARCHAR         NULL	
-, pub_id_type            VARCHAR         NULL	
-, pub_notes              VARCHAR         NULL
-, external_url           VARCHAR         NULL
-, doi                    VARCHAR         NULL
-, pmid                   VARCHAR         NULL
-, pmcid                  VARCHAR         NULL
-, pubsite_url            VARCHAR         NULL
-, date_created           DATE            NULL
-, date_published         DATE            NULL
-, added_on               TIMESTAMPTZ     NOT NULL default now()
-);
-CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
-
-
 DROP TABLE IF EXISTS sd.study_objects;
 CREATE TABLE sd.study_objects(
   id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
@@ -214,23 +194,61 @@ CREATE TABLE sd.study_objects(
 , object_type            VARCHAR         NULL
 , object_id              VARCHAR         NULL
 , object_id_type         VARCHAR         NULL
-, object_notes           VARCHAR         NULL
-, display_name           VARCHAR         NULL	
-, access_url             VARCHAR         NULL
-, access_type            VARCHAR         NULL	
-, instance_type          VARCHAR         NULL
-, instance_notes         VARCHAR         NULL
+, display_name           VARCHAR         NULL
 , date_created           DATE            NULL
 , date_published         DATE            NULL
+, date_updated           DATE            NULL
+, publication_year       INT             NULL
+, object_notes           VARCHAR         NULL
+, access_url             VARCHAR         NULL
+, access_type            VARCHAR         NULL
+, url_target_type        VARCHAR         NULL
+, instance_notes         VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_objects_sid ON sd.study_objects(sd_sid);
 
 
-SET client_min_messages TO NOTICE; 
+DROP TABLE IF EXISTS sd.study_pubs;
+CREATE TABLE sd.study_pubs(
+  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+, sd_sid                 VARCHAR         NULL
+, pub_type               VARCHAR         NULL
+, pub_id                 VARCHAR         NULL
+, pub_id_type            VARCHAR         NULL
+, pub_notes              VARCHAR         NULL
+, date_created           DATE            NULL
+, date_published         DATE            NULL
+, date_updated           DATE            NULL
+, publication_year       INT             NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+);
+CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
+
+
+DROP TABLE IF EXISTS sd.study_pub_instances;
+CREATE TABLE sd.study_pub_instances(
+  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+, sd_sid                 VARCHAR         NULL
+, pub_id                 VARCHAR         NULL
+, instance_type          VARCHAR         NULL
+, instance_id            VARCHAR         NULL
+, instance_lang          VARCHAR         NULL
+, instance_notes         VARCHAR         NULL
+, access_url             VARCHAR         NULL
+, access_type            VARCHAR         NULL
+, url_target_type        VARCHAR         NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+);
+CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
+
+SET client_min_messages TO NOTICE;
+
+
+/*
 
 -- change of names to facility and address
-/*
+
 DROP TABLE IF EXISTS sd.study_locations;
 CREATE TABLE sd.study_locations(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)

@@ -8,17 +8,18 @@ pub struct DBStudy {
     pub summary: DBSummary,
     pub dates: DBStudyDates,
     pub participants: DBStudyPartics,
-    pub titles: Option<Vec<DBTitle>>, 
+    pub titles: Option<Vec<DBTitle>>,
     pub identifiers: Option<Vec<DBIdentifier>>,
-    pub orgs: Option<Vec<DBOrganisation>>, 
-    pub people: Option<Vec<DBPerson>>, 
-    pub countries: Option<Vec<DBCountry>>, 
-    pub conditions: Option<Vec<DBCondition>>, 
-    pub features: Option<Vec<DBFeature>>, 
-    pub topics: Option<Vec<DBTopic>>, 
-    pub ie_crit: Option<Vec<IECLine>>, 
-    pub publications: Option<Vec<DBPublication>>,
+    pub orgs: Option<Vec<DBOrganisation>>,
+    pub people: Option<Vec<DBPerson>>,
+    pub countries: Option<Vec<DBCountry>>,
+    pub conditions: Option<Vec<DBCondition>>,
+    pub features: Option<Vec<DBFeature>>,
+    pub topics: Option<Vec<DBTopic>>,
+    pub ie_crit: Option<Vec<IECLine>>,
     pub objects: Option<Vec<DBObject>>,
+    pub publications: Option<Vec<DBPublication>>,
+    //pub pub_instances: Option<Vec<DBPublicationInstance>>,
 }
 
 pub struct DBSummary {
@@ -38,37 +39,37 @@ pub struct DBSummary {
 }
 
 pub struct DBStudyDates {
-    pub reg_year: Option<i32>,  
+    pub reg_year: Option<i32>,
 	pub reg_month: Option<i32>,
-    pub reg_date_type: Option<String>,         
-	pub start_year: Option<i32>, 
-	pub start_month: Option<i32>,   
-    pub start_date_type: Option<String>,       
+    pub reg_date_type: Option<String>,
+	pub start_year: Option<i32>,
+	pub start_month: Option<i32>,
+    pub start_date_type: Option<String>,
 	pub comp_year: Option<i32>,
-	pub comp_month: Option<i32>,  
-	pub comp_date_type: Option<String>,      
-	pub res_year: Option<i32>,  
-	pub res_month: Option<i32>,   
-    pub res_date_type: Option<String>,    
+	pub comp_month: Option<i32>,
+	pub comp_date_type: Option<String>,
+	pub res_year: Option<i32>,
+	pub res_month: Option<i32>,
+    pub res_date_type: Option<String>,
 }
 
 pub struct DBStudyPartics {
 
-    pub enrolment_target: Option<String>, 
-    pub enrolment_final: Option<String>, 
-    pub enrolment_total: Option<String>, 
+    pub enrolment_target: Option<String>,
+    pub enrolment_final: Option<String>,
+    pub enrolment_total: Option<String>,
 
-    pub enrolment: Option<String>, 
+    pub enrolment: Option<String>,
 	pub enrolment_type: Option<String>,
-    pub gender_string: Option<String>,  
+    pub gender_string: Option<String>,
 	pub gender_flag: Option<String>,
-    pub min_age_string: Option<String>,  
-	pub min_age: Option<f64>,  
+    pub min_age_string: Option<String>,
+	pub min_age: Option<f64>,
 	pub min_age_units_id: Option<String>,
-    pub max_age_string: Option<String>,  
-	pub max_age: Option<f64>,  
-	pub max_age_units_id: Option<String>, 
-	pub age_group_flag: i32, 
+    pub max_age_string: Option<String>,
+	pub max_age: Option<f64>,
+	pub max_age_units_id: Option<String>,
+	pub age_group_flag: i32,
     pub iec_flag: i32,
 }
 
@@ -89,9 +90,9 @@ pub struct DBIdentifier {
 
 pub struct DBOrganisation {
     pub org_name: Option<String>,
-    pub is_sponsor: Option<bool>,   
-    pub is_funder: Option<bool>,  
-    pub is_collaborator: Option<bool>,  
+    pub is_sponsor: Option<bool>,
+    pub is_funder: Option<bool>,
+    pub is_collaborator: Option<bool>,
     pub org_country: Option<String>,
     pub org_ror_id: Option<String>,
     pub org_cref_id: Option<String>,
@@ -127,41 +128,51 @@ pub struct DBFeature {
     pub feature_value: String,
 }
 
-// FIXME - ensure that the object structures match those described in the object document
-
-pub struct DBPublication {
-    pub pub_type: String,
-    pub pub_id: String,
-    pub pub_id_type: String,
-    pub pub_notes: Option<String>,
-    pub external_url: Option<String>,
-    pub doi: Option<String>,
-    pub pmid: Option<String>,
-    pub pmcid: Option<String>,
-    pub pubsite_url: Option<String>,
-    pub date_created: Option<NaiveDate>,
-    pub date_uploaded: Option<NaiveDate>,
-}
-
-
 pub struct DBObject {
     pub object_type: String,
-    pub object_id: String,
-    pub object_id_type: String,
-    pub object_notes: Option<String>,
+    pub object_id: Option<String>,
+    pub object_id_type: Option<String>,
     pub display_name: Option<String>,
+    pub date_created: Option<NaiveDate>,
+    pub date_published: Option<NaiveDate>,
+    pub date_updated: Option<NaiveDate>,
+    pub publication_year:  Option<i32>,
+    pub object_notes: Option<String>,
     pub access_url: Option<String>,
     pub access_type: Option<String>,
-    pub instance_type: Option<String>,
+    pub url_target_type: Option<String>,
     pub instance_notes: Option<String>,
+}
+
+#[allow(dead_code)]
+pub struct DBPublication {
+    pub pub_type: Option<String>,
+    pub pub_id: Option<String>,
+    pub pub_id_type: Option<String>,
+    pub pub_notes: Option<String>,
     pub date_created: Option<NaiveDate>,
     pub date_uploaded: Option<NaiveDate>,
+    pub date_updated: Option<NaiveDate>,
+    pub publication_year:  Option<i32>,
 }
+
+#[allow(dead_code)]
+pub struct DBPublicationInstance {
+    pub pub_id: String,
+    pub instance_type: Option<String>,
+    pub instance_id: Option<String>,
+    pub instance_lang: Option<String>,
+    pub instance_notes: Option<String>,
+    pub access_url: Option<String>,
+    pub access_type: Option<String>,
+    pub url_target_type: Option<String>,
+}
+
 
 
 // PREVIOUSLY INCLUDED - BEFORE DOWNLOAD WAS SIMPLIFIED
 
-/*  
+/*
 pub struct DBLocation {
     pub fac_name: Option<String>,
     pub fac_address: Option<String>,

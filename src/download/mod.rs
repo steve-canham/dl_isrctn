@@ -11,11 +11,10 @@ use crate::base_types::*;
 use chrono::{NaiveDate, Days};
 use xml_models::{AllTrials, FullTrial, TrialsCount};
 use quick_xml::de;
-use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
 use serde_json::to_string_pretty;
-use std::{thread, time};
+use std::{fs, thread, time};
 use rand::prelude::*;
 use log::info;
 
@@ -45,22 +44,20 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
     // If the number of available records for a selected 4-day period is > 100 records the call is
     // broken down into calls for individual days.
 
-    let base_url = params.api_base_url.clone();
-
     let mut sd = match params.start_date {
         Some(nd) => nd,
         None => {return Err(AppError::MissingProgramParameter("Start date required but not provided".to_string()))},
     };
-
     let edate = match params.end_date {
         Some(nd) => nd,
         None => {return Err(AppError::MissingProgramParameter("End date required but not provided".to_string()))},
     };
-    //test 99
+
+    let base_url = params.api_base_url.clone();
     let src_pool = get_db_pool("source").await?; // pool for the source specific db
     let monitor = MonitorRepo::new(src_pool.clone());  // events repo object
-
     let mut res = DownloadResult::new();
+    
     while sd < edate  {
 
         // For each pass, set end date to be 4 days later than start date.
@@ -96,7 +93,6 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
 
         if record_num > 0 {
             if record_num > 100 {    // Split the (up to) 4 days up into single days
-
                 let mut d = sd;
                 while d < ed {
                     let this_res = process_single_day(params, range_parameter, &d, dl_id, &monitor).await?;
@@ -106,7 +102,6 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
                 }
             }
             else {    // Process all records.
-
                 let url = format!("{}{}", dated_url, 100);
                 let studies: AllTrials = get_studies(&url).await?;
                 let this_res = process_studies(params, studies.full_trials, dl_id, &monitor).await?;
@@ -117,22 +112,17 @@ pub async fn download_data(params: &InitParams, dl_id:i32) -> Result<DownloadRes
         else {
             info!("For period GE {}, to LT {}, no records found", start_date_param, end_date_param);
         }
-
         sd = ed;    // make the start date the old end date
-
     }
 
     info!("{} records checked in total. {} Files written ({} of them new)", res.num_checked, res.num_downloaded, res.num_added);
-
     Ok(res)
-
 }
 
 
 async fn process_single_day(params: &InitParams, range_parameter: &str, date: &NaiveDate, dl_id: i32, monitor: &MonitorRepo) -> Result<DownloadResult, AppError>
 {
     let date_param = date.format("%Y-%m-%d").to_string();
-
     let query_start_param = format!("{}%20GE%20{}T00:00:00%20AND%20", range_parameter, date_param);
     let query_end_param = format!("{}%20LT%20{}T23:59:59%20&limit=", range_parameter, date_param);
 
@@ -144,7 +134,7 @@ async fn process_single_day(params: &InitParams, range_parameter: &str, date: &N
 
     if limit > 0 {
 
-        // Get the full set of records (i.e. set limit to be all the records aavailable)...
+        // Get the full set of records (i.e. set limit to be all the records available).
 
         let url = format!("{}{}{}{}", base_url, query_start_param, query_end_param, limit);
         let studies: AllTrials = get_studies(&url).await?;
@@ -162,19 +152,15 @@ async fn get_study_count(url: &String) -> Result<i32, AppError> {
 
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
+    pause(500, 1000);  // Add a pause - random value between 0.5 and 1.5 seconds.
 
-    pause(500, 1000);  // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-
-    // Extract api text and deserialise it to the xml model
+    // Extract api text, deserialise it to the very simple TrialsCount xml model
 
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-
     let trials_count: TrialsCount = de::from_str(&xml_content)
         .map_err(|e| AppError::QuickXMLError(url.clone(), e))?;
-
     Ok(trials_count.total_count)
-
 }
 
 
@@ -182,22 +168,21 @@ async fn get_studies(url: &String) -> Result<AllTrials, AppError> {
 
     let response = reqwest::get(url.clone()).await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
+    pause(500, 1000); // Add a pause - random value between 0.5 and 1.5 seconds.
 
-    pause(500, 1000); // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-
-    // Extract api text and deserialise it to the xml model
+    // Extract api text and return deserialised AllTrials xml model
 
     let xml_content = response.text().await
         .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-
     de::from_str(&xml_content)
         .map_err(|e| AppError::QuickXMLError(url.clone(), e))
-
 }
+
 
 fn pause(base_num:u64, range_num:u64) -> () {
 
-    // Add a pause  - used after any api access - random value between 0.5 and 1.5 seconds...
+    // Add a pause, e.g. after any api access. Duration is a random value 
+    // between base_num and (base_num + max(random component)) milliseconds
 
     let mut rng = rand::rng();
     let random_component = &rng.random_range(1..=range_num);
@@ -211,33 +196,31 @@ async fn process_studies(params: &InitParams, studies: Vec<FullTrial>, dl_id: i3
 
     let mut res = DownloadResult::new();
 
-        // Iterate through studies, the vector of FullTrials
-        // For each, call the process_studyroutine that goes through the xml
-        // derived structure and which produces a much more mdr compliant model
-        // That includes tidying up many of the fields, removing spaces and carriage returns...
-        // Once that model has been returned Write it out as a json file, for
-        // later import and further processing.
+    // Iterate through studies, the vector of FullTrials
+    // For each, call the process_studyroutine that goes through the xml
+    // derived structure and which produces a much more mdr compliant model
+    // That includes tidying up many of the fields, removing spaces and carriage returns...
+    // Once that model has been returned Write it out as a json file, for
+    // later import and further processing.
 
-        for s in studies {
+    for s in studies {
+        res.num_checked += 1;
+        let json_study = processor::process_study(s)?;
 
-            res.num_checked += 1;
-            let t= processor::process_study(s)?;
+        let sd_sid = &json_study.sd_sid;
+        let record_date = &json_study.registration.last_updated;
+        let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
 
-            let sd_sid = &t.sd_sid;
-            let record_date = &t.registration.last_updated;
-            let remote_url = format!("https://www.isrctn.com/{}", sd_sid.clone());
-            let full_path = write_out_file(&sd_sid, &t, &params.json_data_path).await?;
+        let full_path = write_out_file(&sd_sid, &json_study, &params.json_data_path).await?;
 
-            let added = monitor.update_dl_details(sd_sid, &remote_url, dl_id,
-                     record_date, &full_path).await?;
-
-            res.num_downloaded += 1;
-            if added {
-                res.num_added +=1;
-            }
+        res.num_downloaded += 1;
+        let added = monitor.update_dl_details(sd_sid, &remote_url, dl_id,
+                    record_date, &full_path).await?;
+        if added {
+            res.num_added +=1;
         }
-
-        Ok(res)
+    }
+    Ok(res)
 }
 
 
@@ -256,7 +239,11 @@ pub async fn write_out_file(sd_sid: &String, t: &json_models::Study, json_folder
         }
     };
     let file_folder: PathBuf = [json_folder, &PathBuf::from(&reg_year_string)].iter().collect();
-    if !folder_exists(&file_folder) {
+    let file_folder_present = match file_folder.try_exists() {
+        Ok(true) => true,
+        _ => false,  // includes Ok(false) as well as Err
+    };
+    if !file_folder_present {
         fs::create_dir_all(&file_folder)?;
     }
 
@@ -269,90 +256,3 @@ pub async fn write_out_file(sd_sid: &String, t: &json_models::Study, json_folder
 
     Ok(file_path)
 }
-
-
-fn folder_exists(folder_name: &PathBuf) -> bool {
-    let res = match folder_name.try_exists() {
-        Ok(true) => true,
-        Ok(false) => false,
-        Err(_e) => false,
-    };
-    res
-}
-
-
-/*
-
-// Routines below used temporarily for correctinmg some downloads after code change
-// Retained in case similar use case arises in the future
-
-pub async fn correct_data(params: &InitParams, src_pool: &Pool<Postgres>) -> Result<DownloadResult, AppError> {
-
-    // get the dataset of individual ids to correct
-    // In this instance the correcvtion is of studies with incorrect IDs, that were
-    // 'tagged' in the database by insertring specific values in the last_aggregation_id field
-
-    #[derive(sqlx::FromRow)]
-    struct SdSid {
-        sd_sid: String,
-    }
-
-    let sql = r#"select sd_sid from mn.source_data
-            where last_aggregation_id in (12, 13) and last_dl_id < 101970
-            ORDER BY sd_sid"#;
-
-    let ids: Vec<SdSid> = sqlx::query_as(&sql).fetch_all(src_pool).await
-                    .map_err(|e| AppError::SqlxError(e, sql.to_string()))?;
-
-    let dl_id = 101970;  // static, indicates successful re-processing, change if re-used
-    let mut res = DownloadResult::new();
-    let mut n = 0;
-
-    for id in ids {
-
-        //for each id...construct the single trial url
-
-        let url = format!("https://www.isrctn.com/api/trial/{}/format/default", id.sd_sid);
-        info!("{}", url);
-        n += 1;
-
-        // call it to get and process the data
-        // that should also change the details in mn.source_data
-
-        let study: FullTrial = get_study(&url).await?;
-        let studies = vec![study];
-        res = res + process_studies(params, studies, dl_id, src_pool).await?;
-
-        if n > 100 {  // just to limit numbers per batch
-            break;
-        }
-    }
-    Ok(res)
-}
-
-
-async fn get_study(url: &String) -> Result<FullTrial, AppError> {
-
-    let response = reqwest::get(url.clone()).await
-        .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-
-    // Add a pause after any api access - random value between 0.5 and 1.5 seconds...
-
-    let mut rng = rand::rng();
-    let num = &rng.random_range(1..=1000);
-    let millis = 800 + num;
-    let pause = time::Duration::from_millis(millis);
-    thread::sleep(pause);
-
-    // Extract api text and deserialise it to the xml model
-
-    let xml_content = response.text().await
-        .map_err(|e| AppError::ReqwestError(url.clone(), e))?;
-
-    de::from_str(&xml_content)
-        .map_err(|e| AppError::QuickXMLError(url.clone(), e))
-
-}
-
-
-*/
