@@ -24,160 +24,104 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let sd_sid =  s.sd_sid.clone();
 
     // process titles
-    
-    // Repair the cockup made in the doewwnload process;
-    // These titles should stay as single option<String> fields.
-    // or be processed as below within the download process.
-
-    let mut pub_title_db: Option<DBTitle> = None;
-    let mut sci_title_db: Option<DBTitle> = None;
-    let mut acronym_db: Option<DBTitle> = None;
-
-    let mut pub_title_string = "".to_string();
-    let mut sci_title_string = "".to_string();
-    let mut acronym_string = "".to_string();
-
-    let mut db_ts: Vec<DBTitle> = Vec::new();
-    let display_title: String;
-
-    // Set up the possible DBTitle instances and
-    // the associated strings
-
+        
     let pub_title = s.public_title.clone().clean();  
-    if let Some(p) = pub_title {
-        pub_title_string = p.clone().to_lowercase();
-
-        pub_title_db = Some(DBTitle {
-            title_text: p,
+    let sci_title = s.scientific_title.clone().clean(); 
+    let acronym = s.acronym.clone().clean(); 
+    
+    // Obtain the strings, lower case strings for comparisons,
+    // and an integer indicator of presence for each title type.
+    
+    let (pt, pt_lc, mut pt_val) = match pub_title {
+        Some(p) => (p.clone(), p.to_lowercase(), 2),
+        None => ("".to_string(), "".to_string(), 0),
+    };
+    let (st, st_lc, mut st_val) = match sci_title {
+        Some(s) => (s.clone(), s.to_lowercase(), 4),
+        None => ("".to_string(), "".to_string(), 0),
+    };
+    let (at, at_lc, mut at_val) = match acronym {
+        Some(a) => (a.clone(), a.to_lowercase(), 8),
+        None => ("".to_string(), "".to_string(), 0),
+    };
+    
+    // Amend the values associated with titles to reflect 
+    // the same title being provided in different roles.
+    
+    let mut db_ts: Vec<DBTitle> = Vec::new();
+    
+    if pt_val > 0 && st_val > 0 && pt_lc == st_lc {   // the commonest situation
+        pt_val += 4;
+        st_val = 0;
+    }
+    if pt_val > 0 && at_val > 0 && pt_lc == at_lc {   
+        pt_val += 8;
+        at_val = 0;
+    }
+    if st_val > 0 && at_val > 0 && st_lc == at_lc {   
+        st_val += 8;
+        at_val = 0;
+    }
+    
+    // Finally generate the structs corresponding to the three possible titles
+    
+    let mut display_title = "".to_string();    
+    if pt_val > 0 {
+        let mut dbt = DBTitle {
+            title_text: pt.clone(),
             is_public: true,
             is_scientific: false,
             is_acronym: false,
             is_display: true,
             comment: Some("From ISRCTN".to_string()),
-        });
+        };
+        if pt_val > 2 {
+            if pt_val == 6 {
+                dbt.is_scientific = true;
+            }
+            if pt_val >= 10 {
+                dbt.is_acronym = true;
+            }
+        }
+        display_title = pt;
+        db_ts.push(dbt);
     }
-
-    let sci_title = s.scientific_title.clone().clean(); 
-    if let Some(s) = sci_title {
-        sci_title_string = s.clone().to_lowercase();
-
-        sci_title_db = Some(DBTitle {
-            title_text: s,
+    
+    if st_val > 0 {
+        let mut dbt = DBTitle {
+            title_text: st.clone(),
             is_public: false,
             is_scientific: true,
             is_acronym: false,
             is_display: false,
             comment: Some("From ISRCTN".to_string()),
-        });
+        };
+        if st_val > 4 {
+            dbt.is_acronym = true;
+        }
+        if pt_val == 0 {
+            dbt.is_display = true;
+            display_title = st;
+        }
+        db_ts.push(dbt);
     }
-
-    let acronym = s.acronym.clone().clean(); 
-    if let Some(a) = acronym {
-        acronym_string = a.clone().to_lowercase();
-
-        acronym_db = Some(DBTitle {
-            title_text: a,
+    
+    if at_val > 0 {           // acronym must be different from other titles supplied
+        let mut dbt = DBTitle {
+            title_text: at.clone(),
             is_public: false,
             is_scientific: false,
             is_acronym: true,
             is_display: false,
             comment: Some("From ISRCTN".to_string()),
-        });
+        };
+        if pt_val == 0 && st_val == 0 {    // would be very unusual
+            dbt.is_display = true;
+            display_title = at;
+        }
+        db_ts.push(dbt);
     }
-
-    // Check for presence and duplication, and allocate 
-    // default status and display string
-
-    if let Some (mut pdb) = pub_title_db {
-
-        // is_default and _is public already set
-        // display text is the default;
-
-        display_title = pdb.title_text.clone();
-
-        // is the scientific title the same, if so
-        // adjust the DBTitle objects
-
-        if pub_title_string == sci_title_string  {
-            pdb.is_scientific = true;
-            sci_title_db = None;
-        }
-
-        // is the acronym title the same, if so
-        // adjust the DBTitle objects
-
-        if pub_title_string  == acronym_string  {
-            pdb.is_acronym = true;
-            acronym_db = None;
-        }
-
-        // is the acronym title the same as the scientific title, if so
-        // adjust the DBTitle objects
-
-        if sci_title_db.is_some() 
-                && (sci_title_string == acronym_string) {
-            let mut sdb = sci_title_db.unwrap();
-            sdb.is_acronym = true;       // mark sci_title as 'is acronym'
-            sci_title_db = Some(sdb);    // recreate the DBTitle object
-            acronym_db = None;
-        }
-
-        // push whatever DBTitle objects are left to the models's vector 
-
-        db_ts.push(pdb);
-        if sci_title_db.is_some() {db_ts.push (sci_title_db.unwrap());}
-        if acronym_db.is_some() {db_ts.push (acronym_db.unwrap());}
-
-
-    } 
-    else {
-        
-        // No public title  - a bit odd but...
-        // First check if a scientific title exists
-
-        if let Some (mut sdb) = sci_title_db {
-
-            // Make the scientific title the default and set 
-            // the display text.
-
-            sdb.is_display = true;
-            display_title = sdb.title_text.clone();
-
-            // is the acronym title the same as the scientific title, if so
-            // adjust the DBTitle objects
-
-            if sci_title_string == acronym_string {
-
-                sdb.is_acronym =  true;
-                acronym_db = None;
-
-            }
-
-            db_ts.push(sdb);
-            if acronym_db.is_some() {db_ts.push (acronym_db.unwrap());}
-        }
-        else {
             
-            // Now check if at least an acronym exists 
-
-            if let Some (mut adb) = acronym_db {
-
-                // Very odd but just in case, set 
-                // is default and display title accordingly
-                
-                adb.is_display = true;
-                display_title = adb.title_text.clone();
-                db_ts.push(adb);
-            }
-            else {
-
-                // If not no title data was supplied at all (!)
-                display_title = "No title data provided".to_string();
-            }
-        }
-    }
-
-        
     // Summary 
     
     // brief description
@@ -187,18 +131,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // study hypotheses and primary outcome fields.
 
     let mut description = match s.summary.plain_english_summary.clone() {
-        Some (s) => {
-                if s.to_lowercase().starts_with("not provided") {
-                    None
-                }
-                else {
-                    Some(s)
-                }
-        }
-        None => None,
+        Some (s) if !s.to_lowercase().starts_with("not provided") => Some(s),
+        _ => None,
     };
     
-    // No valid decsriotion in plain english summary...
+    // No valid decsription in plain english summary...
 
     if description == None {
         let mut hypothesis = s.summary.study_hypothesis.clone().clean_multiline();
@@ -611,7 +548,6 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     // countries
 
     let mut db_countries: Vec<DBCountry> = Vec::new();
-
     if let Some(cies) = &s.countries {
         for c in cies {
             db_countries.push ( DBCountry {
@@ -720,7 +656,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
     if design != "".to_string()
     {
-        if type_id == 11 {
+        if type_id == 11 {   // interventional study
 
             // Try to make terminology more consistent
 
@@ -775,7 +711,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
             }
         }
 
-        if type_id == 12 {
+        if type_id == 12 {    // observational study
 
             let mut ds = design.replace("case ", "case-");
             ds = ds.replace("cross section", "cross-section");
@@ -812,9 +748,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
                     feature_value: time_perspective.to_string(),
                 });
             }
-
         }
-
     }
  
     if let Some(tts) = &s.trial_types {
@@ -961,11 +895,17 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     participants.iec_flag =  inc_result + exc_result;
 
 
-    // Outputs
+    // Outputs and objects
 
-    let db_pubs: Vec<DBPublication> = Vec::new();  // should be mut realy
+    // TO DO
+    // ADD the ISCRTN web page as an object
+    // ADD any study website as an object
+    
+
     let db_objects: Vec<DBObject> = Vec::new();   // should be mut realy
-
+    let db_pubs: Vec<DBPublication> = Vec::new();  // should be mut realy
+ // let db_pub_instances: Vec<DBObject> = Vec::new();   // should be mut realy
+     
     if let Some(links) = &s.links{
         for lk in links {
 
