@@ -3,6 +3,7 @@ use toml;
 use serde::Deserialize;
 use crate::err::AppError;
 use std::path::PathBuf;
+use log::info;
 
 
 #[derive(Debug, Deserialize)]
@@ -72,24 +73,18 @@ pub fn populate_config_vars(config_string: &String) -> Result<Config, AppError> 
     let toml_config = toml::from_str::<TomlConfig>(&config_string)
         .map_err(|_| {AppError::ConfigurationError("Unable to parse config file.".to_string(),
                                        "File (app_config.toml) may be malformed.".to_string())})?;
+ 
+    let toml_data = toml_config.data
+        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
+            "Cannot find a section called '[data]'.".to_string()))?;
+    
+    let toml_database = toml_config.database
+        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
+            "Cannot find a section called '[database]'.".to_string()))?;
 
-    let toml_data = match toml_config.data {
-        Some (a) => a,
-        None => {return Result::Err(AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-            "Cannot find a section called '[data]'.".to_string()))},
-    };
-
-    let toml_database = match toml_config.database {
-        Some(d) => d,
-        None => {return Result::Err(AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-            "Cannot find a section called '[database]'.".to_string()))},
-    };
-
-    let toml_folders = match toml_config.folders {
-        Some(f) => f,
-        None => {return Result::Err(AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
-           "Cannot find a section called '[folders]'.".to_string()))},
-    };
+    let toml_folders = toml_config.folders
+        .ok_or_else(|| AppError::ConfigurationError("Missing or misspelt configuration section.".to_string(),
+            "Cannot find a section called '[folders]'.".to_string()))?;
 
     let config_data = verify_data_parameters(toml_data)?;
     let config_folders = verify_folder_parameters(toml_folders)?;
@@ -109,7 +104,7 @@ fn verify_data_parameters(toml_api: TomlDataPars) -> Result<DataPars, AppError> 
 
     let base_url = check_essential_string (toml_api.api_base_url, "api base url", "base_url")?;
     let source_id_as_string = check_essential_string (toml_api.source_id, "source id", "source_id")?;
-    let source_id: i32 = source_id_as_string.parse().unwrap_or_else(|_| 0);
+    let source_id: i32 = source_id_as_string.parse().unwrap_or_else(|_| 0);   // zero detected later
 
     Ok(DataPars {
         api_base_url: base_url,
@@ -134,15 +129,12 @@ fn verify_db_parameters(toml_database: TomlDBPars) -> Result<DBPars, AppError> {
     // They must therefore be present.
 
     let db_user = check_essential_string (toml_database.db_user, "database user name", "db_user")?;
-
     let db_password = check_essential_string (toml_database.db_password, "database user password", "db_password")?;
-
     let db_host = check_defaulted_string (toml_database.db_host, "DB host", "localhost");
-
     let db_port_as_string = check_defaulted_string (toml_database.db_port, "DB port", "5432");
     let db_port: usize = db_port_as_string.parse().unwrap_or_else(|_| 5432);
 
-    let source_db = check_defaulted_string (toml_database.source_db, "Data DB name", "isrctn");
+    let source_db = check_defaulted_string (toml_database.source_db, "Source specific DB name", "isrctn");
     let monitor_db = check_defaulted_string (toml_database.monitor_db, "Monitoring DB name", "mon");
     let context_db = check_defaulted_string (toml_database.context_db, "Context DB name", "cxt");
 
@@ -166,7 +158,7 @@ fn check_essential_string (src_name: Option<String>, value_name: &str, config_na
 
     if s == "none".to_string() || s.trim() == "".to_string()
     {
-        return Result::Err(AppError::ConfigurationError("Essential configuration value missing or misspelt.".to_string(),
+        Err(AppError::ConfigurationError("Essential configuration value missing or misspelt.".to_string(),
         format!("Cannot find a value for {} ({}).", value_name, config_name)))
     }
     else {
@@ -175,20 +167,13 @@ fn check_essential_string (src_name: Option<String>, value_name: &str, config_na
 }
 
 fn check_defaulted_string (src_name: Option<String>, value_name: &str, default:  &str) -> String {
-
-    let s = match src_name {
-        Some(s) => s,
-        None => "none".to_string(),
-    };
-
-    if s == "none".to_string() || s.trim() == "".to_string()
-    {
-        println!("No value found for the {} in config file - using the provided default value ('{}') instead.",
-        value_name, default);
-        default.to_owned()
-    }
-    else {
-       s
+    match src_name {
+        Some(s) if !s.trim().is_empty() => s,
+        _ => {
+            info!("No value found for the {} in config file - using the provided default value ('{}') instead.",
+                value_name, default);
+            default.to_owned()
+        }
     }
 }
 
