@@ -164,7 +164,6 @@ pub fn split_age_string(age: &Option<String>) -> (Option<f64>, Option<String>, f
 }
 
 
-
 pub fn get_full_name(given_name: Option<String>, family_name: Option<String>) -> Option<String>{
     
     let giv_n = given_name.unwrap_or_else(||"".to_string());

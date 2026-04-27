@@ -49,8 +49,8 @@ pub struct Registration
     pub doi : Option<String>,
 }
 
-// Structs for titles and identifiers have differebt form
-// as trhey are only created when the source data exists,
+// Structs for titles and identifiers have different form
+// as they are only created when the source data exists,
 // and therefore do not need to be 'Options',
 // and are created most easily using the new() function
 
