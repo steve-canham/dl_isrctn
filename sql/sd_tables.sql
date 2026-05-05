@@ -240,7 +240,7 @@ CREATE TABLE sd.study_pub_instances(
 , url_target_type        VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_pubs_sid ON sd.study_pubs(sd_sid);
+CREATE INDEX study_pubs_insts_sid ON sd.study_pub_instances(sd_sid);
 
 SET client_min_messages TO NOTICE;
 

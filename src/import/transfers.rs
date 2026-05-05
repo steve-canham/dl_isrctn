@@ -184,12 +184,12 @@ pub async fn transfer_study_features_data(src_pool: &Pool<Postgres>) -> Result<(
 
 pub async fn transfer_study_objects_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
-    let sql = r#"insert into ad.study_objects (sd_sid, object_type, object_id, object_id_type
-                        , object_notes, display_name, access_url, access_type, instance_type, instance_notes
-                        , date_created, date_published)
-                select sd_sid, object_type, object_id, object_id_type
-                        , object_notes, display_name, access_url, access_type, instance_type, instance_notes
-                        , date_created, date_published
+    let sql = r#"insert into ad.study_objects (sd_sid, object_type, object_id, object_id_type,
+                        display_name, date_created, date_published, date_updated, publication_year, 
+                        object_notes, access_url, access_type, url_target_type, instance_notes)
+                select sd_sid, object_type, object_id, object_id_type,
+                        display_name, date_created, date_published, date_updated, publication_year, 
+                        object_notes, access_url, access_type, url_target_type, instance_notes
                 from sd.study_objects
                 order by sd_sid"#;
     execute_sql(sql, src_pool).await
@@ -198,11 +198,22 @@ pub async fn transfer_study_objects_data(src_pool: &Pool<Postgres>) -> Result<()
 
 pub async fn transfer_study_pubs_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
 
-    let sql = r#"insert into ad.study_pubs (sd_sid, pub_type, pub_id, pub_id_type, pub_notes, doi
-                    , pmid, pmcid, pubsite_url, date_created, date_published)
-                select sd_sid, pub_type, pub_id, pub_id_type, pub_notes, doi
-                    , pmid, pmcid, pubsite_url, date_created, date_published
+    let sql = r#"insert into ad.study_pubs (sd_sid, pub_type, pub_id, pub_id_type, pub_notes,
+                date_created, date_published, date_updated, publication_year)
+                select sd_sid, pub_type, pub_id, pub_id_type, pub_notes,
+                date_created, date_published, date_updated, publication_year
                 from sd.study_pubs
+                order by sd_sid"#;
+    execute_sql(sql, src_pool).await
+}
+
+pub async fn transfer_study_pub_insts_data(src_pool: &Pool<Postgres>) -> Result<(), AppError> {
+
+    let sql = r#"insert into ad.study_pub_instances (sd_sid, pub_id, instance_type, instance_id,
+                instance_lang, instance_notes, access_url, access_type, url_target_type)
+                select sd_sid, pub_id, instance_type, instance_id,
+                instance_lang, instance_notes, access_url, access_type, url_target_type
+                from sd.study_pub_instances
                 order by sd_sid"#;
     execute_sql(sql, src_pool).await
 }

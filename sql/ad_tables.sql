@@ -1,5 +1,5 @@
 
-SET client_min_messages TO WARNING; 
+SET client_min_messages TO WARNING;
 create schema if not exists ad;
 
 DROP TABLE IF EXISTS ad.studies;
@@ -51,7 +51,7 @@ CREATE TABLE ad.study_participants(
 , max_age                INT             NULL
 , max_age_units_id       CHAR(1)         NULL
 , age_group_flag         INT             NOT NULL default 0
-, iec_flag               INT             NOT NULL default 0 
+, iec_flag               INT             NOT NULL default 0
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
 CREATE INDEX study_participants_sid ON ad.study_participants(sd_sid);
@@ -85,7 +85,7 @@ CREATE TABLE ad.study_identifiers(
 , id_date                VARCHAR         NULL
 , id_link                VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL    
+, coded_on               TIMESTAMPTZ     NULL
 );
 CREATE INDEX study_identifiers_sid ON ad.study_identifiers(sd_sid);
 
@@ -102,7 +102,7 @@ CREATE TABLE ad.study_orgs(
 , is_funder              BOOL            NULL
 , is_collaborator        BOOL            NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL    
+, coded_on               TIMESTAMPTZ     NULL
 );
 CREATE INDEX study_orgs_sid ON ad.study_orgs(sd_sid);
 
@@ -120,7 +120,7 @@ CREATE TABLE ad.study_people(
 , affil_org_country      VARCHAR         NULL
 , affil_org_ror_id       VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL    
+, coded_on               TIMESTAMPTZ     NULL
 );
 CREATE INDEX study_people_sid ON ad.study_people(sd_sid);
 
@@ -130,9 +130,9 @@ CREATE TABLE ad.study_iec(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , seq_num                INT             NULL
-, ie_type_id             INT             NULL    
+, ie_type_id             INT             NULL
 , split_type             VARCHAR         NULL
-, tag                    VARCHAR         NULL  
+, tag                    VARCHAR         NULL
 , indent_level           INT             NULL
 , indent_seq_num         INT             NULL
 , sequence_string         VARCHAR         NULL
@@ -150,7 +150,7 @@ CREATE TABLE ad.study_countries(
 , country_name           VARCHAR         NULL
 , status_id              INT             NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL  default now()       -- already coded when added                                   
+, coded_on               TIMESTAMPTZ     NULL  default now()       -- already coded when added
 );
 CREATE INDEX study_countries_sid ON ad.study_countries(sd_sid);
 
@@ -160,13 +160,13 @@ CREATE TABLE ad.study_topics(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
 , topic_type             VARCHAR         NULL
-, original_value         VARCHAR         NULL  
+, original_value         VARCHAR         NULL
 , original_ct_type_id    INT             NULL
-, original_ct_code       VARCHAR         NULL 
+, original_ct_code       VARCHAR         NULL
 , mesh_code              VARCHAR         NULL
-, mesh_value             VARCHAR         NULL   
+, mesh_value             VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL    
+, coded_on               TIMESTAMPTZ     NULL
 );
 CREATE INDEX study_topics_sid ON ad.study_topics(sd_sid);
 
@@ -177,7 +177,7 @@ CREATE TABLE ad.study_conditions(
 , sd_sid                 VARCHAR         NOT NULL
 , original_value         VARCHAR         NULL
 , original_ct_type_id    INT             NULL
-, original_ct_code       VARCHAR         NULL                 
+, original_ct_code       VARCHAR         NULL
 , icd_code               VARCHAR         NULL
 , icd_name               VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
@@ -197,19 +197,36 @@ CREATE TABLE ad.study_features(
 CREATE INDEX study_features_sid ON ad.study_features(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_pubs;
-CREATE TABLE ad.study_pubs(
+DROP TABLE IF EXISTS ad.study_objects;
+CREATE TABLE ad.study_objects(
   id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
 , sd_sid                 VARCHAR         NOT NULL
+, object_type            VARCHAR         NULL
+, object_id              VARCHAR         NULL
+, object_id_type         VARCHAR         NULL
+, display_name           VARCHAR         NULL
+, date_created           DATE            NULL
+, date_published         DATE            NULL
+, date_updated           DATE            NULL
+, publication_year       INT             NULL
+, object_notes           VARCHAR         NULL
+, access_url             VARCHAR         NULL
+, access_type            VARCHAR         NULL
+, url_target_type        VARCHAR         NULL
+, instance_notes         VARCHAR         NULL
+, added_on               TIMESTAMPTZ     NOT NULL default now()
+);
+CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
+
+
+DROP TABLE IF EXISTS ad.study_pubs;
+CREATE TABLE ad.study_pubs(
+  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+, sd_sid                 VARCHAR         NULL
 , pub_type               VARCHAR         NULL
-, pub_id                 VARCHAR         NULL	
-, pub_id_type            VARCHAR         NULL	
-, citation               VARCHAR         NULL
+, pub_id                 VARCHAR         NULL
+, pub_id_type            VARCHAR         NULL
 , pub_notes              VARCHAR         NULL
-, doi                    VARCHAR         NULL	
-, pmid                   VARCHAR         NULL
-, pmcid                  VARCHAR         NULL	
-, pubsite_url            VARCHAR         NULL
 , date_created           DATE            NULL
 , date_published         DATE            NULL
 , date_updated           DATE            NULL
@@ -219,28 +236,24 @@ CREATE TABLE ad.study_pubs(
 CREATE INDEX study_pubs_sid ON ad.study_pubs(sd_sid);
 
 
-DROP TABLE IF EXISTS ad.study_objects;
-CREATE TABLE ad.study_objects(
-  id                     INT             PRIMARY KEY GENERATED ALWAYS AS IDENTITY (start with 10000001 increment by 1)
-, sd_sid                 VARCHAR         NOT NULL
-, object_type            VARCHAR         NULL	
-, object_id              VARCHAR         NULL
-, object_id_type         VARCHAR         NULL
-, object_notes           VARCHAR         NULL	
-, display_name           VARCHAR         NULL	
-, access_url             VARCHAR         NULL	
-, access_type            VARCHAR         NULL	
-, instance_type          VARCHAR         NULL	
+DROP TABLE IF EXISTS ad.study_pub_instances;
+CREATE TABLE ad.study_pub_instances(
+  id                     INT             GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+, sd_sid                 VARCHAR         NULL
+, pub_id                 VARCHAR         NULL
+, instance_type          VARCHAR         NULL
+, instance_id            VARCHAR         NULL
+, instance_lang          VARCHAR         NULL
 , instance_notes         VARCHAR         NULL
-, date_created           DATE            NULL
-, date_published         DATE            NULL
-, date_updated           DATE            NULL
-, publication_year       INT             NULL
+, access_url             VARCHAR         NULL
+, access_type            VARCHAR         NULL
+, url_target_type        VARCHAR         NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
 );
-CREATE INDEX study_objects_sid ON ad.study_objects(sd_sid);
+CREATE INDEX study_pubs_insts_sid ON ad.study_pub_instances(sd_sid);
 
-SET client_min_messages TO NOTICE; 
+
+SET client_min_messages TO NOTICE;
 
 
 /*
@@ -259,7 +272,7 @@ CREATE TABLE ad.study_locations(
 , country_name           VARCHAR         NULL
 , status_id              INT             NULL
 , added_on               TIMESTAMPTZ     NOT NULL default now()
-, coded_on               TIMESTAMPTZ     NULL           
+, coded_on               TIMESTAMPTZ     NULL
 );
 CREATE INDEX study_locations_sid ON ad.study_locations(sd_sid);
 */

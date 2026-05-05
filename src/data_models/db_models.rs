@@ -19,7 +19,7 @@ pub struct DBStudy {
     pub ie_crit: Option<Vec<IECLine>>,
     pub objects: Option<Vec<DBObject>>,
     pub publications: Option<Vec<DBPublication>>,
-    //pub pub_instances: Option<Vec<DBPublicationInstance>>,
+    pub pub_instances: Option<Vec<DBPublicationInstance>>,
 }
 
 pub struct DBSummary {
@@ -140,21 +140,20 @@ pub struct DBObject {
     pub instance_notes: Option<String>,
 }
 
-#[allow(dead_code)]
 pub struct DBPublication {
     pub pub_type: Option<String>,
     pub pub_id: Option<String>,
     pub pub_id_type: Option<String>,
     pub pub_notes: Option<String>,
     pub date_created: Option<NaiveDate>,
-    pub date_uploaded: Option<NaiveDate>,
+    pub date_published: Option<NaiveDate>,
     pub date_updated: Option<NaiveDate>,
     pub publication_year:  Option<i32>,
 }
 
-#[allow(dead_code)]
+
 pub struct DBPublicationInstance {
-    pub pub_id: String,
+    pub pub_id: Option<String>,
     pub instance_type: Option<String>,
     pub instance_id: Option<String>,
     pub instance_lang: Option<String>,

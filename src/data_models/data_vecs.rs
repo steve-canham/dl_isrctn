@@ -909,8 +909,8 @@ impl PublicationVecs{
             self.pub_id_types.push(r.pub_id_type.clone());
             self.pub_notes.push(r.pub_notes.clone());
             self.date_createds.push(r.date_created.clone());
-            self.date_publisheds.push(r.date_uploaded.clone());
-            self.date_updateds.push(r.date_created.clone());
+            self.date_publisheds.push(r.date_published.clone());
+            self.date_updateds.push(r.date_updated.clone());
             self.publication_years.push(r.publication_year);
         }
     }
@@ -951,7 +951,7 @@ impl PublicationVecs{
 
 pub struct PubInstanceVecs {
     pub sd_sids: Vec<String>,
-    pub pub_ids: Vec<String>,
+    pub pub_ids: Vec<Option<String>>,
     pub instance_types: Vec<Option<String>>,
     pub instance_ids: Vec<Option<String>>,
     pub instance_langs: Vec<Option<String>>,
@@ -961,7 +961,7 @@ pub struct PubInstanceVecs {
     pub url_target_types: Vec<Option<String>>,
 }
 
-#[allow(dead_code)]
+
 impl PubInstanceVecs{
     pub fn new(vsize: usize) -> Self {
         PubInstanceVecs {
@@ -1063,9 +1063,9 @@ impl ImportUpdateVecs{
 
         let sql = r#"Update mn.source_data s
                 set
-                last_import_id = u.dl_id,
+                last_import_id = u.imp_id,
                 last_imported = u.datetime_imported
-                from UNNEST($1::text[], $2::int[], $3::datetime[])
+                from UNNEST($1::text[], $2::int[], $3::timestamptz[])
                      as u(sd_sid, imp_id, datetime_imported)
                 where s.sd_sid = u.sd_sid  "#;
         sqlx::query(&sql).bind(&self.sd_sids).bind(&self.imp_ids).bind(&self.datetime_importeds)

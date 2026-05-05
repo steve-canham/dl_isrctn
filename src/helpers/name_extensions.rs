@@ -23,7 +23,7 @@ impl OptionNameExtensions for Option<String> {
         // Repairs common malformed ORCID Ids and checks structure
 
          match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let mut s = sf.to_string();
                 s = s.replace("https://orcid.org/", "").replace("http://orcid.org/", "");
@@ -31,9 +31,9 @@ impl OptionNameExtensions for Option<String> {
 
                 if s.len() == 16
                 {
-                    s = format!("{}-{}-{}-{}", &s[..4], &s[4..8], &s[8..12], &s[12..]);  
+                    s = format!("{}-{}-{}-{}", &s[..4], &s[4..8], &s[8..12], &s[12..]);
                 }
-                if s.len() == 15 
+                if s.len() == 15
                 {
                     s = format!("0000{}", s);
                 }
@@ -59,7 +59,7 @@ impl OptionNameExtensions for Option<String> {
         // Returns the portion of an email address behinmd the '@'
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 match sf.find('@')
                 {
@@ -77,51 +77,58 @@ impl OptionNameExtensions for Option<String> {
     fn appears_plausible_org_name(&self) -> bool {
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let lower_s = sf.trim().to_lowercase();
                 let low_s = lower_s.as_str();
+                let mut result = true;
 
                 if low_s.len() < 3
                 {
-                    false
+                    result = false;
                 }
-                else if low_s == "n.a." || low_s == "n a" || low_s == "n/a" 
+                else if low_s == "n.a." || low_s == "n a" || low_s == "n/a"
                     || low_s == "nil" || low_s == "nill" || low_s == "non" || low_s == "none"
-                    || low_s == "not applicable" || low_s == "investigator" || low_s == "self" 
+                    || low_s == "not applicable" || low_s == "investigator" || low_s == "self"
                 {
-                    false
+                    result = false;
                 }
-                else if low_s.starts_with("no ") ||low_s.starts_with("not prov") || low_s.starts_with("non fund")
-                    || low_s.starts_with("non spon") || low_s.starts_with("nonfun") || low_s.starts_with("noneno") 
+                else if low_s.starts_with("no ") || low_s.starts_with("not prov") || low_s.starts_with("non fund")
+                    || low_s.starts_with("non spon") || low_s.starts_with("nonfun") || low_s.starts_with("noneno")
                     || low_s.starts_with("organisation") || low_s.contains("thesis") || low_s.contains(" none.")
                 {
-                    false
+                    result = false;
                 }
-                else if low_s.starts_with("investigator ") ||low_s.starts_with("professor") || low_s.starts_with("prof ")
-                    || low_s.starts_with("prof. ") || low_s.starts_with("associate prof") || low_s.starts_with("noneno") 
+                else if low_s.starts_with("professor") || low_s.starts_with("prof ")
+                    || low_s.starts_with("prof. ") || low_s.starts_with("associate prof") || low_s.starts_with("noneno")
                     || low_s.starts_with("dr med ") || low_s.starts_with("dr ")
-                    || low_s.starts_with("mr ") || low_s.starts_with("ms ") 
+                    || low_s.starts_with("mr ") || low_s.starts_with("ms ")
                 {
-                    false
+                   result = false;
                 }
                 else if low_s.starts_with("dr") && &sf[..2] == "DR"
                 {
-                    false
+                    result = false;
                 }
-                else {
-                    true
+
+                if low_s.contains("gmbh") || low_s.contains(" co ") 
+                || low_s.contains("foundation") {
+                    result = true;
                 }
+
+                // N.B. 'Investigator initiated and funded...' let thropugh as OK even if not an organisation
+
+                result
             },
             None => false,
         }
     }
-     
+
 
     fn appears_plausible_person_name(&self) -> bool {
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let lower_s = sf.trim().to_lowercase();
                 let low_s = lower_s.as_str();
@@ -143,7 +150,7 @@ impl OptionNameExtensions for Option<String> {
     fn appears_plausible_title(&self) -> bool {
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let lower_s = sf.trim().to_lowercase();
                 let low_s = lower_s.as_str();
@@ -152,12 +159,12 @@ impl OptionNameExtensions for Option<String> {
                 {
                     false
                 }
-                else if low_s == "none" || low_s == "not done" || low_s == "same as above" 
+                else if low_s == "none" || low_s == "not done" || low_s == "same as above"
                     || low_s == "in preparation" || low_s == "non fornito"
                 {
                     false
                 }
-                else if low_s.starts_with("not applic") || low_s.starts_with("not aplic") || low_s.starts_with("non applic") 
+                else if low_s.starts_with("not applic") || low_s.starts_with("not aplic") || low_s.starts_with("non applic")
                     || low_s.starts_with("non aplic") || low_s.starts_with("no applic") || low_s.starts_with("no aplic")
                     || low_s.starts_with("see ") || low_s.starts_with("not avail") || low_s.starts_with("non dispo")
                 {
@@ -173,12 +180,12 @@ impl OptionNameExtensions for Option<String> {
 
 
     fn tidy_org_name(&self, sd_sid: &String) -> Option<String> {
-        
-        // string should already have been cleaned 
+
+        // string should already have been cleaned
         // therefore basic trim, apostrophes, escaped characters dealt with
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let mut s = sf.to_string();
 
@@ -263,26 +270,26 @@ impl OptionNameExtensions for Option<String> {
                         s = "National Cancer Center, Japan".to_string();
                     }
                 }
-                   
+
                 Some(s)
             },
             None => None
         }
-       
+
     }
 
 
     fn tidy_person_name(&self) -> Option<String> {
 
-        // string should already have been cleaned 
+        // string should already have been cleaned
         // therefore basic trim, apostrophes, escaped characters dealt with
 
         match self {
-            Some(sf) => { 
+            Some(sf) => {
 
                 let mut s = sf.to_string();
 
-                // Remove any periods, then 
+                // Remove any periods, then
                 // remove possible professional prefixes
 
                 s = s.replace(".", "");
@@ -302,7 +309,7 @@ impl OptionNameExtensions for Option<String> {
                           || low_s.starts_with("ms ")
                 {
                     s = s[3..].to_string();
-                }   
+                }
                 else if low_s.starts_with("ass") {
                     if low_s.starts_with("associate professor ")
                     || low_s.starts_with("assistant professor ")
@@ -385,11 +392,11 @@ impl OptionNameExtensions for Option<String> {
         }
     }
 
-    
+
 }
 
 
-/* 
+/*
 
     public static string? ExtractOrganisation(this string affiliation, string sid)
     {
@@ -397,7 +404,7 @@ impl OptionNameExtensions for Option<String> {
         {
             return null;
         }
-        
+
         string? affil_organisation = "";
         string aff = affiliation.ToLower();
 
@@ -457,14 +464,14 @@ impl OptionNameExtensions for Option<String> {
         // of the preceding comma, and the comma after the target (if any)
         // if no preceding comma make start the beginning of the string.
         // if no following comma make end the end of the string
-                    
+
         int startPos = p.IndexOf(t, StringComparison.Ordinal);
         if (startPos == -1)
         {
             return phrase1;
         }
 
-        int commaPos1 = p.LastIndexOf(",", startPos, StringComparison.Ordinal); 
+        int commaPos1 = p.LastIndexOf(",", startPos, StringComparison.Ordinal);
         if (commaPos1 == -1)
         {
             commaPos1 = 0;
@@ -596,7 +603,7 @@ mod tests {
 
         let t_opt = Some("-1234-6666-9876".to_string());
         assert_eq!(t_opt.tidy_orcid(), Some("0000-1234-6666-9876".to_string()));
-    } 
+    }
 
 
     #[test]
@@ -616,7 +623,7 @@ mod tests {
 
         let t_opt = Some(r"funny_unicod\u{2022\u{21E7}email@domain.com".to_string());
         assert_eq!(t_opt.extract_domain(), Some("domain.com".to_string()));
-    } 
+    }
 
 
     #[test]
@@ -652,7 +659,7 @@ mod tests {
         let t_opt = Some("random string ltd".to_string());
         assert_eq!(t_opt.appears_plausible_org_name(), true);
 
-    } 
+    }
 
     #[test]
     fn check_name_ext_appears_plausible_person_name() {
@@ -674,7 +681,7 @@ mod tests {
 
         let t_opt = Some("pfizer inc.".to_string());
         assert_eq!(t_opt.appears_plausible_person_name(), false);
-    } 
+    }
 
     #[test]
     fn check_name_ext_appears_plausible_title() {
@@ -699,7 +706,7 @@ mod tests {
 
         let t_opt = Some("random string".to_string());
         assert_eq!(t_opt.appears_plausible_title(), true);
-    } 
+    }
 
     #[test]
     fn check_name_ext_tidy_org_name() {
@@ -724,7 +731,7 @@ mod tests {
 
         let t_opt = Some("Nat. Cancer center".to_string());
         assert_eq!(t_opt.clean().tidy_org_name(&"KCT12345678".to_string()), Some("National Cancer Center, Korea".to_string()));
-    } 
+    }
 
     #[test]
 fn check_name_ext_tidy_person_name() {
@@ -765,7 +772,6 @@ fn check_name_ext_tidy_person_name() {
         let t_opt = Some("Frederick Bloggs M.D.".to_string());
         assert_eq!(t_opt.clean().tidy_person_name(), Some("Frederick Bloggs".to_string()));
 
-    } 
+    }
 
 }
-    

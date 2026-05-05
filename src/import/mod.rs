@@ -15,16 +15,14 @@ use chrono::Utc;
 use log::info;
 
 #[derive(sqlx::FromRow)]
-#[allow(dead_code)]
 struct FilePath {
-    sd_sid: String,
     local_path: String,
 }
 
 pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<ImportResult, AppError> {
 
     let src_pool = &get_db_pool("source").await?; // pool for the source specific db
-    
+
     // First recreate the staging schema tables - sqlscript in file (path is relative)
 
     let sql = include_str!("../../sql/sd_tables.sql");
@@ -76,20 +74,21 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
         let mut study_iec_dv = IECVecs::new(20*batch_size);
         let mut study_obs_dv = ObjectVecs::new(3*batch_size);
         let mut study_pubs_dv = PublicationVecs::new(3*batch_size);
+        let mut study_pubs_insts_dv = PubInstanceVecs::new(3*batch_size);
         let mut import_update_dv = ImportUpdateVecs::new(batch_size);
 
         // get the list of json files relevant to this pass
 
         let file_sql = match import_type {
             ImportType::Recent => {
-                    format!(r#"select sd_sid, local_path from mn.source_data
+                    format!(r#"select local_path from mn.source_data
                     where last_imported is null
                     or last_downloaded > last_imported
                     ORDER BY sd_sid
                     offset {} limit {}"#, n, batch_size)
             },
             ImportType::All  => {
-                    format!(r#"select sd_sid, local_path from mn.source_data
+                    format!(r#"select local_path from mn.source_data
                     ORDER BY sd_sid
                     offset {} limit {}"#, n, batch_size)
             }
@@ -101,11 +100,13 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
 
         for path in file_list {
 
-            // Deserialise the file being referenced and pass for processing
-
-            let p= PathBuf::from(&path.local_path);
-            let json_data = fs::read_to_string(&p)?;
-            let s: Study = serde_json::from_str(&json_data)?;
+            // Deserialise the file being referenced and pass for processing.
+            
+            let p = PathBuf::from(&path.local_path);
+            let json_data = fs::read_to_string(&p)
+                .map_err(|e| AppError::IoReadErrorWithPath(e, p))?;
+            let s: Study = serde_json::from_str(&json_data)
+                .map_err(|e| AppError::SerdeError(e))?;
 
             // pass s to the procesor and receive a 'database friendly' version,
             // with the data arranged to match the tables in the DB.
@@ -120,7 +121,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
             study_partics_dv.add(sd_sid, &dbs.participants);
 
             if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
-            study_idents_dv.add(sd_sid, &dbs.identifiers); 
+            study_idents_dv.add(sd_sid, &dbs.identifiers);
             if let Some(orgs) = dbs.orgs { study_orgs_dv.add(sd_sid, &orgs); }
             if let Some(peop) = dbs.people { study_people_dv.add(sd_sid, &peop); }
             if let Some(cies) = dbs.countries { study_cnts_dv.add(sd_sid, &cies); }
@@ -130,6 +131,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
             if let Some(iecs) = dbs.ie_crit { study_iec_dv.add(sd_sid, &iecs); }
             if let Some(obs) = dbs.objects { study_obs_dv.add(sd_sid, &obs); }
             if let Some(pubs) = dbs.publications { study_pubs_dv.add(sd_sid, &pubs); }
+            if let Some(pub_insts) = dbs.pub_instances {study_pubs_insts_dv.add(sd_sid, &pub_insts); }
 
             let imp_dt = Utc::now().naive_utc();
             import_update_dv.add(sd_sid, imp_event_id, &imp_dt );
@@ -147,6 +149,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
         study_iec_dv.shrink_to_fit();
         study_obs_dv.shrink_to_fit();
         study_pubs_dv.shrink_to_fit();
+        study_pubs_insts_dv.shrink_to_fit();
         import_update_dv.shrink_to_fit();
 
         studies_dv.store_data(src_pool).await?;
@@ -163,6 +166,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
         study_iec_dv.store_data(src_pool).await?;
         study_obs_dv.store_data(src_pool).await?;
         study_pubs_dv.store_data(src_pool).await?;
+        study_pubs_insts_dv.store_data(src_pool).await?;
         import_update_dv.store_data(src_pool).await?;
 
         if n % 250 == 0 {
@@ -204,6 +208,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
     transfer_study_features_data(src_pool).await?;
     transfer_study_objects_data(src_pool).await?;
     transfer_study_pubs_data(src_pool).await?;
+    transfer_study_pub_insts_data(src_pool).await?;
 
     Ok(ImportResult {
         num_available: num_files,
