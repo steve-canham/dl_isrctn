@@ -1,15 +1,18 @@
 use std::sync::LazyLock;
 use regex::Regex;
+use chrono::NaiveDate;
 
 
 #[allow(dead_code)]
 pub trait OptionStringExtensions {
+
     fn as_text_opt(&self) -> Option<String>;
     fn as_tidied_text_opt(&self) -> Option<String>;
     fn as_filtered_ident_opt(&self) -> Option<String>;
 
-    fn as_date_opt(&self) -> Option<String>;
-    fn as_datetime_opt(&self) -> Option<String>;
+    fn as_date_string_opt(&self) -> Option<String>;
+    fn as_datetime_string_opt(&self) -> Option<String>;
+    fn as_date_opt(&self) -> Option<NaiveDate>;
     fn as_i32_opt(&self) -> Option<i32>;
     fn as_f32_opt(&self) -> Option<f32>;
     fn as_bool_opt(&self) -> Option<bool>;
@@ -45,23 +48,15 @@ impl OptionStringExtensions for Option<String> {
 
     fn as_text_opt(&self) -> Option<String> {
          match self {
-            Some(s) => {
-                    let st = s.trim();  // trims all whitespace
-                    if st == ""
-                    {
-                        None
-                    } else {
-                        Some(st.to_string())
-                    }
-                },
-            None => None
+            Some(s) if s.trim() != "" => Some(s.trim().to_string()),
+            _ => None
         }
     }
 
     fn as_tidied_text_opt(&self) -> Option<String> {
 
         match self {
-            Some(s) => {
+            Some(s) if s.trim() != "" => {
 
                 // Trim all whitespace and then any enclosing quotes
 
@@ -73,7 +68,6 @@ impl OptionStringExtensions for Option<String> {
 
                 if low_ref == "null" || low_ref == "n/a"
                 || low_ref == "na" || low_ref == "none"
-                || low_ref == ""
                 {
                     None
                 }
@@ -87,9 +81,8 @@ impl OptionStringExtensions for Option<String> {
                     }
                 }
             },
-            None => None
+           _ => None
         }
-
     }
 
     fn as_filtered_ident_opt(&self) -> Option<String> {
@@ -100,155 +93,106 @@ impl OptionStringExtensions for Option<String> {
         // other choices might be necessary in other systems.
 
         match self {
-            Some(s) => {
-                let st = s.trim();
-                if st == "" || st.len() < 2  // 1 character ids not meaningful or useful
-                {
+            Some(s) if s.trim() != "" && s.trim().len() > 1 => {
+                let stl = s.trim().to_ascii_lowercase();
+                if stl == "n/a" || stl == "na" || stl == "no" || stl == "none"
+                || stl.starts_with("nil ") || stl.starts_with("not ") {
                     None
                 }
                 else {
-                    let stl = st.to_ascii_lowercase();
-                    if stl == "n/a" || stl == "na" || stl == "no" || stl == "none"
-                    || stl.starts_with("nil ") || stl.starts_with("not ") {
+                    static RE_ONE_AND_ZEROS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[01\. -]+$").unwrap());
+                    if RE_ONE_AND_ZEROS.is_match(s) {  // ids just with 1s and 0s rarely meaningful or useful
                         None
                     }
                     else {
-                        static RE_ONE_AND_ZEROS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^[01\. -]+$").unwrap());
-                        if RE_ONE_AND_ZEROS.is_match(st) {  // ids just with 1s and 0s rarely meaningful or useful
-                            None
-                        }
-                        else {
-                            Some(st.to_string())
-                        }
+                        Some(s.trim().to_string())
                     }
                 }
             },
-            None => None
+            _ => None
         }
     }
 
-    fn as_date_opt(&self) -> Option<String> {
+    fn as_date_string_opt(&self) -> Option<String> {
 
     // dates are kept as strings but truncated to the
     // short ISO YYYY-MM-DD format. It is assumed that the
     // fields using this extension are written as short ISO dates.
     // The regex checks that this is the case.
-    // N.B. Only checks foremat is correvt - may be invalid as a date
-
+    // N.B. Only checks format is correct - may be invalid as a date
+    
+        static ISO_DATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}").unwrap());
         match self {
-            Some(s) => {
-                    let st = s.trim();
-                    if st == ""
-                    {
-                        None
-                    }
-                    else {
-                        static ISO_DATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}").unwrap());
-                        if ISO_DATE.is_match(st) {
-                            Some(st[0..10].to_string())
-                        }
-                        else {
-                            None
-                        }
-                    }
-                },
-            None => None
+            Some(s) if ISO_DATE.is_match(s) => Some(s[0..10].to_string()),
+            _ => None,
         }
     }
 
-    fn as_datetime_opt(&self) -> Option<String> {
-
-    // datetimes are kept as strings but truncated to the
-    // ISO YYY-MM-DDThh:mm::ss format. It is assumed that the
-    // fields using this extension are written as long ISO dates.
-    // The regex checks that this is the case.
-    // N.B. Only checks foremat is correct - may be invalid as a datetime
-
+    fn as_date_opt(&self) -> Option<NaiveDate> {
+        static ISO_DATE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}").unwrap());
         match self {
-            Some(s) => {
-                    let st = s.trim();
-                    if st == ""
-                    {
-                        None
-                    }
-                    else {
-                        static ISO_DATETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}").unwrap());
-                        if ISO_DATETIME.is_match(st) {
-                            Some(st[0..19].to_string())
-                        }
-                        else {
-                            None
-                        }
-                    }
-                },
-                None => None
+            Some(s) if ISO_DATE.is_match(s) => {
+                match NaiveDate::parse_from_str(&s[0..10], "%Y-%m-%d") {
+                    Ok(d) => Some(d),
+                    Err(_) => None,
+                }
+            },
+            _ => None, 
+        }
+    }
+
+    fn as_datetime_string_opt(&self) -> Option<String> {
+
+    // datetimes are kept as strings but truncated to the ISO YYY-MM-DDThh:mm::ss format. It is assumed that the
+    // fields using this extension are written as long ISO dates. The regex checks that this is the case.
+    // N.B. Only checks format is correct - may be invalid as a datetime
+
+        static ISO_DATETIME: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}").unwrap());
+        match self {
+            Some(s) if ISO_DATETIME.is_match(s) =>  Some(s[0..19].to_string()),
+            _ => None
         }
     }
 
     fn as_i32_opt(&self) -> Option<i32> {
         match self {
-            Some(s) => {
-                let st = s.trim();
-                if st == ""
+            Some(s) if s.trim() != "" => {
+                match s.trim().parse::<i32>()
                 {
-                    None
-                }
-                else
-                {
-                    match st.parse::<i32>()
-                    {
-                        Ok(n) => Some(n),
-                        Err(_e) => None
-                    }
+                    Ok(n) => Some(n),
+                    Err(_e) => None
                 }
             },
-            None => None,
+            _ => None,
         }
     }
 
     fn as_f32_opt(&self) -> Option<f32> {
         match self {
-            Some(s) => {
-                let st = s.trim();
-                if st == ""
+            Some(s) if s.trim() != "" => {
+                match s.trim().parse::<f32>()
                 {
-                    None
-                }
-                else
-                {
-                    match st.parse::<f32>()
-                    {
-                        Ok(n) => Some(n),
-                        Err(_e) => None
-                    }
+                    Ok(n) => Some(n),
+                    Err(_e) => None
                 }
             },
-            None => None,
+            _ => None,
         }
     }
 
     fn as_bool_opt(&self) -> Option<bool> {
         match self {
-            Some(s) => {
-                let st = s.trim();
-                if st == ""
-                {
-                    None
-                }
-                else {
-                    let stl = st.to_ascii_lowercase();
-                    if stl == "true" || stl == "yes" {
-                        Some(true)
-                    }
-                    else if stl == "false" || stl == "no" {
-                        Some(false)
-                    }
-                    else {
-                        None
-                    }
+            Some(s) if s.trim() != "" => {
+                let slc = s.trim().to_ascii_lowercase();
+                match slc.as_str() {
+                    "true" => Some(true),
+                    "yes" => Some(true),
+                    "false" => Some(false),
+                    "no" => Some(false),
+                    _ => None
                 }
             },
-            None => None
+            _ => None
         }
     }
 
@@ -260,25 +204,17 @@ impl OptionStringExtensions for Option<String> {
         // Mostly applicable to identifiers where consistency
         // hyphens is needed for comparison purposes.
 
-
         match self.clone() {
-            Some(s) => {
-                let mut st = s.trim().to_string();
-                if st == "".to_string() {
-                    None
-                }
-                else {
-                    st = st.replace("\u{00AD}", "");  // soft hyphen
-                    st = st.replace("\u{2010}", "-");
-                    st = st.replace("\u{2011}", "-");
-                    st = st.replace("\u{2012}", "-");
-                    st = st.replace("\u{2013}", "-");
-                    st = st.replace("\u{2212}", "-");
-
-                    Some(st)
-                }
+            Some(s) if s.trim() != "" => {
+                let mut st = s.trim().replace("\u{00AD}", "");  // soft hyphen
+                st = st.replace("\u{2010}", "-");
+                st = st.replace("\u{2011}", "-");
+                st = st.replace("\u{2012}", "-");
+                st = st.replace("\u{2013}", "-");
+                st = st.replace("\u{2212}", "-");
+                Some(st)
             },
-            None => None,
+            _ => None,
         }
     }
 
@@ -289,217 +225,97 @@ impl OptionStringExtensions for Option<String> {
         // on a string option, so only basic null check required.
 
         match self.clone(){
-            Some(s) => {
-                let mut st = s.trim().to_string();
-                if st == "".to_string() {
-                    None
-                }
-                else {
-                    st = st.replace("\u{00A0}", " ");
-                    st = st.replace("\u{2000}", " ").replace("\u{2001}", " ");
-                    st = st.replace("\u{2002}", " ").replace("\u{2003}", " ");
-                    st = st.replace("\u{2007}", " ").replace("\u{2008}", " ");
-                    st = st.replace("\u{2009}", " ").replace("\u{200A}", " ");
-
-                    Some(st)
-                }
-
+            Some(s) if s.trim() != "" => {
+                let mut st = s.trim().replace("\u{00A0}", " ");
+                st = st.replace("\u{2000}", " ").replace("\u{2001}", " ");
+                st = st.replace("\u{2002}", " ").replace("\u{2003}", " ");
+                st = st.replace("\u{2007}", " ").replace("\u{2008}", " ");
+                st = st.replace("\u{2009}", " ").replace("\u{200A}", " ");
+                Some(st)
             },
-            None => None,
+            _ => None,
         }
     }
 
-
-
     fn replace_escaped(&self) -> Option<String> {
 
-        match self {
-            Some(s) => {
+        let ts = self.as_tidied_text_opt();
+        match ts {
+            Some(t) => {
 
-                // Top portion is the same as 'as_tidied_text_opt'
-                // Trim all whitespace and then any enclosing quotes
+                // Start with replacing non breaking spaces
 
-                let quoteless = s.trim().trim_matches('"');
-                let lower = quoteless.to_lowercase();
-                let low_ref = lower.as_str();
+                let mut tr = t.replace('\u{00A0}', " ");
+                tr = tr.replace('\u{2000}', " ").replace('\u{2001}', " ");
+                tr = tr.replace('\u{2002}', " ").replace('\u{2003}', " ");
+                tr = tr.replace('\u{2007}', " ").replace('\u{2008}', " ");
+                tr = tr.replace('\u{2009}', " ").replace('\u{200A}', " ");
+                tr = tr.replace('\u{00AE}', " ").replace('\u{2122}', " ");
 
-                // Check for common 'null value' values as well  as empty string
+                // Can sometimes be in as explicit unicode codes
 
-                if low_ref == "" || low_ref == "null" || low_ref == "n/a"
-                || low_ref == "na" || low_ref == "none"
+                if t.contains(r"\u")
                 {
-                    None
+                    tr = tr.replace(r"\u00A0", " ");
+                    tr = tr.replace(r"\u2000", " ").replace(r"\u2001", " ");
+                    tr = tr.replace(r"\u2002", " ").replace(r"\u2003", " ");
+                    tr = tr.replace(r"\u2007", " ").replace(r"\u2008", " ");
+                    tr = tr.replace(r"\u2009", " ").replace(r"\u200A", " ");
+                    tr = tr.replace(r"\u00AE", " ").replace(r"\u2122", " ");
                 }
-                else {
-                    let t = quoteless.trim_matches(&[' ', '-']);
-                    if t == "" {
-                        None
-                    }
-                    else {
 
-                        // Start with replacing non breaking spaces
+                // Some codes can be included in their escaped form
 
-                        let mut tr = t.replace('\u{00A0}', " ");
-                        tr = tr.replace('\u{2000}', " ").replace('\u{2001}', " ");
-                        tr = tr.replace('\u{2002}', " ").replace('\u{2003}', " ");
-                        tr = tr.replace('\u{2007}', " ").replace('\u{2008}', " ");
-                        tr = tr.replace('\u{2009}', " ").replace('\u{200A}', " ");
+                if t.contains(';') {
 
-                        tr = tr.replace('\u{00AE}', " ").replace('\u{2122}', " ");
+                    // Top two done first as they can impact the replacements below.
 
-                        // Can sometimes be in as explicit unicode codes
+                    tr= tr.replace("&#38;", "&").replace("&amp;", "&");
+                    tr = tr.replace("&#32;", " ").replace("&#37;", "%");
+                    tr = tr.replace("&#44;", ",").replace("&#45;", "-");
+                    tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
+                    tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
+                    tr = tr.replace("#gt;", ">").replace("#lt;", "<");
+                    tr = tr.replace("&gt;", ">").replace("&lt;", "<");
+                    tr = tr.trim_matches(&[';', ' ']).to_string()
 
-                        if t.contains(r"\u")
-                        {
-                            tr = tr.replace(r"\u00A0", " ");
-                            tr = tr.replace(r"\u2000", " ").replace(r"\u2001", " ");
-                            tr = tr.replace(r"\u2002", " ").replace(r"\u2003", " ");
-                            tr = tr.replace(r"\u2007", " ").replace(r"\u2008", " ");
-                            tr = tr.replace(r"\u2009", " ").replace(r"\u200A", " ");
-
-                            tr = tr.replace(r"\u00AE", " ").replace(r"\u2122", " ");
-                        }
-
-                        // Some codes can be included in their escaped form
-
-                        if t.contains(';') {
-
-                            // Do these two first as they can impact the replacements below.
-
-                            tr= tr.replace("&#38;", "&").replace("&amp;", "&");
-
-                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
-                            tr = tr.replace("&#44;", ",").replace("&#45;", "-");
-                            tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
-                            tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
-                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");
-                            tr = tr.replace("&gt;", ">").replace("&lt;", "<");
-
-                            tr = tr.trim_matches(&[';', ' ']).to_string()
-
-                        }
-
-                        tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
-                        tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
-                        tr = tr.replace('\u{0081}', "");   // remove control character that can (very rarely) appear in string
-
-                        Some(tr)
-
-                    }
                 }
+
+                tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
+                tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
+                tr = tr.replace('\u{0081}', "");   // remove control character that can (very rarely) appear in string
+                tr = tr.replace("\u{00AD}", "");  // remove soft hyphen
+                
+                Some(tr)
             },
-
             None => None
-
         }
-
     }
 
 
     fn replace_apostrophes(&self) -> Option<String> {
 
-          match self {
-            Some(s) => {
+        let ts = self.replace_escaped();
+        match ts {
+            Some(mut tr) if tr.contains('\'') => {
 
-                // Top portion is the same as 'as_tidied_text_opt'
-                // Trim all whitespace and then any enclosing quotes
+                // Do a blanket replacement of apostrophes to RSQs.
+                // Then deal with situations where a LSQ applies
 
-                let quoteless = s.trim().trim_matches('"');
-                let lower = quoteless.to_lowercase();
-                let low_ref = lower.as_str();
-
-                // Check for common 'null value' values as well  as empty string
-
-                if low_ref == "" || low_ref == "null" || low_ref == "n/a"
-                || low_ref == "na" || low_ref == "none"
-                {
-                    None
+                tr = tr.replace("'", "’");
+                if tr.starts_with('’') {
+                    let mut chars = tr.chars();
+                    chars.next();
+                    tr = format!("‘{}", chars.as_str());
                 }
-                else {
-                    let t = quoteless.trim_matches(&[' ', '-']);
-                    if t == "" {
-                        None
-                    }
-                    else {
-
-                        // This part replicates 'replace_escaped'
-
-                        // Start with replacing non breaking spaces
-
-                        let mut tr = t.replace('\u{00A0}', " ");
-                        tr = tr.replace('\u{2000}', " ").replace('\u{2001}', " ");
-                        tr = tr.replace('\u{2002}', " ").replace('\u{2003}', " ");
-                        tr = tr.replace('\u{2007}', " ").replace('\u{2008}', " ");
-                        tr = tr.replace('\u{2009}', " ").replace('\u{200A}', " ");
-
-                        tr = tr.replace('\u{00AE}', " ").replace('\u{2122}', " ");
-
-                        // Can sometimes be in as explicit unicode codes
-
-                        if t.contains(r"\u")
-                        {
-                            tr = tr.replace(r"\u00A0", " ");
-                            tr = tr.replace(r"\u2000", " ").replace(r"\u2001", " ");
-                            tr = tr.replace(r"\u2002", " ").replace(r"\u2003", " ");
-                            tr = tr.replace(r"\u2007", " ").replace(r"\u2008", " ");
-                            tr = tr.replace(r"\u2009", " ").replace(r"\u200A", " ");
-
-                            tr = tr.replace(r"\u00AE", " ").replace(r"\u2122", " ");
-                        }
-
-                        // Some codes can be included in their escaped form
-
-                        if t.contains(';') {
-
-                            // Do these two first as they can impact the replacements below.
-
-                            tr = tr.replace("&#38;", "&").replace("&amp;", "&");
-
-                            tr = tr.replace("&#32;", " ").replace("&#37;", "%");
-                            tr = tr.replace("&#44;", ",").replace("&#45;", "-");
-                            tr = tr.replace("&#39;", "'").replace("&#8217;", "'");
-                            tr = tr.replace("&quot;", "'").replace("&rsquo;", "’");
-                            tr = tr.replace("#gt;", ">").replace("#lt;", "<");
-                            tr = tr.replace("&gt;", ">").replace("&lt;", "<");
-
-                            tr = tr.trim_matches(&[';', ' ']).to_string()
-
-                        }
-
-                        tr = tr.replace("â??", "");  // remove combination sometimes used to denote an 'unprintable character'
-                        tr = tr.replace(r"\\", "");  // remove 'double escape' sequence now found in some CTG text
-                        tr = tr.replace('\u{0081}', "");  // remove control character that can (very rarely) appear in string
-                        tr = tr.replace("\u{00AD}", "");  // remove soft hyphen
-
-                        // Now (!) do the replace apostrophes part
-
-                        if tr.contains('\'') {
-
-                            // Do a blanket replacement of apostrophes to RSQs.
-                            // Then deal with situations where a LSQ applies
-
-                            tr = tr.replace("'", "’");
-
-                            if tr.starts_with('’') {
-                                let mut chars = tr.chars();
-                                chars.next();
-                                tr = format!("‘{}", chars.as_str());
-                            }
-
-                            tr = tr.replace(" ’", " ‘");
-                            tr = tr.replace("(’", "(‘");
-                        }
-
-                        Some(tr)
-
-                    }
-                }
+                tr = tr.replace(" ’", " ‘");
+                tr = tr.replace("(’", "(‘");
+                Some(tr)
             },
+            Some(tr) => Some(tr),
             None => None,
         }
     }
-
-
 
     fn replace_tags(&self) -> Option<String> {
 
@@ -508,155 +324,145 @@ impl OptionStringExtensions for Option<String> {
         // The null check is therefore rudimentary.
 
         match self {
-            Some(sf) => {
-
-               let mut s= sf.trim().to_string();
-
-               if s == "".to_string()
-               {
-                    None
-               }
-               else {
+            Some(s0) if s0.trim() != "" => {
 
                 // String must include both opening and closing tags to be processed.
+
+                if !(s0.contains('<') && s0.contains('>')) {
+                    Some(s0.trim().to_string())
+                }
+                else {  // Consider the commonest case and then check if that has removed tags
+
+                    let mut s = s0.trim().replace("<br>", "\n").replace("<br/>", "\n")
+                        .replace("<br />", "\n").replace("<br/ >", "\n")
+                        .replace("< br / >", "\n");
 
                     if !(s.contains('<') && s.contains('>')) {
                         Some(s)
                     }
-                    else {  // Consider the commonest case and then check if that has removed tags
+                    else {
 
-                        s = s.replace("<br>", "\n").replace("<br/>", "\n")
-                            .replace("<br />", "\n").replace("<br/ >", "\n")
-                            .replace("< br / >", "\n");
+                        // Need to go through the characters and remove the 'islands' of tags
+                        // and their included text, but - - consider
+                        // a) genuine < and > signs; b) sub and superscripted text, and
+                        // c) the need to make bullet tags into text based bullets
 
-                        if !(s.contains('<') && s.contains('>')) {
-                            Some(s)
-                        }
-                        else {
+                        s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
+                        s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
 
-                            // Need to go through the characters and remove the 'islands' of tags
-                            // and their included text, but - - consider
-                            // a) genuine < and > signs; b) sub and superscripted text, and
-                            // c) the need to make bullet tags into text based bullets
+                        // When the tags above are removed the \n and bullets will now be left
 
-                            s = s.replace("<li", "\n\u{2022} <li");  // to solve bullet issue
-                            s = s.replace("<p", "\n<p");  // to ensure line breaks are conserved
+                        // replace any <sub>, </sub>, <sup>, </sup> tags with single chars
 
-                            // When the tags above are removed the \n and bullets will now be left
+                        s = s.replace("<sub>", "\u{21E9}"); // fat arrow down
+                        s = s.replace("</sub>", "\u{21D1}"); // open fat arrow up
+                        s = s.replace("<sup>", "\u{21E7}");  // fat arrow up
+                        s = s.replace("</sup>", "\u{21D3}"); // open fat arrow down
 
-                            // replace any <sub>, </sub>, <sup>, </sup> tags with single chars
+                        //  use regex to find and 'protect' standalone < signs
 
-                            s = s.replace("<sub>", "\u{21E9}"); // fat arrow down
-                            s = s.replace("</sub>", "\u{21D1}"); // open fat arrow up
-                            s = s.replace("<sup>", "\u{21E7}");  // fat arrow up
-                            s = s.replace("</sup>", "\u{21D3}"); // open fat arrow down
+                        static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
+                        s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
 
-                            //  use regex to find and 'protect' standalone < signs
+                        // Now go through characters and create new string (new_s)
 
-                            static RE_LT_ARROW: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<(?<n>( |[0-9\.]))").unwrap());
-                            s = (RE_LT_ARROW.replace_all(&s, "\u{222E}$n")).to_string();   // line integral symbol
+                        let mut inside = false;
+                        let mut in_sub = false;
+                        let mut in_sup = false;
+                        let mut new_s = "".to_string();
 
-                            // Now go through characters and create new string (new_s)
+                        // loop over string chars.
 
-                            let mut inside = false;
-                            let mut in_sub = false;
-                            let mut in_sup = false;
-                            let mut new_s = "".to_string();
+                        for c in s.chars() {
 
-                            // loop over string chars.
+                            // Detect tag starts and ends, and skip over tag edge chars.
 
-                            for c in s.chars() {
-
-                                // Detect tag starts and ends, and skip over tag edge chars.
-
-                                match c {
-                                    '<' => {inside = true;  continue;},
-                                    '>' => {if inside {inside = false;  continue;}}
-                                    '\u{21E9}'  => {in_sub = true; continue;},
-                                    '\u{21E7}'  => {in_sup = true; continue;},
-                                    '\u{21D1}'  => {in_sub = false; continue;},
-                                    '\u{21D3}'  => {in_sup = false; continue;},
-                                    _ => {},
-                                }
-
-                                if in_sub {
-                                    let subc = match c {
-                                        '0' => '\u{2080}',
-                                        '1' => '\u{2081}',
-                                        '2' => '\u{2082}',
-                                        '3' => '\u{2083}',
-                                        '4' => '\u{2084}',
-                                        '5' => '\u{2085}',
-                                        '6' => '\u{2086}',
-                                        '7' => '\u{2087}',
-                                        '8' => '\u{2088}',
-                                        '9' => '\u{2089}',
-                                        '+' => '\u{208A}',
-                                        '-' => '\u{208B}',
-                                        '=' => '\u{208C}',
-                                        '(' => '\u{208D}',
-                                        ')' => '\u{208E}',
-                                        'a' => '\u{2090}',
-                                        'e' => '\u{2091}',
-                                        'o' => '\u{2092}',
-                                        'x' => '\u{2093}',
-                                        'h' => '\u{2095}',
-                                        'k' => '\u{2096}',
-                                        'l' => '\u{2097}',
-                                        'm' => '\u{2098}',
-                                        'n' => '\u{2099}',
-                                        'p' => '\u{209A}',
-                                        's' => '\u{209B}',
-                                        't' => '\u{209C}',
-                                        _ => c
-                                    };
-                                    new_s.push(subc);
-
-                                }
-                                else if in_sup {
-                                    let supc = match c {
-                                        '0' => '\u{2070}',
-                                        '1' => '\u{00B9}',
-                                        '2' => '\u{00B2}',
-                                        '3' => '\u{00B3}',
-                                        '4' => '\u{2074}',
-                                        '5' => '\u{2075}',
-                                        '6' => '\u{2076}',
-                                        '7' => '\u{2077}',
-                                        '8' => '\u{2078}',
-                                        '9' => '\u{2079}',
-                                        'i' => '\u{2071}',
-                                        '+' => '\u{207A}',
-                                        '-' => '\u{207B}',
-                                        '=' => '\u{207C}',
-                                        '(' => '\u{207D}',
-                                        ')' => '\u{207E}',
-                                        'n' => '\u{207F}',
-                                        _ => c
-                                    };
-                                    new_s.push(supc);
-                                }
-                                else if inside {
-                                    // do nothing
-                                }
-                                else {
-                                    // 'normal' outside
-                                    new_s.push(c);
-                                }
+                            match c {
+                                '<' => {inside = true;  continue;},
+                                '>' => {if inside {inside = false;  continue;}}
+                                '\u{21E9}'  => {in_sub = true; continue;},
+                                '\u{21E7}'  => {in_sup = true; continue;},
+                                '\u{21D1}'  => {in_sub = false; continue;},
+                                '\u{21D3}'  => {in_sup = false; continue;},
+                                _ => {},
                             }
 
-                            new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
+                            if in_sub {
+                                let subc = match c {
+                                    '0' => '\u{2080}',
+                                    '1' => '\u{2081}',
+                                    '2' => '\u{2082}',
+                                    '3' => '\u{2083}',
+                                    '4' => '\u{2084}',
+                                    '5' => '\u{2085}',
+                                    '6' => '\u{2086}',
+                                    '7' => '\u{2087}',
+                                    '8' => '\u{2088}',
+                                    '9' => '\u{2089}',
+                                    '+' => '\u{208A}',
+                                    '-' => '\u{208B}',
+                                    '=' => '\u{208C}',
+                                    '(' => '\u{208D}',
+                                    ')' => '\u{208E}',
+                                    'a' => '\u{2090}',
+                                    'e' => '\u{2091}',
+                                    'o' => '\u{2092}',
+                                    'x' => '\u{2093}',
+                                    'h' => '\u{2095}',
+                                    'k' => '\u{2096}',
+                                    'l' => '\u{2097}',
+                                    'm' => '\u{2098}',
+                                    'n' => '\u{2099}',
+                                    'p' => '\u{209A}',
+                                    's' => '\u{209B}',
+                                    't' => '\u{209C}',
+                                    _ => c
+                                };
+                                new_s.push(subc);
 
-                            Some(new_s)
-
+                            }
+                            else if in_sup {
+                                let supc = match c {
+                                    '0' => '\u{2070}',
+                                    '1' => '\u{00B9}',
+                                    '2' => '\u{00B2}',
+                                    '3' => '\u{00B3}',
+                                    '4' => '\u{2074}',
+                                    '5' => '\u{2075}',
+                                    '6' => '\u{2076}',
+                                    '7' => '\u{2077}',
+                                    '8' => '\u{2078}',
+                                    '9' => '\u{2079}',
+                                    'i' => '\u{2071}',
+                                    '+' => '\u{207A}',
+                                    '-' => '\u{207B}',
+                                    '=' => '\u{207C}',
+                                    '(' => '\u{207D}',
+                                    ')' => '\u{207E}',
+                                    'n' => '\u{207F}',
+                                    _ => c
+                                };
+                                new_s.push(supc);
+                            }
+                            else if inside {
+                                // do nothing
+                            }
+                            else {
+                                // 'normal' outside
+                                new_s.push(c);
+                            }
                         }
+
+                        new_s = new_s.replace("\u{222E}", "<");  // put any lt signs back
+
+                        Some(new_s)
+
                     }
                 }
             },
-            None => None,
+            _ => None,
        }
     }
-
 
 
     fn replace_gaps(&self) -> Option<String> {
@@ -665,43 +471,36 @@ impl OptionStringExtensions for Option<String> {
         // strings. Null check is therefore basic. Regularises line endings and removes double spaces
         // and double carriage returns.
 
-        match self {
-            Some(sf) => {
+        match self.clone() {
+            Some(mut s) if s.trim() != "" => {
 
-                let mut s = sf.trim().to_string();
+                // Regularise endings
 
-                if s == "".to_string() {
-                    None
+        
+                s = s.trim().replace("\r\n", "\n").replace("\r", "\n");
+
+                // Regularise carriage returns
+
+                while s.contains("\n:\n")
+                {
+                    s = s.replace("\n:\n", ":\n");
                 }
-                else {
-
-                    // Regularise endings
-
-                    s = s.replace("\r\n", "\n").replace("\r", "\n");
-
-                    // Regularise carriage returns
-
-                    while s.contains("\n:\n")
-                    {
-                        s = s.replace("\n:\n", ":\n");
-                    }
-                    while s.contains("\n\n")
-                    {
-                        s = s.replace("\n\n", "\n");
-                    }
-                    s = s.replace("\n ", "\n");
-
-                    // Remove extended spaces
-
-                    while s.contains("  ")
-                    {
-                        s = s.replace("  ", " ");
-                    }
-
-                    Some(s)
+                while s.contains("\n\n")
+                {
+                    s = s.replace("\n\n", "\n");
                 }
+                s = s.replace("\n ", "\n");
+
+                // Remove extended spaces
+
+                while s.contains("  ")
+                {
+                    s = s.replace("  ", " ");
+                }
+
+                Some(s)
             },
-            None => None,
+            _ => None,
        }
     }
 
@@ -872,6 +671,25 @@ mod tests {
     }
 
     #[test]
+    fn check_as_date_string_opt() {
+
+        let t_opt = Some("random_string".to_string());
+        assert_eq!(t_opt.as_date_string_opt(), None);
+
+        let t_opt = Some("20-04-23".to_string());
+        assert_eq!(t_opt.as_date_string_opt(), None);
+
+        let t_opt = Some("2020-04-23".to_string());
+        assert_eq!(t_opt.as_date_string_opt(), Some("2020-04-23".to_string()));
+
+        let t_opt = Some("2020-04-66".to_string());
+        assert_eq!(t_opt.as_date_string_opt(), Some("2020-04-66".to_string()));
+
+        let t_opt = Some("2020-04-23T12:34:45".to_string());
+        assert_eq!(t_opt.as_date_string_opt(), Some("2020-04-23".to_string()));
+    }
+
+    #[test]
     fn check_as_date_opt() {
 
         let t_opt = Some("random_string".to_string());
@@ -881,35 +699,35 @@ mod tests {
         assert_eq!(t_opt.as_date_opt(), None);
 
         let t_opt = Some("2020-04-23".to_string());
-        assert_eq!(t_opt.as_date_opt(), Some("2020-04-23".to_string()));
+        assert_eq!(t_opt.as_date_opt(), Some(NaiveDate::from_ymd_opt(2020, 04, 23).unwrap()));
 
         let t_opt = Some("2020-04-66".to_string());
-        assert_eq!(t_opt.as_date_opt(), Some("2020-04-66".to_string()));
+        assert_eq!(t_opt.as_date_opt(), None);
 
         let t_opt = Some("2020-04-23T12:34:45".to_string());
-        assert_eq!(t_opt.as_date_opt(), Some("2020-04-23".to_string()));
+        assert_eq!(t_opt.as_date_opt(), Some(NaiveDate::from_ymd_opt(2020, 04, 23).unwrap()));
     }
 
     #[test]
-    fn check_as_datetime_opt() {
+    fn check_as_datetime_string_opt() {
 
         let t_opt = Some("random_string".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), None);
+        assert_eq!(t_opt.as_datetime_string_opt(), None);
 
         let t_opt = Some("20-04-23".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), None);
+        assert_eq!(t_opt.as_datetime_string_opt(), None);
 
         let t_opt = Some("2020-04-23".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), None);
+        assert_eq!(t_opt.as_datetime_string_opt(), None);
 
         let t_opt = Some("2020-04-23T12:34:45".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T12:34:45".to_string()));
+        assert_eq!(t_opt.as_datetime_string_opt(), Some("2020-04-23T12:34:45".to_string()));
 
         let t_opt = Some("2020-04-23T12:34:45.12345".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T12:34:45".to_string()));
+        assert_eq!(t_opt.as_datetime_string_opt(), Some("2020-04-23T12:34:45".to_string()));
 
         let t_opt = Some("2020-04-23T33:99:99.12345".to_string());
-        assert_eq!(t_opt.as_datetime_opt(), Some("2020-04-23T33:99:99".to_string()));
+        assert_eq!(t_opt.as_datetime_string_opt(), Some("2020-04-23T33:99:99".to_string()));
     }
 
      #[test]

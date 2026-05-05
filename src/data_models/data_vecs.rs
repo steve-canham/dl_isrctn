@@ -515,11 +515,11 @@ impl CountryVecs{
         }
     }
 
-    pub fn add(&mut self, sd_sid:&String, v: &Vec<DBCountry>)
+    pub fn add(&mut self, sd_sid:&String, v: &Vec<String>)
     {
         for r in v {
             self.sd_sids.push(sd_sid.clone());
-            self.country_names.push(r.country_name.clone());
+            self.country_names.push(r.clone());
         }
     }
 
@@ -943,7 +943,7 @@ impl PublicationVecs{
         .bind(&self.date_createds)
         .bind(&self.date_publisheds)
         .bind(&self.date_updateds)
-        .bind(&self.publication_years)       
+        .bind(&self.publication_years)
         .execute(pool)
         .await.map_err(|e| AppError::SqlxError(e, sql.to_string()))
     }
@@ -1007,7 +1007,7 @@ impl PubInstanceVecs{
 
     pub async fn store_data(&self, pool : &Pool<Postgres>) -> Result<PgQueryResult, AppError> {
 
-        let sql = r#"INSERT INTO sd.study_pub_instances(sd_sid, pub_id, instance_type, instance_id,  
+        let sql = r#"INSERT INTO sd.study_pub_instances(sd_sid, pub_id, instance_type, instance_id,
                     instance_lang, instance_notes, access_url, access_type, url_target_type)
                     SELECT * FROM UNNEST($1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
                          $6::text[], $7::text[], $8::text[], $9::text[])"#;

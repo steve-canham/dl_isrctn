@@ -2,7 +2,6 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 
-
 #[allow(dead_code)]
 pub trait OptionNameExtensions {
 

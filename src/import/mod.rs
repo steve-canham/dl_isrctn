@@ -120,7 +120,7 @@ pub async fn import_data(import_type: &ImportType, imp_event_id:i32) -> Result<I
             study_partics_dv.add(sd_sid, &dbs.participants);
 
             if let Some(ts) = dbs.titles { study_titles_dv.add(sd_sid, &ts); }
-            if let Some(ids) = dbs.identifiers { study_idents_dv.add(sd_sid, &ids); }
+            study_idents_dv.add(sd_sid, &dbs.identifiers); 
             if let Some(orgs) = dbs.orgs { study_orgs_dv.add(sd_sid, &orgs); }
             if let Some(peop) = dbs.people { study_people_dv.add(sd_sid, &peop); }
             if let Some(cies) = dbs.countries { study_cnts_dv.add(sd_sid, &cies); }

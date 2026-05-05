@@ -177,45 +177,20 @@ pub fn get_full_name(given_name: Option<String>, family_name: Option<String>) ->
     }
 }
 
-
-pub fn  get_cr_numbered_strings(input: &String) -> Option<Vec<&str>> {
-
+pub fn get_cr_numbered_strings(input: &String) -> Vec<&str> {
     static RE_CRNUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\n\d{1,2}\.").unwrap());
-    
-    let res: Vec<&str> = RE_CRNUM_SPLITTER.split(input)
-                  .map(|p| p.trim())
-                  .collect();
-
-    let mut result: Vec<&str> = Vec::new();
-    if res.len() > 0 {
-        for mut r in res {
-            if r.starts_with("1.") { r = &r[2..];}
-            result.push(r.trim());
-        }
-    }
-
-    match result.len() {
-        0 => None,
-        _ => Some(result)
-    }
+    RE_CRNUM_SPLITTER.split(input)
+        .map(|p| if p.starts_with("1.") { p[2..].trim()} else {p.trim()})
+        .collect()
 }
 
-
-pub fn  get_numbered_strings(input: &String) -> Option<Vec<&str>> {
-
+pub fn get_numbered_strings(input: &String) -> Vec<&str> {
     static RE_NUM_SPLITTER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\d{1,2}\. ").unwrap());
-    
-    let result: Vec<&str> = RE_NUM_SPLITTER.split(input)
-                        .map(|p| p.trim())
-                        .filter(| t| *t != "")
-                        .collect();
-
-    match result.len() {
-        0 => None,
-        _ => Some(result)
-    }
+    RE_NUM_SPLITTER.split(input)
+        .map(|p| p.trim())
+        .filter(|t| *t != "")
+        .collect()
 }
-
 
 pub fn  get_comma_delim_strings(input: &String, min_width: usize) -> Vec<String> {
 
@@ -224,14 +199,10 @@ pub fn  get_comma_delim_strings(input: &String, min_width: usize) -> Vec<String>
     // Therefore a need to do a run through the string chars, replacing 'meaningful' commas
     // with '||' and then split on the '||'s.
 
-
-    // loop over string chars.
-
     let mut in_brackets = false;
     let mut new_s = "".to_string();
 
-    for c in input.chars() {
-        
+    for c in input.chars() {       // loop over string chars.
         match c {
             '(' => {
                 in_brackets = true;  new_s.push(c);},
@@ -254,8 +225,8 @@ pub fn  get_comma_delim_strings(input: &String, min_width: usize) -> Vec<String>
                          .map(|p| p.trim())
                          .collect();
 
-    // In addition, somne comma delimited portions are small and in fact are extensions
-    // of the item before...
+    // In addition, somne comma delimited portions are small 
+    // and in fact are extensions of the item before...
 
     if res.len() > 1 {
         let mut modified_res: Vec<String> = Vec::new();
@@ -291,7 +262,6 @@ pub fn  get_comma_delim_strings(input: &String, min_width: usize) -> Vec<String>
     else {
         vec![new_s.to_string()]   // no split, just return input
     }
-
 }
 
 
@@ -304,14 +274,14 @@ mod tests {
     fn check_get_cr_numbered_strings() {
 
         let input = &"1. Item 1\n2. item 2. \n3.item3".to_string();
-        assert_eq!(get_cr_numbered_strings(input), Some(vec!["Item 1", "item 2.", "item3"]));
+        assert_eq!(get_cr_numbered_strings(input), vec!["Item 1", "item 2.", "item3"]);
     }
 
     #[test]
     fn check_get_numbered_strings() {
 
         let input = &"1. Item 1; 2. item 2; 3. item3".to_string();
-        assert_eq!(get_numbered_strings(input), Some(vec!["Item 1;", "item 2;", "item3"]));
+        assert_eq!(get_numbered_strings(input), vec!["Item 1;", "item 2;", "item3"]);
     }
 
     #[test]

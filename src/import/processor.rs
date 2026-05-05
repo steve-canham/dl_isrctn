@@ -1,5 +1,4 @@
-use crate::data_models::json_models::Intervention;
-use crate::data_models::json_models::Study;
+use crate::data_models::json_models::*;
 use crate::data_models::db_models::*;
 use crate::helpers::string_extensions::*;
 use crate::helpers::name_extensions::*;
@@ -10,8 +9,7 @@ use super::support_fns::*;
 use chrono::{NaiveDate, NaiveDateTime, Utc};
 use std::sync::LazyLock;
 use regex::Regex;
-//use log::info;
-
+use log::info;
 
 // The processor needs to creat a full DB version of each study's data,
 // working on the whole of the data to present it in aa 'database ready' form.
@@ -31,10 +29,10 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let acronym = s.acronym.clone().clean();
 
     let (db_titles, display_title) = derive_titles(&pub_title, &sci_title, &acronym);
-  
+
     // Summary
 
-    // brief description
+    // Brief description.
     // By default taken from the 'plain english summmary', as truncated and cleaned
     // during the data download process. But if this is missing, or states it was
     // not provided at the time the record was created, a description is constructed from the
@@ -54,14 +52,14 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         None => "No description text provided".to_string(),
     };
 
-    // study status - Sometimes from override study / study start status but more commonly from dates.
+    // Study status - Sometimes from override study / study start status but more commonly from dates.
     // Means periodic full import or a separate mechanism to update statuses against dates.
     // It appears that all relevant dates are always available.
     // Need to check later for results being published, in which cases ensure status is completed
-    
+
     let status_override = s.recruitment.recruitment_status_override.clone();
     let start_status_override = s.recruitment.recruitment_start_status_override.clone();
-    
+
     let status_string = match &status_override {
         Some(sov) if sov == "Stopped" => "Terminated",
         Some(sov) => sov,  // usually 'Suspended'
@@ -93,11 +91,11 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         },
     };
     let status_opt = if status_string == "" {None} else {Some(status_string.to_string())};
-    
+
     let type_id = get_study_type(&s.design.primary_study_design);
 
     let date_last_revised = match &s.registration.last_updated {
-        Some(ds) if ds.len() > 10 => 
+        Some(ds) if ds.len() > 10 =>
             match NaiveDate::parse_from_str(&ds[..10], "%Y-%m-%d") {
             Ok(d) => Some(d),
             Err(_) => None,
@@ -119,14 +117,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         date_last_revised: date_last_revised,
         dt_of_data_fetch: dt_of_data_fetch,
     };
-    
-    
+
     // dates
 
-    let (reg_year, reg_month, reg_date_type) = split_date_string( s.registration.date_id_assigned.clone());
-    let (start_year, start_month, start_date_type) = split_date_string( s.recruitment.recruitment_start.clone());
-    let (comp_year, comp_month, comp_date_type) = split_date_string( s.summary.overall_end_date.clone());
-    let (res_year, res_month, res_date_type) = split_date_string( s.results.intent_to_publish.clone());
+    let (reg_year, reg_month, reg_date_type) = split_date_string(s.registration.date_id_assigned.clone());
+    let (start_year, start_month, start_date_type) = split_date_string(s.recruitment.recruitment_start.clone());
+    let (comp_year, comp_month, comp_date_type) = split_date_string(s.summary.overall_end_date.clone());
+    let (res_year, res_month, res_date_type) = split_date_string(s.results.intent_to_publish.clone());
 
     let dates = DBStudyDates {
         reg_year: reg_year,
@@ -143,44 +140,33 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         res_date_type: res_date_type,
     };
 
-
     // participants
 
-    let mut enrolment = None;
-    let mut enrolment_type: Option<String> = None;
-    if let Some(f) = s.recruitment.total_final_enrolment.clone() && f != "0"{
-        enrolment = Some(f);
-        enrolment_type = Some("a".to_string());
-    }
-    else {
-        if let Some(t) = s.recruitment.target_enrolment.clone() {
-            if t == "0" {
-                enrolment = None;
-                enrolment_type = None;
+    let (enrolment, enrolment_type) = match s.recruitment.total_final_enrolment.clone() {
+        Some(f) if f != "0" =>  (Some(f), Some("a".to_string())),
+        _ => {
+            match s.recruitment.target_enrolment.clone() {
+                Some(t) if t != "0" => (Some(t), Some("e".to_string())),
+                _ => (None, None),
             }
-            else {
-                enrolment = Some(t);
-                enrolment_type = Some("e".to_string());
-            }
-        }
-    }
+        },
+    };
 
     let gender_flag = match s.participants.gender.clone() {
         Some(gf) if gf.to_lowercase().starts_with("not") => None,
         Some(gf) => Some(gf.to_lowercase().chars().next().unwrap().to_string()),  // "a", "m" or "f"
         _ => None,
     };
-  
+
     let min_age_as_string = s.participants.l_age_limit.clone();
     let (min_age, min_age_units, min_num_days) = split_age_string(&min_age_as_string);
-    
+
     let max_age_as_string = s.participants.u_age_limit.clone();
     let (max_age, max_age_units, max_num_days) = split_age_string(&max_age_as_string);
-    
+
     let age_group_flag = derive_age_group_flag(min_num_days, max_num_days);
 
     let mut participants = DBStudyPartics {
-
         enrolment_target: s.recruitment.target_enrolment.clone(),
         enrolment_final: s.recruitment.total_final_enrolment.clone(),
         enrolment_total: s.recruitment.total_target.clone(),
@@ -203,14 +189,13 @@ pub fn process_study_data(s: &Study) -> DBStudy {
     let mut db_ids: Vec<DBIdentifier> = Vec::new();
 
     // Include the ISRCTN id as the first identifier
+    // Then the secondary ids already identified in the data download
 
     db_ids.push(DBIdentifier {
         id_value: sd_sid.clone(),
         id_type_id: 126,
         id_type: "ISRCTN ID".to_string(),
     });
-
-    // Then the secondary ids already identified in the data download
 
     if let Some(ids) = &s.identifiers {
         for id in ids {
@@ -222,334 +207,66 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         }
     }
 
-
     // Organisations
 
-    let mut db_orgs: Vec<DBOrganisation> = Vec::new();
-    let mut db_funds: Vec<DBOrganisation> = Vec::new();
+    let db_orgs = derive_orgs(&sd_sid, &s.sponsors, &s.funders);
 
-    // sponsors
+    // Contacts
 
-    // ? TidyOrgName(sid);
+    let db_peop = derive_contacts(&s.contacts);
 
-    if let Some(sponsors) = &s.sponsors {
-        for s in sponsors {
-            if s.organisation.appears_plausible_org_name() {
-                let sname = s.organisation.clean().tidy_org_name(&sd_sid);
-                db_orgs.push(DBOrganisation {
-                    org_name: sname,
-                    org_country: s.country.clone(),
-                    org_ror_id: s.ror_id.clone(),
-                    org_cref_id: None,
-                    is_sponsor: Some(true),
-                    is_funder: None,
-                    is_collaborator: None,
-                });
-            }
-        }
-    }
+    // Countries
 
-    // funders
-
-    if let Some(funders) = &s.funders {
-        for f in funders {
-            if f.name.appears_plausible_org_name() {
-                let fname = f.name.clean().tidy_org_name(&sd_sid);
-
-                // See if that name has been used before as a sponsor.
-
-                let mut duplicated = false;
-                for dbo in &mut db_orgs {
-
-                    if let Some(true) = dbo.is_sponsor {
-                        if dbo.org_name == fname {  // Change contribution type and try to combine information
-                            dbo.is_funder = Some(true);
-                            dbo.org_cref_id = f.fund_ref.clone();
-                            duplicated = true;
-                            break;
-                        }
-                    }
-                }
-
-                if !duplicated   // Add as a separate funder.
-                {
-                    db_funds.push(DBOrganisation {
-                    org_name: fname,
-                    org_country: None,
-                    org_ror_id: None,
-                    org_cref_id: f.fund_ref.clone(),
-                    is_sponsor: None,
-                    is_funder: Some(true),
-                    is_collaborator: None,
-                    });
-                }
-            }
-            else {
-               // info!("odd org name{:?}, for {}", f.name.clone(), &sd_sid)
-            }
-        }
-    }
-
-    db_orgs.append(&mut db_funds);
-
-
-    // contacts
-
-    let mut db_peop: Vec<DBPerson> = Vec::new();
-
-    if let Some(contacts) = &s.contacts {
-        for c in contacts {
-            if c.surname.appears_plausible_person_name() {
-                if let Some(cts) = &c.contact_types {
-                    let mut roles: Vec<String> = Vec::new();
-                    for ct in cts {
-                        let role_to_add = match ct.to_lowercase().as_str() {
-                            "principal investigator" => "Principal Investigator",
-                            "scientific" => "Scientific contact",
-                            _ => ""
-                        };
-                        if role_to_add != "" {
-                            roles.push(role_to_add.to_string());
-                        }
-                    }
-                    let role_list = roles.join(", ");
-                    if role_list != "" {
-                        db_peop.push(DBPerson {
-                            full_name: get_full_name(c.forename.clone(), c.surname.clone()),
-                            listed_as: Some(role_list),
-                            orcid_id: c.orcid.tidy_orcid(),
-                            affiliation: c.address.clone(),
-                            email_domain: c.email.extract_domain(),
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-
-    // countries
-
-    let mut db_countries: Vec<DBCountry> = Vec::new();
-    if let Some(cies) = &s.countries {
-        for c in cies {
-            db_countries.push ( DBCountry {
-                country_name: c.clone(),
-            });
-        }
-    }
-
+    let db_countries = s.countries.clone();  // both Option<Vec<String>>
 
     // Conditions
 
-    let mut db_conds: Vec<DBCondition>= Vec::new();
-
-    if let Some(conds) = &s.conditions {
-        for c in conds {
-
-            let mut desc: Option<String> = None;
-            let mut c2: Option<String> = None;
-
-            // re-arrange these odd entries where all three field are put into the description
-
-            if let Some(ds) = c.description.clone() {
-
-                if ds.starts_with("Topic:") {
-                    let ds_parts: Vec<&str> = ds.split(';').collect();
-                    if ds_parts.len() == 3 {
-                        let c2_section = ds_parts[1].trim();
-                        let desc_section = ds_parts[2].trim();
-                        if c2_section.starts_with("Subtopic:") {
-                            c2 = Some(c2_section[9..].trim().to_string());
-                        }
-                        if desc_section.starts_with("Disease:") {
-                            desc = Some(desc_section[8..].trim().to_string());
-                        }
-                    }
-                    if ds_parts.len() == 1 {
-                        let ds_parts2: Vec<&str> = ds.split('/').collect();
-                        if ds_parts2.len() == 2 {
-                            c2 = Some(ds_parts2[1].trim().to_string());
-                            desc = None;
-                        }
-                    }
-                }
-                else {   // A description present but 'normal', not 'Topic:...
-
-                    desc = Some(ds.clone());
-
-                    // May be the same as c2, if so make it None
-
-                     if let Some(c) = &c2
-                        && c.trim().to_lowercase() == ds.trim().to_lowercase() {
-                        desc = None;
-                     }
-                }
-            }
-            else  {    // No description present, just leave c2 'as is'
-                desc = None;
-                c2 = c.disease_class2.clone();
-            }
-
-            db_conds.push ( DBCondition {
-                class1: c.disease_class1.clone(),
-                class2: c2,
-                specific: desc,
-
-            });
-        }
-    }
-
+    let db_conds = derive_conditions(&s.conditions);
 
     // Features
 
     let secondary_design = &s.design.secondary_study_design.clone().unwrap_or("".to_string());
     let study_design = &s.design.study_design.clone().unwrap_or("".to_string());
     let design = format!("{} {}", secondary_design, study_design).trim().to_lowercase();
-    
-    let db_feats = derive_features(type_id, &s.interventions, &design, &s.trial_types); 
 
-    
+    let db_feats = derive_features(type_id, &s.interventions, &design, &s.trial_types);
+
     // Topics
 
-    let mut db_tops: Vec<DBTopic>= Vec::new();
-
-    if let Some(ints) = &s.interventions {
-        for int in ints {
-
-            let mut int_type = "";
-            let mut topic_type ="Chemical / agent".to_string();  // effectively the default
-            if let Some(it) = &int.int_type
-            {
-                int_type = it;
-                if int_type == "Device" {
-                    topic_type  = "Device".to_string();
-                }
-            }
-
-            // problem remains of commas in brackets
-            // square brackets should be parentheses
-            // text in brackets should be appended to the text before
-
-            if let Some(dn) = &int.drug_names.clean() {
-                if !dn.to_lowercase().starts_with("the sponsor has confirmed")
-                && !dn.to_lowercase().starts_with("the health research authority")
-                && !dn.to_lowercase().starts_with("not provided")
-                {
-                    let mut drug_names = dn.to_string();
-                    let source = drug_names.clone();
-                    drug_names = drug_names.replace("\u{00AE}", ""); //  lose (r) Registration mark
-                    drug_names = drug_names.replace("\u{2122}", ""); //  lose (tm) Trademark mark
-                    drug_names = drug_names.replace("[", "(").replace("]", ")"); //  regularise brackets
-                    drug_names = drug_names.replace(" and ", ", "); // in most cases indicates end of list
-
-                    if drug_names.len() < 250 {
-
-                        // very long entries in this field often 'mini-essays' and cannot be split
-
-                        if drug_names.contains("1.") && drug_names.contains("\n2.")
-                        {
-                            if let Some(dns) = get_cr_numbered_strings(&drug_names) {
-                                for dn in dns {
-                                    db_tops.push(DBTopic {
-                                    source: source.clone(),
-                                    topic_type: topic_type.clone(),
-                                    topic_value: dn.to_string(),
-                                    });
-                                }
-                            }
-                        }
-                        else if drug_names.contains("1. ") && drug_names.contains("2. ")
-                        {
-                            if let Some(dns) = get_numbered_strings(&drug_names) {
-                                for dn in dns {
-                                    db_tops.push(DBTopic {
-                                    source: source.clone(),
-                                    topic_type: topic_type.clone(),
-                                    topic_value: dn.to_string(),
-                                    });
-                                }
-                            }
-                        }
-                        else if drug_names.contains(',') {
-
-                            // if there are commas split on the commas (does not work for devices).
-
-                            if int_type == "Drug" || int_type == "Supplement" {
-
-                                let sns = get_comma_delim_strings(&drug_names, 4);
-                                for sn in sns {
-                                    db_tops.push(DBTopic {
-                                    source: source.clone(),
-                                    topic_type: topic_type.clone(),
-                                    topic_value: sn.to_string(),
-                                    });
-                                }
-                            }
-                        }
-                        else
-                        {
-                            db_tops.push(DBTopic {
-                                source: source,
-                                topic_type: topic_type,
-                                topic_value: drug_names,
-                            });
-                        }
-                    }
-                    else {         // long entries
-                        db_tops.push(DBTopic {
-                                source: source,
-                                topic_type: topic_type,
-                                topic_value: drug_names,
-                            });
-                    }
-                }
-            }
-        }
-    }
+    let db_tops = derive_topics(&s.interventions);
 
     // IE Criteria
 
-    let mut db_iec: Vec<IECLine> = Vec::new();
-
-    let mut inc_result = 0;
-    let mut exc_result = 0;
-
     let incs = &s.participants.inclusion.clean_multiline();
-    if incs.is_not_a_place_holder() {
-        if let Some(inc_para) = incs {
-            let (inc_result_code, mut inc_criteria) = original_process_iec(&sd_sid, &inc_para, "inclusion");
-            inc_result = inc_result_code;
-
-            if inc_criteria.len() > 0 {
-                db_iec.append(&mut inc_criteria);
-            }
-        }
-    }
-
     let excs = &s.participants.exclusion.clean_multiline();
-    if excs.is_not_a_place_holder() {
-        if let Some(exc_para) = excs {
-            let (exc_result_code, mut exc_criteria) = original_process_iec(&sd_sid , &exc_para, "exclusion");
-            exc_result = exc_result_code;
-
-            if exc_criteria.len() > 0 {
-                db_iec.append(&mut exc_criteria);
-            }
-        }
-    }
-
-    participants.iec_flag =  inc_result + exc_result;
-
+    let (db_iec, iec_flag) = derive_iec(&sd_sid, incs, excs);
+    participants.iec_flag =  iec_flag;
 
     // Outputs and objects
 
-    // TO DO
-    // ADD the ISCRTN web page as an object
-    // ADD any study website as an object
+    // First add the ISCRTN web page as an object
+
+    let mut db_objects: Vec<DBObject> = Vec::new();   
+    // TO COMPLETE
+    db_objects.push(DBObject {
+        object_type: "".to_string(),
+        object_id: Some("".to_string()),
+        object_id_type: Some("".to_string()),
+        display_name: Some("".to_string()),
+        date_created: s.registration.date_id_assigned.clone().as_date_opt(),
+        date_published: s.registration.date_id_assigned.clone().as_date_opt(),
+        date_updated: s.registration.last_updated.clone().as_date_opt(),
+        publication_year: Some(0),
+        object_notes: Some("".to_string()),
+        access_url: Some("".to_string()),
+        access_type: Some("".to_string()),
+        url_target_type: Some("".to_string()),
+        instance_notes: Some("".to_string()),
+    });
 
 
-    let db_objects: Vec<DBObject> = Vec::new();   // should be mut realy
+
+
     let db_pubs: Vec<DBPublication> = Vec::new();  // should be mut realy
  // let db_pub_instances: Vec<DBObject> = Vec::new();   // should be mut realy
 
@@ -999,15 +716,15 @@ pub fn process_study_data(s: &Study) -> DBStudy {
         summary: summary,
         dates: dates,
         participants: participants,
-        titles: option_from_count(db_titles),
-        identifiers: option_from_count(db_ids),
-        orgs: option_from_count(db_orgs),
-        people: option_from_count(db_peop),
-        countries: option_from_count(db_countries),
-        conditions: option_from_count(db_conds),
-        features: option_from_count(db_feats),
-        topics: option_from_count(db_tops),
-        ie_crit: option_from_count(db_iec),
+        titles: db_titles,
+        identifiers: db_ids,
+        orgs: db_orgs,
+        people: db_peop,
+        countries: db_countries,
+        conditions: db_conds,
+        features: db_feats,
+        topics: db_tops,
+        ie_crit: db_iec,
         objects: option_from_count(db_objects),
         publications: option_from_count(db_pubs),
         //pub_instances: None,
@@ -1017,7 +734,7 @@ pub fn process_study_data(s: &Study) -> DBStudy {
 
 
 fn derive_titles(pub_title: &Option<String>,sci_title: &Option<String>,acronym: &Option<String>,)
-                                                -> (Vec<DBTitle>, String) {
+                                                -> (Option<Vec<DBTitle>>, String) {
 
     // Obtain the strings, lower case strings for comparisons,
     // and an integer indicator of presence for each title type.
@@ -1112,7 +829,7 @@ fn derive_titles(pub_title: &Option<String>,sci_title: &Option<String>,acronym: 
         db_ts.push(dbt);
     }
 
-    (db_ts,display_title)
+    (option_from_count(db_ts),display_title)
 }
 
 
@@ -1158,7 +875,8 @@ fn derive_description(hypothesis: &Option<String>, poutcome: &Option<String>) ->
 }
 
 
-fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, design: &String, trial_types: &Option<Vec<String>>) -> Vec<DBFeature> {
+fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, design: &String,
+                                trial_types: &Option<Vec<String>>) -> Option<Vec<DBFeature>> {
 
     let mut db_feats: Vec<DBFeature>= Vec::new();
 
@@ -1188,16 +906,16 @@ fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, desi
                 }
             }
         }
-        
+
         if *design != "".to_string()
         {
             // Try to make terminology more consistent
-    
+
             let mut ds = design.replace("randomized", "randomised")
                                 .replace("non randomised", "non-randomised");
             ds = ds.replace("cross over", "cross-over").replace("crossover", "cross-over");
             ds = ds.replace("open label", "open-label").replace(" blind", "-blind");
-    
+
             let allocation_type = match ds
             {
                 _ if ds.contains("non-randomised") => "Nonrandomised",
@@ -1211,7 +929,7 @@ fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, desi
                     feature_value: allocation_type.to_string(),
                 });
             }
-    
+
             let intervention_model = match ds
             {
                 _ if ds.contains("parallel") => "Parallel assignment",
@@ -1225,7 +943,7 @@ fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, desi
                     feature_value: intervention_model.to_string(),
                 });
             }
-    
+
             let masking = match ds
             {
                 _ if ds.contains("open-label") => "None (Open Label)",
@@ -1244,7 +962,7 @@ fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, desi
             }
         }
     }
-    
+
     if  type_id == 12 && *design != "".to_string() {    // observational study
 
         let mut ds = design.replace("case ", "case-");
@@ -1295,8 +1013,8 @@ fn derive_features(type_id: i32, interventions: &Option<Vec<Intervention>>, desi
             }
         }
     }
-    
-    db_feats
+
+     option_from_count(db_feats)
 }
 
 
@@ -1333,4 +1051,287 @@ fn derive_age_group_flag(min_num_days: f64, max_num_days: f64) -> i32 {
         }
     }
     age_group_flag
+}
+
+
+fn derive_contacts(contacts: &Option<Vec<StudyContact>>) -> Option<Vec<DBPerson>> {
+
+    let mut db_peop: Vec<DBPerson> = Vec::new();
+
+    if let Some(contacts) = contacts {
+        for c in contacts {
+            if c.surname.appears_plausible_person_name() {
+                if let Some(cts) = &c.contact_types {
+                    let mut roles: Vec<String> = Vec::new();
+                    for ct in cts {
+                        let role_to_add = match ct.to_lowercase().as_str() {
+                            "principal investigator" => "Principal Investigator",
+                            "scientific" => "Scientific contact",
+                            _ => ""
+                        };
+                        if role_to_add != "" {
+                            roles.push(role_to_add.to_string());
+                        }
+                    }
+                    if roles.len() > 0 {
+                        db_peop.push(DBPerson {
+                            full_name: get_full_name(c.forename.clone(), c.surname.clone()),
+                            listed_as: Some(roles.join(", ")),
+                            orcid_id: c.orcid.tidy_orcid(),
+                            affiliation: c.address.clone(),
+                            email_domain: c.email.extract_domain(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    option_from_count(db_peop)
+}
+
+
+fn derive_orgs (sd_sid: &String, sponsors: &Option<Vec<StudySponsor>>,
+                funders: &Option<Vec<StudyFunder>>) -> Option<Vec<DBOrganisation>> {
+
+    let mut db_orgs: Vec<DBOrganisation> = Vec::new();
+
+    // sponsors  // ? TidyOrgName(sid);
+
+    if let Some(sponsors) = sponsors {
+        for s in sponsors {
+            if s.organisation.appears_plausible_org_name() {
+                let sname = s.organisation.clean().tidy_org_name(sd_sid);
+                db_orgs.push(DBOrganisation {
+                    org_name: sname,
+                    org_country: s.country.clone(),
+                    org_ror_id: s.ror_id.clone(),
+                    org_cref_id: None,
+                    is_sponsor: Some(true),
+                    is_funder: None,
+                    is_collaborator: None,
+                });
+            }
+            else {
+               info!("odd org sponsor name{:?}, for {}", s.organisation.clone(), &sd_sid)
+            }
+        }
+    }
+
+    // funders
+
+    if let Some(funders) = funders {
+        for f in funders {
+            if f.name.appears_plausible_org_name() {
+                let fname = f.name.clean().tidy_org_name(sd_sid);
+                let mut duplicated = false;   // See if that name has been used before as a sponsor.
+                for dbo in &mut db_orgs {
+                    if let Some(true) = dbo.is_sponsor {
+                        if dbo.org_name == fname {       // Add contribution type
+                            dbo.is_funder = Some(true);
+                            dbo.org_cref_id = f.fund_ref.clone();
+                            duplicated = true;
+                            break;
+                        }
+                    }
+                }
+
+                if !duplicated   // Add as a separate funder.
+                {
+                    db_orgs.push(DBOrganisation {
+                    org_name: fname,
+                    org_country: None,
+                    org_ror_id: None,
+                    org_cref_id: f.fund_ref.clone(),
+                    is_sponsor: None,
+                    is_funder: Some(true),
+                    is_collaborator: None,
+                    });
+                }
+            }
+            else {
+               info!("odd org funder name{:?}, for {}", f.name.clone(), &sd_sid)
+            }
+        }
+    }
+
+    option_from_count(db_orgs)
+}
+
+
+fn derive_conditions(conds: &Option<Vec<Condition>>) -> Option<Vec<DBCondition>>{
+
+    let mut db_conds: Vec<DBCondition>= Vec::new();
+    if let Some(cons) = conds {
+        for c in cons {
+            let (c2, desc) = match c.description.clone() {
+                Some(ds) if ds.starts_with("Topic:") => {
+                    let mut c2_section: Option<String> = None;
+                    let mut desc_section: Option<String> = None;
+
+                    let ds_3parts: Vec<&str> = ds.split(';').collect();
+                    if ds_3parts.len() == 3 {
+                        let mut c2_sec = ds_3parts[1].trim().to_string();
+                        let mut desc_sec = ds_3parts[2].trim().to_string();
+                        if c2_sec.starts_with("Subtopic:") {
+                            c2_sec = c2_sec[9..].trim().to_string();
+                        }
+                        if desc_sec.starts_with("Disease:") {
+                            desc_sec = desc_sec[8..].trim().to_string();
+                        }
+                        c2_section = Some(c2_sec);
+                        desc_section = Some(desc_sec);
+                    }
+
+                    if ds_3parts.len() == 1 {
+                        let ds_2parts: Vec<&str> = ds.split('/').collect();
+                        if ds_2parts.len() == 2 {
+                            c2_section = Some(ds_2parts[1].trim().to_string());  // why None for desc - needs checking
+                        }
+                    }
+
+                    (c2_section, desc_section)
+                },
+                Some(ds) => {      // A description present but 'normal', not 'Topic:...
+                    let c2 = c.disease_class2.clone();
+                    if let Some(c) = &c2    // If desc is the same as c2, make it None
+                        && c.trim().to_lowercase() == ds.trim().to_lowercase() {
+                        (c2, None)
+                    }
+                    else {
+                        (c2, Some(ds))
+                    }
+                },
+                None => (c.disease_class2.clone(), None),   // No description present, just leave c2 'as is'
+            };
+
+            db_conds.push ( DBCondition {
+                class1: c.disease_class1.clone(),
+                class2: c2,
+                specific: desc,
+            });
+        }
+    }
+    option_from_count(db_conds)
+}
+
+
+fn derive_topics(interventions: &Option<Vec<Intervention>>, ) -> Option<Vec<DBTopic>> {
+
+    let mut db_tops: Vec<DBTopic>= Vec::new();
+
+    if let Some(intervs) = interventions {
+        for interv in intervs {
+
+            let topic_type = match interv.int_type.clone() {
+                Some(t) if t == "Device".to_string() => t,
+                _ => "Chemical / agent".to_string(),  // the default
+            };
+
+            if let Some(mut dn) = interv.drug_names.clone().clean() {
+                let dn_lc = dn.to_lowercase();
+                if !dn_lc.starts_with("the sponsor has confirmed")
+                && !dn_lc.starts_with("the health research authority")
+                && !dn_lc.starts_with("not provided")
+                {
+                    let source = dn.clone();  // keep copy of the original data
+                    dn = dn.replace("\u{00AE}", ""); //  lose (r) Registration mark
+                    dn = dn.replace("\u{2122}", ""); //  lose (tm) Trademark mark
+                    dn = dn.replace("[", "(").replace("]", ")"); //  regularise brackets
+                    dn = dn.replace(" and ", ", "); // in most cases indicates end of list
+
+                    if dn.len() < 250 {    // very long entries in this field often 'mini-essays' and cannot be split
+
+                        if dn.contains("1.") && dn.contains("\n2.")
+                        {
+                            let dns = get_cr_numbered_strings(&dn);
+                                for dn in dns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    topic_value: dn.to_string(),
+                                    });
+                                }
+                        }
+                        else if dn.contains("1. ") && dn.contains("2. ")
+                        {
+                            let dns = get_numbered_strings(&dn);
+                                for dn in dns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    topic_value: dn.to_string(),
+                                    });
+                                }
+                        }
+                        else if dn.contains(',') {
+
+                            // if there are commas split on the commas (does not work for devices).
+                            // though there is an issue of commas in brackets
+
+                            if topic_type != "Device".to_string() {
+                                let sns = get_comma_delim_strings(&dn, 4);
+                                for sn in sns {
+                                    db_tops.push(DBTopic {
+                                    source: source.clone(),
+                                    topic_type: topic_type.clone(),
+                                    topic_value: sn.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                        else
+                        {
+                            db_tops.push(DBTopic {    // no numbers or commas
+                                source: source,
+                                topic_type: topic_type,
+                                topic_value: dn,
+                            });
+                        }
+                    }
+                    else {      // long topic entries
+                        db_tops.push(DBTopic {
+                            source: source,
+                            topic_type: topic_type,
+                            topic_value: dn,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    option_from_count(db_tops)
+}
+
+
+fn derive_iec(sd_sid: &String, incs: &Option<String>, excs: &Option<String>) -> (Option<Vec<IECLine>>, i32) {
+
+    let mut db_iec: Vec<IECLine> = Vec::new();
+    let mut inc_result = 0;
+    let mut exc_result = 0;
+
+    if incs.is_not_a_place_holder() {
+        if let Some(inc_para) = incs {
+            let (inc_result_code, mut inc_criteria) = original_process_iec(sd_sid, &inc_para, "inclusion");
+            inc_result = inc_result_code;
+
+            if inc_criteria.len() > 0 {
+                db_iec.append(&mut inc_criteria);
+            }
+        }
+    }
+
+    if excs.is_not_a_place_holder() {
+        if let Some(exc_para) = excs {
+            let (exc_result_code, mut exc_criteria) = original_process_iec(sd_sid , &exc_para, "exclusion");
+            exc_result = exc_result_code;
+
+            if exc_criteria.len() > 0 {
+                db_iec.append(&mut exc_criteria);
+            }
+        }
+    }
+
+    let iec_flag =  inc_result + exc_result;
+
+    (option_from_count(db_iec),iec_flag)
 }

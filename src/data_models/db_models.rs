@@ -9,10 +9,10 @@ pub struct DBStudy {
     pub dates: DBStudyDates,
     pub participants: DBStudyPartics,
     pub titles: Option<Vec<DBTitle>>,
-    pub identifiers: Option<Vec<DBIdentifier>>,
+    pub identifiers: Vec<DBIdentifier>,  // guaranteed to be at least 1
     pub orgs: Option<Vec<DBOrganisation>>,
     pub people: Option<Vec<DBPerson>>,
-    pub countries: Option<Vec<DBCountry>>,
+    pub countries: Option<Vec<String>>,
     pub conditions: Option<Vec<DBCondition>>,
     pub features: Option<Vec<DBFeature>>,
     pub topics: Option<Vec<DBTopic>>,
@@ -104,10 +104,6 @@ pub struct DBPerson {
     pub orcid_id: Option<String>,
     pub affiliation: Option<String>,
     pub email_domain: Option<String>,
-}
-
-pub struct DBCountry {
-    pub country_name: String,
 }
 
 pub struct DBTopic {

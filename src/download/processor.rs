@@ -29,8 +29,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
     // Registration data block.
     
     let registration = Registration {
-         date_id_assigned: study.isrctn.date_assigned.as_date_opt(),
-         last_updated: study.last_updated.as_datetime_opt(),
+         date_id_assigned: study.isrctn.date_assigned.as_date_string_opt(),
+         last_updated: study.last_updated.as_datetime_string_opt(),
          version: study.version.as_text_opt(),
          doi: study.external_refs.doi.as_filtered_ident_opt()
     };
@@ -214,7 +214,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
         plain_english_summary: plain_summ,
         study_hypothesis: d.study_hypothesis.as_text_opt(),
         primary_outcome: d.primary_outcome.as_text_opt(),
-        overall_end_date: study.trial_design.overall_end_date.as_date_opt(),
+        overall_end_date: study.trial_design.overall_end_date.as_date_string_opt(),
         trial_website: d.trial_website.as_text_opt(),
     };
 
@@ -449,8 +449,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
             target_enrolment: p.target_enrolment.as_text_opt(),
             total_final_enrolment: p.total_final_enrolment.as_text_opt(),
             total_target: p.total_target.as_text_opt(),
-            recruitment_start: p.recruitment_start.as_date_opt(),
-            recruitment_end: p.recruitment_end.as_date_opt(),
+            recruitment_start: p.recruitment_start.as_date_string_opt(),
+            recruitment_end: p.recruitment_end.as_date_string_opt(),
             recruitment_start_status_override: p.recruitment_start_status_override.as_text_opt(),
             recruitment_status_override: p.recruitment_status_override.as_text_opt(),
     };
@@ -526,7 +526,7 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
 
     let results = Results {
             publication_plan: r.publication_plan.as_text_opt(),
-            intent_to_publish: r.intent_to_publish.as_date_opt(),
+            intent_to_publish: r.intent_to_publish.as_date_string_opt(),
             publication_details: r.publication_details.as_text_opt(),
             publication_stage: r.publication_stage.as_text_opt(),
             biomed_related: r.biomed_related.as_bool_opt(),
@@ -559,8 +559,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
                     link_type: op.output_type.as_text_opt(),
                     link_url: external_link_url,
                     description: op.description.as_text_opt(),
-                    date_created: op.date_created.as_date_opt(),
-                    date_uploaded: op.date_uploaded.as_date_opt(),
+                    date_created: op.date_created.as_date_string_opt(),
+                    date_uploaded: op.date_uploaded.as_date_string_opt(),
                 });
 
             }
@@ -592,8 +592,8 @@ pub fn process_study(s: xml_models::FullTrial) -> Result<Study, AppError> {
                     version: version,
                     length: length,
                     mime_type: mime_type,
-                    date_created: op.date_created.as_date_opt(),
-                    date_uploaded: op.date_uploaded.as_date_opt(),
+                    date_created: op.date_created.as_date_string_opt(),
+                    date_uploaded: op.date_uploaded.as_date_string_opt(),
                 });
 
             }
